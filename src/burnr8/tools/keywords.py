@@ -78,6 +78,8 @@ def register(mcp):
             })
 
         report = save_report(results, "keywords")
+        if report.get("error"):
+            return report
         quality_scores = [r["quality_score"] for r in results if r["quality_score"]]
         match_types: dict[str, int] = {}
         for r in results:
@@ -217,8 +219,10 @@ def register(mcp):
             })
 
         report = save_report(results, "keyword_research")
-        searches = [r["avg_monthly_searches"] for r in results]
-        cpcs = [r["high_top_of_page_bid_dollars"] for r in results]
+        if report.get("error"):
+            return report
+        searches = [r["avg_monthly_searches"] for r in results if r["avg_monthly_searches"]]
+        cpcs = [r["high_top_of_page_bid_dollars"] for r in results if r["high_top_of_page_bid_dollars"]]
         report["summary"] = {
             "keyword_count": len(results),
             "avg_monthly_searches": round(sum(searches) / len(searches), 1) if searches else 0,

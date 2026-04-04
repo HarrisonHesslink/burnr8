@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "burnr8",
+  "description": "Google Ads MCP server — manage campaigns, keywords, budgets, and reporting from Claude Code",
+  "owner": {
+    "name": "Harrison Hesslink"
+  },
+  "plugins": [
+    {
+      "name": "burnr8",
+      "description": "60-tool Google Ads MCP server with audit, optimization, and reporting",
+      "version": "0.5.0",
+      "source": "./",
+      "category": "productivity",
+      "homepage": "https://burnrate.sh",
+      "tags": ["google-ads", "mcp", "ppc", "advertising", "sem"]
+    }
+  ]
+}

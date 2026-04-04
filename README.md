@@ -116,13 +116,30 @@ All reporting tools save full results to `~/.burnr8/reports/` as CSV files and r
 - A [Google Ads API developer token](https://developers.google.com/google-ads/api/docs/get-started/dev-token) (Basic Access)
 - OAuth2 credentials (client ID + secret) from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 
-### Option A: pip install
+### Option A: Claude Code Plugin (recommended)
+
+Add to your `~/.claude/settings.json`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "burnr8": {
+      "source": {"source": "github", "repo": "HarrisonHesslink/burnr8"},
+      "autoUpdate": true
+    }
+  }
+}
+```
+
+Then run `/plugin` in Claude Code and enable **burnr8**. This auto-configures the MCP server, agents, commands, and audit skill. You still need to `pip install burnr8` and set up credentials (see below).
+
+### Option B: pip install
 
 ```bash
 pip install burnr8
 ```
 
-### Option B: Docker (no Python needed)
+### Option C: Docker (no Python needed)
 
 ```bash
 docker pull harrisonhesslink/burnr8          # Docker Hub

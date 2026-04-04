@@ -66,6 +66,9 @@ def test_save_report_filename_format():
         filename = Path(result["file"]).name
         assert filename.startswith("search_terms_")
         assert filename.endswith(".csv")
+        # Should have UUID suffix for collision avoidance
+        parts = filename.replace(".csv", "").split("_")
+        assert len(parts) >= 4  # name_date_time_uuid
 
 
 # --- CSV formula injection ---
@@ -99,6 +102,24 @@ def test_sanitize_cell_empty():
     assert _sanitize_cell("") == ""
 
 
+def test_sanitize_cell_strips_tabs():
+    """Tab injection: 'safe\t=CMD()' should have tab stripped."""
+    result = _sanitize_cell("safe\t=CMD()")
+    assert "\t" not in result
+
+
+def test_sanitize_cell_strips_newlines():
+    """Newline injection: 'safe\n=CMD()' should have newline stripped."""
+    result = _sanitize_cell("safe\n=HYPERLINK()")
+    assert "\n" not in result
+
+
+def test_sanitize_cell_strips_carriage_return():
+    result = _sanitize_cell("safe\r\n=CMD()")
+    assert "\r" not in result
+    assert "\n" not in result
+
+
 def test_csv_contains_sanitized_values():
     rows = [{"term": "=CMD()", "clicks": 5}]
     with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)):
@@ -120,6 +141,44 @@ def test_csv_file_permissions():
         assert mode == "600"
 
 
+# --- Path traversal ---
+
+
+def test_path_traversal_rejected():
+    rows = [{"a": 1}]
+    result = save_report(rows, "../../etc/evil")
+    assert result.get("error") is True
+    assert "Invalid report_name" in result["message"]
+
+
+def test_report_name_with_slashes_rejected():
+    rows = [{"a": 1}]
+    result = save_report(rows, "foo/bar")
+    assert result.get("error") is True
+
+
+def test_report_name_with_spaces_rejected():
+    rows = [{"a": 1}]
+    result = save_report(rows, "foo bar")
+    assert result.get("error") is True
+
+
+# --- Symlink check ---
+
+
+def test_symlink_reports_dir_rejected():
+    rows = [{"a": 1}]
+    with tempfile.TemporaryDirectory() as tmpdir:
+        real_dir = Path(tmpdir) / "real"
+        real_dir.mkdir()
+        link_dir = Path(tmpdir) / "link"
+        link_dir.symlink_to(real_dir)
+        with patch("burnr8.reports.REPORTS_DIR", link_dir):
+            result = save_report(rows, "test_report")
+            assert result.get("error") is True
+            assert "symlink" in result["message"]
+
+
 # --- Auto-prune ---
 
 
@@ -129,7 +188,6 @@ def test_prune_old_reports():
         # Create an "old" file
         old_file = reports_dir / "old_report.csv"
         old_file.write_text("a,b\n1,2")
-        # Set mtime to 10 days ago
         old_time = time.time() - 10 * 86400
         os.utime(old_file, (old_time, old_time))
 

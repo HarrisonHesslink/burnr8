@@ -37,6 +37,7 @@ src/burnr8/
 ├── helpers.py      # run_gaql(), validators, micros↔dollars
 ├── errors.py       # @handle_google_ads_errors (catches + logs every tool call)
 ├── logging.py      # File logger + daily usage counter (~/.burnr8/logs/)
+├── reports.py      # CSV export (save_report, get_storage_stats); ~/.burnr8/reports/; formula sanitization; 7-day auto-prune
 ├── dashboard.py    # Terminal dashboard (burnr8 command)
 └── tools/          # 13 modules, 60 tools
 ```
@@ -52,7 +53,7 @@ src/burnr8/
 | Keywords | 4 | list/add/remove + research_keywords |
 | Negative Keywords | 4 | list/add (campaign + ad group level)/remove |
 | Budgets | 4 | list/create/update + remove_orphan_budgets |
-| Reporting | 5 | campaign/ad group/keyword perf, search terms, raw GAQL |
+| Reporting | 5 | campaign/ad group/keyword perf, search terms, raw GAQL (all save CSV to ~/.burnr8/reports/) |
 | Extensions | 6 | sitelinks, callouts, snippets, images |
 | Conversions | 4 | list/get/create/update conversion actions |
 | Compound | 3 | quick_audit, launch_campaign, cleanup_wasted_spend |

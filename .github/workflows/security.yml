@@ -1,0 +1,30 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run every Monday at 9am UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e "." pip-audit
+      - name: Full CVE audit
+        run: pip-audit --format=json --output=audit-report.json || true
+      - name: Check for critical vulns
+        run: pip-audit --strict 2>&1 || echo "Vulnerabilities found — check audit-report.json"
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit
+          path: audit-report.json

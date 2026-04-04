@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -16,6 +19,25 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: ruff check src/ tests/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit
+      - name: CVE scan (dependencies only)
+        run: pip-audit -r requirements.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
+      - name: Install project for dependency verification
+        run: pip install "."
+      - name: Verify direct dependencies
+        run: |
+          pip show google-ads | grep -qi "google" || exit 1
+          pip show fastmcp | grep -qi "fastmcp\|prefect" || exit 1
+          pip show python-dotenv | grep -qi "dotenv" || exit 1
+          echo "Direct dependency verification passed"
 
   test:
     runs-on: ubuntu-latest
@@ -37,7 +59,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, security, test]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

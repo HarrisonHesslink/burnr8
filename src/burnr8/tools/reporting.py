@@ -230,7 +230,7 @@ def register(mcp):
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
     ) -> dict:
-        """Get search terms that triggered your ads. Saves full report to CSV, returns summary + top rows."""
+        """Get search terms that triggered your ads, sorted by spend (highest first). Saves full report to CSV, returns summary + top spenders."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):

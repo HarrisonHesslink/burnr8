@@ -34,5 +34,6 @@ Thumbs.db
 .pytest_cache/
 
 # burnr8 runtime
-~/.burnr8/
+reports/
+*.csv
 .next/

@@ -2,9 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tools](https://img.shields.io/badge/MCP_tools-55-green.svg)]()
+[![Tools](https://img.shields.io/badge/MCP_tools-60-green.svg)]()
 [![CI](https://github.com/HarrisonHesslink/burnr8/actions/workflows/ci.yml/badge.svg)](https://github.com/HarrisonHesslink/burnr8/actions)
 [![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)]()
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-Support-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/harrisonhesslink)
 
 **Stop burning money on Google Ads. Manage everything from your terminal.**
 
@@ -199,7 +200,7 @@ burnr8
   Last Tool Call:   get_campaign_performance (3m ago)
 
   Campaign Spend:
-    NCLEX Prep:
+    My Campaign:
       Today:  $48.21 / $150.00 budget  |  74 clicks  |  12 conv
       MTD:    $1,612.00
 ```
@@ -287,6 +288,12 @@ No. All write operations require user approval (via Claude Code permission rules
 burnr8 tracks usage via `get_api_usage`. At 15,000 ops/day with Basic Access, most users won't hit the limit. The dashboard shows current usage.
 
 ---
+
+## Support
+
+If burnr8 saved you money on Google Ads, consider buying me a coffee.
+
+<a href="https://buymeacoffee.com/harrisonhesslink" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="50"></a>
 
 ## License
 

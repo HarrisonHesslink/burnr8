@@ -1,4 +1,5 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client

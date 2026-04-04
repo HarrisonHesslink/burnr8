@@ -1,9 +1,10 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, dollars_to_micros, validate_id, validate_status
+from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
 
 
 def register(mcp):
@@ -11,7 +12,7 @@ def register(mcp):
     @handle_google_ads_errors
     def list_ad_groups(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        campaign_id: Annotated[Optional[str], Field(description="Filter by campaign ID")] = None,
+        campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
     ) -> list[dict]:
         """List ad groups, optionally filtered by campaign."""
         if err := validate_id(customer_id, "customer_id"):
@@ -94,9 +95,9 @@ def register(mcp):
     def update_ad_group(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID to update")],
-        name: Annotated[Optional[str], Field(description="New ad group name")] = None,
-        cpc_bid: Annotated[Optional[float], Field(description="New CPC bid in dollars")] = None,
-        status: Annotated[Optional[str], Field(description="New status: ENABLED, PAUSED, or REMOVED")] = None,
+        name: Annotated[str | None, Field(description="New ad group name")] = None,
+        cpc_bid: Annotated[float | None, Field(description="New CPC bid in dollars")] = None,
+        status: Annotated[str | None, Field(description="New status: ENABLED, PAUSED, or REMOVED")] = None,
     ) -> dict:
         """Update an ad group's name, bid, or status."""
         if err := validate_id(customer_id, "customer_id"):

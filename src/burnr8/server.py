@@ -2,9 +2,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastmcp import FastMCP
-from burnr8 import __version__
-from burnr8.tools import register_all_tools
+from fastmcp import FastMCP  # noqa: E402
+
+from burnr8 import __version__  # noqa: E402
+from burnr8.tools import register_all_tools  # noqa: E402
 
 mcp = FastMCP(name="burnr8", version=__version__)
 register_all_tools(mcp)
@@ -16,8 +17,9 @@ register_all_tools(mcp)
 @mcp.resource("burnr8://usage")
 def usage_resource() -> str:
     """Current API usage stats — ops today, errors, rate limit status."""
-    from burnr8.logging import get_usage_stats
     import json
+
+    from burnr8.logging import get_usage_stats
 
     return json.dumps(get_usage_stats(), indent=2)
 
@@ -25,8 +27,9 @@ def usage_resource() -> str:
 @mcp.resource("burnr8://accounts")
 def accounts_resource() -> str:
     """List of accessible Google Ads accounts."""
-    from burnr8.client import get_client
     import json
+
+    from burnr8.client import get_client
 
     try:
         client = get_client()
@@ -44,9 +47,10 @@ def accounts_resource() -> str:
 @mcp.resource("burnr8://accounts/{customer_id}/performance")
 def account_performance(customer_id: str) -> str:
     """Campaign performance summary for the last 30 days — loaded as context automatically."""
+    import json
+
     from burnr8.client import get_client
     from burnr8.helpers import run_gaql
-    import json
 
     try:
         client = get_client()
@@ -104,9 +108,10 @@ def account_performance(customer_id: str) -> str:
 @mcp.resource("burnr8://accounts/{customer_id}/keywords")
 def account_keywords(customer_id: str) -> str:
     """Keyword health summary — quality scores, top performers, underperformers."""
+    import json
+
     from burnr8.client import get_client
     from burnr8.helpers import run_gaql
-    import json
 
     try:
         client = get_client()
@@ -177,9 +182,10 @@ def account_keywords(customer_id: str) -> str:
 @mcp.resource("burnr8://accounts/{customer_id}/structure")
 def account_structure(customer_id: str) -> str:
     """Account structure — campaigns, ad groups, keyword counts, budget info."""
+    import json
+
     from burnr8.client import get_client
     from burnr8.helpers import run_gaql
-    import json
 
     try:
         client = get_client()

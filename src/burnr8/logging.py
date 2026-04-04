@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 LOG_DIR = Path(os.environ.get("BURNR8_LOG_DIR", os.path.expanduser("~/.burnr8/logs")))
@@ -28,7 +28,7 @@ def get_logger() -> logging.Logger:
 
 def _load_usage() -> dict:
     """Load today's usage data from disk."""
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
     if USAGE_FILE.exists():
         try:
             data = json.loads(USAGE_FILE.read_text())
@@ -70,7 +70,7 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
 
         # Keep last 50 calls
         usage["calls"] = usage.get("calls", [])[-49:] + [{
-            "time": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+            "time": datetime.now(UTC).strftime("%H:%M:%S"),
             "tool": tool_name,
             "status": status,
             "duration": round(duration, 1),

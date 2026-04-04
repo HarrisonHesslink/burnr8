@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "ask": [
+      "mcp__burnr8__set_campaign_status",
+      "mcp__burnr8__set_ad_status",
+      "mcp__burnr8__remove_keyword",
+      "mcp__burnr8__remove_negative_keyword",
+      "mcp__burnr8__remove_extension",
+      "mcp__burnr8__remove_ad_schedule",
+      "mcp__burnr8__update_budget",
+      "mcp__burnr8__update_campaign",
+      "mcp__burnr8__update_ad_group",
+      "mcp__burnr8__update_conversion_action",
+      "mcp__burnr8__create_campaign",
+      "mcp__burnr8__create_ad_group",
+      "mcp__burnr8__create_budget",
+      "mcp__burnr8__create_responsive_search_ad",
+      "mcp__burnr8__create_conversion_action",
+      "mcp__burnr8__create_sitelink",
+      "mcp__burnr8__create_callout",
+      "mcp__burnr8__create_structured_snippet",
+      "mcp__burnr8__create_image_extension",
+      "mcp__burnr8__launch_campaign",
+      "mcp__burnr8__add_keywords",
+      "mcp__burnr8__add_negative_keywords",
+      "mcp__burnr8__add_ad_group_negative_keywords",
+      "mcp__burnr8__pause_keyword",
+      "mcp__burnr8__set_device_bid_adjustment",
+      "mcp__burnr8__set_ad_schedule",
+      "mcp__burnr8__remove_orphan_budgets",
+      "mcp__burnr8__set_conversion_goal_biddable",
+      "mcp__burnr8__set_campaign_conversion_goal",
+      "mcp__burnr8__add_location_target",
+      "mcp__burnr8__remove_location_target",
+      "mcp__burnr8__set_geo_target_type_setting"
+    ]
+  }
+}

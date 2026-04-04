@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0"]
+dev = ["pytest>=7.0.0", "ruff>=0.4.0"]
 
 [project.urls]
 Repository = "https://github.com/HarrisonHesslink/burnr8"
@@ -45,3 +45,18 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 burnr8 = ["py.typed"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+ignore = [
+    "E501",  # line length handled by formatter
+    "SIM108",  # ternary operator — walrus pattern is fine
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["burnr8"]

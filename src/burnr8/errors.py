@@ -2,6 +2,7 @@ import functools
 import time
 
 from google.ads.googleads.errors import GoogleAdsException
+
 from burnr8.logging import log_tool_call
 
 

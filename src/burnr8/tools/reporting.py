@@ -1,9 +1,10 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id, validate_date_range
+from burnr8.helpers import run_gaql, validate_date_range, validate_id
 
 
 def register(mcp):
@@ -25,7 +26,7 @@ def register(mcp):
     def get_campaign_performance(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, THIS_MONTH, LAST_MONTH, etc.")] = "LAST_30_DAYS",
-        campaign_id: Annotated[Optional[str], Field(description="Filter to a specific campaign ID")] = None,
+        campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
     ) -> list[dict]:
         """Get campaign performance metrics: impressions, clicks, cost, conversions, CTR, CPC."""
         if err := validate_id(customer_id, "customer_id"):
@@ -79,7 +80,7 @@ def register(mcp):
     @handle_google_ads_errors
     def get_ad_group_performance(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        campaign_id: Annotated[Optional[str], Field(description="Filter to a specific campaign ID")] = None,
+        campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
     ) -> list[dict]:
         """Get ad group level performance metrics."""
@@ -135,7 +136,7 @@ def register(mcp):
     @handle_google_ads_errors
     def get_keyword_performance(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        campaign_id: Annotated[Optional[str], Field(description="Filter to a specific campaign ID")] = None,
+        campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
     ) -> list[dict]:
         """Get keyword level performance with quality scores."""
@@ -198,7 +199,7 @@ def register(mcp):
     @handle_google_ads_errors
     def get_search_terms_report(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        campaign_id: Annotated[Optional[str], Field(description="Filter to a specific campaign ID")] = None,
+        campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
     ) -> list[dict]:
         """Get search terms that triggered your ads with performance data."""

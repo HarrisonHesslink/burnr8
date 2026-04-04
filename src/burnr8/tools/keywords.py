@@ -1,4 +1,5 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from burnr8.client import get_client
@@ -16,7 +17,7 @@ def register(mcp):
     @handle_google_ads_errors
     def list_keywords(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        ad_group_id: Annotated[Optional[str], Field(description="Filter by ad group ID")] = None,
+        ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> list[dict]:
         """List keyword criteria with bids, match types, and quality scores."""
         if err := validate_id(customer_id, "customer_id"):
@@ -159,11 +160,13 @@ def register(mcp):
     def research_keywords(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         keywords: Annotated[list[str], Field(description="Seed keywords to research")],
-        url: Annotated[Optional[str], Field(description="URL to extract keyword ideas from")] = None,
+        url: Annotated[str | None, Field(description="URL to extract keyword ideas from")] = None,
         language_id: Annotated[str, Field(description="Language criterion ID (1000=English)")] = "1000",
-        geo_target_ids: Annotated[list[str], Field(description="Geo target criterion IDs (2840=US)")] = ["2840"],
+        geo_target_ids: Annotated[list[str] | None, Field(description="Geo target criterion IDs (2840=US)")] = None,
     ) -> list[dict]:
         """Get keyword ideas with search volume, competition, and CPC estimates."""
+        if geo_target_ids is None:
+            geo_target_ids = ["2840"]
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()

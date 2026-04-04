@@ -1,6 +1,5 @@
 """Tests for burnr8.helpers — conversion functions and validators."""
 
-import pytest
 
 from burnr8.helpers import (
     dollars_to_micros,
@@ -9,7 +8,6 @@ from burnr8.helpers import (
     validate_id,
     validate_status,
 )
-
 
 # ---------------------------------------------------------------------------
 # micros_to_dollars

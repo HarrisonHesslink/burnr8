@@ -1,9 +1,10 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, dollars_to_micros, validate_id
+from burnr8.helpers import dollars_to_micros, run_gaql, validate_id
 
 
 def register(mcp):

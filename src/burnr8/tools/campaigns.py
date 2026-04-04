@@ -1,9 +1,10 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id, validate_status, dollars_to_micros
+from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
 
 VALID_BIDDING_STRATEGIES = {
     "MANUAL_CPC", "MANUAL_CPM", "MAXIMIZE_CLICKS", "MAXIMIZE_CONVERSIONS",
@@ -101,7 +102,7 @@ def register(mcp):
     @handle_google_ads_errors
     def list_campaigns(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        status: Annotated[Optional[str], Field(description="Filter by status: ENABLED, PAUSED, or REMOVED")] = None,
+        status: Annotated[str | None, Field(description="Filter by status: ENABLED, PAUSED, or REMOVED")] = None,
     ) -> list[dict]:
         """List all campaigns for a customer, optionally filtered by status."""
         if err := validate_id(customer_id, "customer_id"):
@@ -197,11 +198,11 @@ def register(mcp):
         budget_id: Annotated[str, Field(description="Campaign budget ID to use")],
         channel_type: Annotated[str, Field(description="Channel type: SEARCH, DISPLAY, SHOPPING, VIDEO")] = "SEARCH",
         bidding_strategy: Annotated[str, Field(description="Bidding strategy: MANUAL_CPC, MANUAL_CPM, MAXIMIZE_CLICKS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_CPA, TARGET_ROAS, TARGET_IMPRESSION_SHARE, TARGET_SPEND")] = "MANUAL_CPC",
-        target_cpa_dollars: Annotated[Optional[float], Field(description="Target CPA in dollars (for TARGET_CPA strategy)")] = None,
-        target_roas: Annotated[Optional[float], Field(description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS strategy)")] = None,
-        max_cpc_bid_ceiling_dollars: Annotated[Optional[float], Field(description="Max CPC bid ceiling in dollars (for MAXIMIZE_CLICKS or TARGET_IMPRESSION_SHARE)")] = None,
+        target_cpa_dollars: Annotated[float | None, Field(description="Target CPA in dollars (for TARGET_CPA strategy)")] = None,
+        target_roas: Annotated[float | None, Field(description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS strategy)")] = None,
+        max_cpc_bid_ceiling_dollars: Annotated[float | None, Field(description="Max CPC bid ceiling in dollars (for MAXIMIZE_CLICKS or TARGET_IMPRESSION_SHARE)")] = None,
         target_impression_share_location: Annotated[str, Field(description="Where to target impressions: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE (for TARGET_IMPRESSION_SHARE)")] = "TOP_OF_PAGE",
-        target_impression_share_fraction: Annotated[Optional[float], Field(description="Target impression share as decimal 0.0-1.0, e.g. 0.5 = 50% (for TARGET_IMPRESSION_SHARE)")] = None,
+        target_impression_share_fraction: Annotated[float | None, Field(description="Target impression share as decimal 0.0-1.0, e.g. 0.5 = 50% (for TARGET_IMPRESSION_SHARE)")] = None,
         eu_political_ads: Annotated[bool, Field(description="Set to true if this campaign contains EU political advertising. Required for EU/EEA compliance.")] = False,
     ) -> dict:
         """Create a new campaign. Always starts PAUSED for safety. Supports all Google Ads bidding strategies."""
@@ -270,16 +271,16 @@ def register(mcp):
     def update_campaign(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to update")],
-        name: Annotated[Optional[str], Field(description="New campaign name")] = None,
-        budget_id: Annotated[Optional[str], Field(description="New budget ID")] = None,
-        bidding_strategy: Annotated[Optional[str], Field(description="New bidding strategy: MANUAL_CPC, MANUAL_CPM, MAXIMIZE_CLICKS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_CPA, TARGET_ROAS, TARGET_IMPRESSION_SHARE, TARGET_SPEND")] = None,
-        target_cpa_dollars: Annotated[Optional[float], Field(description="Target CPA in dollars (for TARGET_CPA or MAXIMIZE_CONVERSIONS)")] = None,
-        target_roas: Annotated[Optional[float], Field(description="Target ROAS as ratio, e.g. 4.0 = 400% (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)")] = None,
-        max_cpc_bid_ceiling_dollars: Annotated[Optional[float], Field(description="Max CPC bid ceiling in dollars")] = None,
+        name: Annotated[str | None, Field(description="New campaign name")] = None,
+        budget_id: Annotated[str | None, Field(description="New budget ID")] = None,
+        bidding_strategy: Annotated[str | None, Field(description="New bidding strategy: MANUAL_CPC, MANUAL_CPM, MAXIMIZE_CLICKS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_CPA, TARGET_ROAS, TARGET_IMPRESSION_SHARE, TARGET_SPEND")] = None,
+        target_cpa_dollars: Annotated[float | None, Field(description="Target CPA in dollars (for TARGET_CPA or MAXIMIZE_CONVERSIONS)")] = None,
+        target_roas: Annotated[float | None, Field(description="Target ROAS as ratio, e.g. 4.0 = 400% (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)")] = None,
+        max_cpc_bid_ceiling_dollars: Annotated[float | None, Field(description="Max CPC bid ceiling in dollars")] = None,
         target_impression_share_location: Annotated[str, Field(description="ANYWHERE_ON_PAGE, TOP_OF_PAGE, or ABSOLUTE_TOP_OF_PAGE")] = "TOP_OF_PAGE",
-        target_impression_share_fraction: Annotated[Optional[float], Field(description="Target impression share 0.0-1.0")] = None,
-        target_search_network: Annotated[Optional[bool], Field(description="Show ads on Google search partner sites (e.g. AOL, Ask.com)")] = None,
-        target_content_network: Annotated[Optional[bool], Field(description="Show ads on Google Display Network (opt-out recommended for Search campaigns)")] = None,
+        target_impression_share_fraction: Annotated[float | None, Field(description="Target impression share 0.0-1.0")] = None,
+        target_search_network: Annotated[bool | None, Field(description="Show ads on Google search partner sites (e.g. AOL, Ask.com)")] = None,
+        target_content_network: Annotated[bool | None, Field(description="Show ads on Google Display Network (opt-out recommended for Search campaigns)")] = None,
     ) -> dict:
         """Update a campaign's name, budget, bidding strategy, or network settings."""
         if err := validate_id(customer_id, "customer_id"):

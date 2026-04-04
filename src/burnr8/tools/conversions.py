@@ -1,10 +1,10 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
-
 
 _CONVERSION_ACTION_QUERY = """
     SELECT
@@ -181,11 +181,11 @@ def register(mcp):
     def update_conversion_action(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         conversion_action_id: Annotated[str, Field(description="Conversion action ID to update")],
-        name: Annotated[Optional[str], Field(description="New name for the conversion action")] = None,
-        status: Annotated[Optional[str], Field(description="New status: ENABLED, REMOVED, or HIDDEN")] = None,
-        counting_type: Annotated[Optional[str], Field(description="New counting type: ONE_PER_CLICK or MANY_PER_CLICK")] = None,
-        default_value: Annotated[Optional[float], Field(description="New default conversion value in dollars")] = None,
-        always_use_default_value: Annotated[Optional[bool], Field(description="If true, always use the default value instead of transaction-specific values")] = None,
+        name: Annotated[str | None, Field(description="New name for the conversion action")] = None,
+        status: Annotated[str | None, Field(description="New status: ENABLED, REMOVED, or HIDDEN")] = None,
+        counting_type: Annotated[str | None, Field(description="New counting type: ONE_PER_CLICK or MANY_PER_CLICK")] = None,
+        default_value: Annotated[float | None, Field(description="New default conversion value in dollars")] = None,
+        always_use_default_value: Annotated[bool | None, Field(description="If true, always use the default value instead of transaction-specific values")] = None,
     ) -> dict:
         """Update a conversion action's name, value, status, or counting type."""
         if err := validate_id(customer_id, "customer_id"):

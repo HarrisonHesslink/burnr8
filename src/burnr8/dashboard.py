@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Terminal dashboard for LilyAds — shows API usage, recent activity, and campaign spend."""
+"""Terminal dashboard for burnr8 — shows API usage, recent activity, and campaign spend."""
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
@@ -19,14 +19,13 @@ def format_dollars(val: float) -> str:
 def print_dashboard():
     load_dotenv()
 
-    from burnr8.logging import get_usage_stats
+    from burnr8 import __version__
     from burnr8.client import get_client
     from burnr8.helpers import run_gaql
-
-    from burnr8 import __version__
+    from burnr8.logging import get_usage_stats
 
     stats = get_usage_stats()
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     print()
     print(f"  burnr8 v{__version__}")
@@ -117,6 +116,7 @@ def print_dashboard():
 def _get_customer_id() -> str:
     """Get the first non-manager customer ID."""
     import os
+
     from burnr8.client import get_client
     client = get_client()
     svc = client.get_service("CustomerService")

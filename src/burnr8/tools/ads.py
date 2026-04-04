@@ -1,4 +1,5 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
@@ -11,7 +12,7 @@ def register(mcp):
     @handle_google_ads_errors
     def list_ads(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        ad_group_id: Annotated[Optional[str], Field(description="Filter by ad group ID")] = None,
+        ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> list[dict]:
         """List ads with approval status and performance metrics."""
         if err := validate_id(customer_id, "customer_id"):

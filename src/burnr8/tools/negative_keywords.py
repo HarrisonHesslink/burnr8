@@ -1,4 +1,5 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from burnr8.client import get_client
@@ -16,8 +17,8 @@ def register(mcp):
     @handle_google_ads_errors
     def list_negative_keywords(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        campaign_id: Annotated[Optional[str], Field(description="Filter by campaign ID")] = None,
-        ad_group_id: Annotated[Optional[str], Field(description="Include ad-group-level negatives for this ad group ID")] = None,
+        campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
+        ad_group_id: Annotated[str | None, Field(description="Include ad-group-level negatives for this ad group ID")] = None,
     ) -> dict:
         """List negative keywords at campaign level, and optionally at ad group level."""
         if err := validate_id(customer_id, "customer_id"):
@@ -65,7 +66,7 @@ def register(mcp):
 
         # --- Ad-group-level negatives (only when ad_group_id supplied) ---
         if ad_group_id:
-            ag_query = """
+            ag_query = f"""
                 SELECT
                     ad_group_criterion.criterion_id,
                     ad_group_criterion.keyword.text,
@@ -79,7 +80,7 @@ def register(mcp):
                 WHERE ad_group_criterion.type = 'KEYWORD'
                     AND ad_group_criterion.negative = true
                     AND ad_group.id = {ad_group_id}
-            """.format(ad_group_id=ad_group_id)
+            """
             ag_query += " ORDER BY ad_group_criterion.keyword.text"
 
             ag_rows = run_gaql(client, customer_id, ag_query)
@@ -196,8 +197,8 @@ def register(mcp):
     def remove_negative_keyword(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         criterion_id: Annotated[str, Field(description="Negative keyword criterion ID to remove")],
-        campaign_id: Annotated[Optional[str], Field(description="Campaign ID (required for campaign-level negatives)")] = None,
-        ad_group_id: Annotated[Optional[str], Field(description="Ad group ID (required for ad-group-level negatives)")] = None,
+        campaign_id: Annotated[str | None, Field(description="Campaign ID (required for campaign-level negatives)")] = None,
+        ad_group_id: Annotated[str | None, Field(description="Ad group ID (required for ad-group-level negatives)")] = None,
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
     ) -> dict:
         """Remove a negative keyword. Provide campaign_id for campaign-level or ad_group_id for ad-group-level. Requires confirm=true."""

@@ -1,10 +1,10 @@
 from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id, validate_date_range, dollars_to_micros
-
+from burnr8.helpers import dollars_to_micros, run_gaql, validate_date_range, validate_id
 
 # Keywords that suggest informational/free intent (for cleanup_wasted_spend)
 _INFORMATIONAL_SIGNALS = [

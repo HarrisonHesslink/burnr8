@@ -1,4 +1,5 @@
-from typing import Annotated, Optional
+from typing import Annotated
+
 from pydantic import Field
 
 from burnr8.client import get_client
@@ -11,15 +12,14 @@ def register(mcp):
     @handle_google_ads_errors
     def list_extensions(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
-        campaign_id: Annotated[Optional[str], Field(description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account.")] = None,
-        field_type: Annotated[Optional[str], Field(description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE")] = None,
+        campaign_id: Annotated[str | None, Field(description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account.")] = None,
+        field_type: Annotated[str | None, Field(description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE")] = None,
     ) -> list[dict]:
         """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
-        if campaign_id is not None:
-            if err := validate_id(campaign_id, "campaign_id"):
-                return {"error": True, "message": err}
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
+            return {"error": True, "message": err}
 
         valid_field_types = {"SITELINK", "CALLOUT", "STRUCTURED_SNIPPET", "SQUARE_MARKETING_IMAGE"}
         if field_type is not None and field_type.upper() not in valid_field_types:
@@ -103,8 +103,8 @@ def register(mcp):
         campaign_id: Annotated[str, Field(description="Campaign ID to link the sitelink to")],
         link_text: Annotated[str, Field(description="Sitelink display text (max 25 characters)")],
         final_url: Annotated[str, Field(description="Landing page URL for the sitelink")],
-        description1: Annotated[Optional[str], Field(description="First description line (max 35 characters)")] = None,
-        description2: Annotated[Optional[str], Field(description="Second description line (max 35 characters)")] = None,
+        description1: Annotated[str | None, Field(description="First description line (max 35 characters)")] = None,
+        description2: Annotated[str | None, Field(description="Second description line (max 35 characters)")] = None,
     ) -> dict:
         """Create a sitelink extension asset and link it to a campaign."""
         if err := validate_id(customer_id, "customer_id"):
@@ -261,7 +261,7 @@ def register(mcp):
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to link the image extension to")],
         image_url: Annotated[str, Field(description="Public URL of the image to upload (must be square 1:1 ratio, min 300x300px)")],
-        asset_name: Annotated[Optional[str], Field(description="Optional name for the image asset")] = None,
+        asset_name: Annotated[str | None, Field(description="Optional name for the image asset")] = None,
     ) -> dict:
         """Create an image extension asset from a URL and link it to a campaign. Image must be square (1:1 ratio), minimum 300x300 pixels."""
         if err := validate_id(customer_id, "customer_id"):

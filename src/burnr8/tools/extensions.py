@@ -5,6 +5,7 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
+from burnr8.reports import save_report
 
 
 def register(mcp):
@@ -14,8 +15,8 @@ def register(mcp):
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str | None, Field(description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account.")] = None,
         field_type: Annotated[str | None, Field(description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE")] = None,
-    ) -> list[dict]:
-        """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account."""
+    ) -> dict:
+        """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account. Saves full results to CSV, returns summary + top rows."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -94,7 +95,19 @@ def register(mcp):
                     "values": snippet.get("values", []),
                 }
             results.append(entry)
-        return results
+
+        # Build summary: count by field_type
+        type_counts: dict[str, int] = {}
+        for r in results:
+            ft = r.get("field_type") or "UNKNOWN"
+            type_counts[ft] = type_counts.get(ft, 0) + 1
+
+        report = save_report(results, "extensions")
+        report["summary"] = {
+            "total_extensions": len(results),
+            "count_by_field_type": type_counts,
+        }
+        return report
 
     @mcp.tool
     @handle_google_ads_errors

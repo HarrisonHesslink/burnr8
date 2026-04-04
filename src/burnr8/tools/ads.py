@@ -5,6 +5,7 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id, validate_status
+from burnr8.reports import save_report
 
 
 def register(mcp):
@@ -13,8 +14,8 @@ def register(mcp):
     def list_ads(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
-    ) -> list[dict]:
-        """List ads with approval status and performance metrics."""
+    ) -> dict:
+        """List ads with approval status and performance metrics. Saves full results to CSV, returns summary + top rows."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -76,7 +77,23 @@ def register(mcp):
                 "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
                 "conversions": float(m.get("conversions", 0)),
             })
-        return results
+
+        # Build summary: ad strength distribution and approval status counts
+        strength_counts: dict[str, int] = {}
+        approval_counts: dict[str, int] = {}
+        for r in results:
+            strength = r.get("ad_strength") or "UNKNOWN"
+            strength_counts[strength] = strength_counts.get(strength, 0) + 1
+            approval = r.get("approval_status") or "UNKNOWN"
+            approval_counts[approval] = approval_counts.get(approval, 0) + 1
+
+        report = save_report(results, "ads")
+        report["summary"] = {
+            "total_ads": len(results),
+            "ad_strength_distribution": strength_counts,
+            "approval_status_counts": approval_counts,
+        }
+        return report
 
     @mcp.tool
     @handle_google_ads_errors

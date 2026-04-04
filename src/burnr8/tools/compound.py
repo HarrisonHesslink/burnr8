@@ -255,12 +255,18 @@ def register(mcp):
         # Save each section to CSV
         files = {}
         campaigns_report = save_report(campaigns, "audit-campaigns", top_n=5)
+        if campaigns_report.get("error"):
+            return campaigns_report
         files["campaigns"] = campaigns_report.get("file")
 
         keywords_report = save_report(top_keywords, "audit-keywords", top_n=5)
+        if keywords_report.get("error"):
+            return keywords_report
         files["keywords"] = keywords_report.get("file")
 
         low_qs_report = save_report(low_quality_keywords, "audit-low-qs-keywords", top_n=5)
+        if low_qs_report.get("error"):
+            return low_qs_report
         files["low_quality_keywords"] = low_qs_report.get("file")
 
         # Flatten list fields in ads for CSV compatibility
@@ -272,12 +278,18 @@ def register(mcp):
             flat["descriptions"] = "; ".join(ad.get("descriptions") or [])
             ads_csv.append(flat)
         ads_report = save_report(ads_csv, "audit-ads", top_n=5)
+        if ads_report.get("error"):
+            return ads_report
         files["ads"] = ads_report.get("file")
 
         conversions_report = save_report(conversion_actions, "audit-conversions", top_n=5)
+        if conversions_report.get("error"):
+            return conversions_report
         files["conversion_actions"] = conversions_report.get("file")
 
         budgets_report = save_report(budgets, "audit-budgets", top_n=5)
+        if budgets_report.get("error"):
+            return budgets_report
         files["budgets"] = budgets_report.get("file")
 
         return {
@@ -296,8 +308,12 @@ def register(mcp):
                 "conversion_action_count": len(conversion_actions),
                 "budget_count": len(budgets),
             },
-            "top_campaigns": campaigns_report.get("top", [])[:5],
-            "top_keywords": keywords_report.get("top", [])[:5],
+            "top_campaigns": campaigns_report.get("top", []),
+            "top_keywords": keywords_report.get("top", []),
+            "top_ads": ads_report.get("top", []),
+            "top_low_quality_keywords": low_qs_report.get("top", []),
+            "top_conversion_actions": conversions_report.get("top", []),
+            "top_budgets": budgets_report.get("top", []),
         }
 
     @mcp.tool
@@ -432,13 +448,15 @@ def register(mcp):
 
         # Save full wasted keywords list to CSV
         wasted_report = save_report(wasted_keywords, "wasted-keywords", top_n=10)
+        if wasted_report.get("error"):
+            return wasted_report
 
         return {
             "date_range": date_range_upper,
             "min_spend_threshold_dollars": min_spend,
             "total_wasted_dollars": total_wasted_dollars,
             "wasted_keyword_count": len(wasted_keywords),
-            "top_wasted_keywords": wasted_report.get("top", [])[:10],
+            "top_wasted_keywords": wasted_report.get("top", []),
             "file": wasted_report.get("file"),
             "suggested_negatives": suggested_negatives,
             "suggested_negative_count": len(suggested_negatives),

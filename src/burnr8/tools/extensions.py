@@ -90,6 +90,12 @@ def register(mcp):
                 entry["snippet_values"] = "|".join(snippet.get("values", []))
             results.append(entry)
 
+        # Normalize all rows to have the same keys (different extension types
+        # produce different columns; DictWriter needs a consistent schema).
+        if results:
+            all_keys = list(dict.fromkeys(k for row in results for k in row))
+            results = [{k: row.get(k) for k in all_keys} for row in results]
+
         # Build summary: count by field_type
         type_counts: dict[str, int] = {}
         for r in results:

@@ -8,7 +8,6 @@ annotated-types==0.7.0
 anyio==4.13.0
 attrs==26.1.0
 beartype==0.22.9
-burnr8 @ file:///home/harrison/LilyAds
 cachetools==7.0.5
 caio==0.9.25
 certifi==2026.2.25

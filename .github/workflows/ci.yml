@@ -27,9 +27,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install "." pip-audit
+      - run: pip install pip-audit
       - name: CVE scan (dependencies only)
-        run: pip-audit --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703 --exclude burnr8
+        run: pip-audit -r requirements.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
       - name: Check for typosquatting
         run: |
           pip show google-ads | grep -q "Author.*Google"

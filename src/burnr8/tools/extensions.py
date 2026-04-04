@@ -5,6 +5,7 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
+from burnr8.reports import save_report
 
 
 def register(mcp):
@@ -14,8 +15,8 @@ def register(mcp):
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str | None, Field(description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account.")] = None,
         field_type: Annotated[str | None, Field(description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE")] = None,
-    ) -> list[dict]:
-        """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account."""
+    ) -> dict:
+        """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account. Saves full results to CSV, returns summary + top rows."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -73,28 +74,42 @@ def register(mcp):
                 "campaign_id": campaign.get("id"),
                 "campaign_name": campaign.get("name"),
             }
-            # Include type-specific fields
+            # Include type-specific fields (flattened for CSV)
             sitelink = asset.get("sitelink_asset", {})
             if sitelink:
-                entry["sitelink"] = {
-                    "link_text": sitelink.get("link_text"),
-                    "description1": sitelink.get("description1"),
-                    "description2": sitelink.get("description2"),
-                    "final_urls": asset.get("final_urls", []),
-                }
+                entry["sitelink_link_text"] = sitelink.get("link_text")
+                entry["sitelink_description1"] = sitelink.get("description1")
+                entry["sitelink_description2"] = sitelink.get("description2")
+                entry["sitelink_final_urls"] = "|".join(asset.get("final_urls", []))
             callout = asset.get("callout_asset", {})
             if callout:
-                entry["callout"] = {
-                    "callout_text": callout.get("callout_text"),
-                }
+                entry["callout_text"] = callout.get("callout_text")
             snippet = asset.get("structured_snippet_asset", {})
             if snippet:
-                entry["structured_snippet"] = {
-                    "header": snippet.get("header"),
-                    "values": snippet.get("values", []),
-                }
+                entry["snippet_header"] = snippet.get("header")
+                entry["snippet_values"] = "|".join(snippet.get("values", []))
             results.append(entry)
-        return results
+
+        # Normalize all rows to have the same keys (different extension types
+        # produce different columns; DictWriter needs a consistent schema).
+        if results:
+            all_keys = list(dict.fromkeys(k for row in results for k in row))
+            results = [{k: row.get(k) for k in all_keys} for row in results]
+
+        # Build summary: count by field_type
+        type_counts: dict[str, int] = {}
+        for r in results:
+            ft = r.get("field_type") or "UNKNOWN"
+            type_counts[ft] = type_counts.get(ft, 0) + 1
+
+        report = save_report(results, "extensions")
+        if report.get("error"):
+            return report
+        report["summary"] = {
+            "total_extensions": len(results),
+            "count_by_field_type": type_counts,
+        }
+        return report
 
     @mcp.tool
     @handle_google_ads_errors

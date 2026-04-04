@@ -1,0 +1,38 @@
+# Credentials
+.env
+*.pem
+*.key
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Claude Code
+.remember/
+.claude/plans/
+.claude/settings.local.json
+.pytest_cache/
+
+# burnr8 runtime
+~/.burnr8/
+.next/

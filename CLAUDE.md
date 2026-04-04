@@ -25,6 +25,7 @@ pytest tests/ -v              # Run 60 tests
 ruff check src/ tests/        # Lint
 pip-audit                     # CVE scan
 burnr8                        # Terminal dashboard (API usage + spend)
+./scripts/ci-local.sh         # Run full CI pipeline locally before pushing
 ```
 
 ## Architecture

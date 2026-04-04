@@ -72,5 +72,5 @@ gh release create "v${VERSION}" \
 echo ""
 echo -e "${GREEN}Released burnr8 v${VERSION}${NC}"
 echo ""
-echo "PyPI publish workflow triggered automatically."
+echo "PyPI + Docker publish workflows triggered automatically."
 echo "Check: https://github.com/HarrisonHesslink/burnr8/actions"

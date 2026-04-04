@@ -5,6 +5,7 @@
 [![Tools](https://img.shields.io/badge/MCP_tools-60-green.svg)]()
 [![CI](https://github.com/HarrisonHesslink/burnr8/actions/workflows/ci.yml/badge.svg)](https://github.com/HarrisonHesslink/burnr8/actions)
 [![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)]()
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/harrisonhesslink/burnr8)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-Support-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/harrisonhesslink)
 
 **Stop burning money on Google Ads. Manage everything from your terminal.**
@@ -106,7 +107,43 @@ Claude: Done. Estimated savings: ~$55/month.
 - A [Google Ads API developer token](https://developers.google.com/google-ads/api/docs/get-started/dev-token) (Basic Access)
 - OAuth2 credentials (client ID + secret) from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
 
-### 1. Clone and Install
+### Option A: pip install
+
+```bash
+pip install burnr8
+```
+
+### Option B: Docker (no Python needed)
+
+```bash
+docker pull ghcr.io/harrisonhesslink/burnr8
+```
+
+Add to `~/.claude/.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "burnr8": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GOOGLE_ADS_DEVELOPER_TOKEN",
+        "-e", "GOOGLE_ADS_CLIENT_ID",
+        "-e", "GOOGLE_ADS_CLIENT_SECRET",
+        "-e", "GOOGLE_ADS_REFRESH_TOKEN",
+        "-e", "GOOGLE_ADS_LOGIN_CUSTOMER_ID",
+        "ghcr.io/harrisonhesslink/burnr8"
+      ]
+    }
+  }
+}
+```
+
+Set your credentials as environment variables in your shell, or use `--env-file .env` instead of individual `-e` flags.
+
+### Option C: Clone and install
 
 ```bash
 git clone https://github.com/HarrisonHesslink/burnr8.git

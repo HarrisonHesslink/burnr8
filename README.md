@@ -5,7 +5,7 @@
 [![Tools](https://img.shields.io/badge/MCP_tools-60-green.svg)]()
 [![CI](https://github.com/HarrisonHesslink/burnr8/actions/workflows/ci.yml/badge.svg)](https://github.com/HarrisonHesslink/burnr8/actions)
 [![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)]()
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/harrisonhesslink/burnr8)
+[![Docker](https://img.shields.io/badge/docker-hub-blue?logo=docker)](https://hub.docker.com/r/harrisonhesslink/burnr8)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-Support-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/harrisonhesslink)
 
 **Stop burning money on Google Ads. Manage everything from your terminal.**
@@ -52,7 +52,7 @@ Claude: Done. Estimated savings: ~$55/month.
 | **Keywords** | 4 | List, add, remove keywords; keyword research with volumes |
 | **Negative Keywords** | 4 | List, add (campaign + ad group level), remove negatives |
 | **Budgets** | 4 | List, create, update, delete campaign budgets |
-| **Reporting** | 5 | Campaign/ad group/keyword performance, search terms, raw GAQL |
+| **Reporting** | 5 | Campaign/ad group/keyword performance, search terms, raw GAQL — all save full results to CSV |
 | **Extensions** | 6 | List, create sitelinks/callouts/snippets/images, remove |
 | **Conversions** | 4 | List, get, create, update conversion actions |
 | **Compound** | 3 | `quick_audit`, `launch_campaign`, `cleanup_wasted_spend` — multi-step operations in one call |
@@ -95,6 +95,15 @@ Claude: Done. Estimated savings: ~$55/month.
 - `run_gaql_query` is a read-only escape hatch for any Google Ads data
 - All inputs validated (IDs must be numeric, statuses allowlisted, date ranges checked)
 - API usage tracked with 15,000 ops/day rate limit awareness
+- CSV reports saved with formula injection sanitization and `0o600` permissions
+
+### CSV Report Export
+
+All reporting tools save full results to `~/.burnr8/reports/` as CSV files and return a compact summary to Claude's context instead of dumping thousands of rows. Claude can `Read` the CSV for deeper analysis when needed.
+
+- Files auto-pruned after 7 days
+- Formula injection sanitized (Excel/LibreOffice safe)
+- Storage stats visible via `get_api_usage` and `burnr8` dashboard
 
 ---
 
@@ -116,7 +125,9 @@ pip install burnr8
 ### Option B: Docker (no Python needed)
 
 ```bash
-docker pull ghcr.io/harrisonhesslink/burnr8
+docker pull harrisonhesslink/burnr8          # Docker Hub
+# or
+docker pull ghcr.io/harrisonhesslink/burnr8  # GitHub Container Registry
 ```
 
 Add to `~/.claude/.mcp.json`:
@@ -266,8 +277,9 @@ burnr8/
 │   ├── helpers.py         # GAQL runner, validators, converters
 │   ├── errors.py          # Error handling + logging decorator
 │   ├── logging.py         # Structured logging + rate limit tracking
+│   ├── reports.py         # CSV export + sanitization + storage stats
 │   ├── dashboard.py       # Terminal dashboard
-│   └── tools/             # 55 MCP tools
+│   └── tools/             # 60 MCP tools
 │       ├── accounts.py
 │       ├── campaigns.py
 │       ├── ad_groups.py

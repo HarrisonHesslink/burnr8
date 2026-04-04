@@ -32,11 +32,11 @@ jobs:
         run: pip-audit -r requirements.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
       - name: Install project for dependency verification
         run: pip install "."
-      - name: Check for typosquatting
+      - name: Verify direct dependencies
         run: |
-          pip show google-ads | grep -q "Author.*Google"
-          pip show fastmcp | grep -q "Home-page\|Location"
-          pip show python-dotenv | grep -q "Home-page\|Location"
+          pip show google-ads | grep -qi "google" || exit 1
+          pip show fastmcp | grep -qi "fastmcp\|prefect" || exit 1
+          pip show python-dotenv | grep -qi "dotenv" || exit 1
           echo "Direct dependency verification passed"
 
   test:

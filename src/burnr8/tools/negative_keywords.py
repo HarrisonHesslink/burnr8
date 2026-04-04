@@ -100,9 +100,33 @@ def register(mcp):
                     "level": "AD_GROUP",
                 })
 
-        # Combine into flat list and save CSV
-        all_negatives = campaign_negatives + ad_group_negatives
+        # Combine into flat list with normalized schema (all rows get all 8 keys)
+        all_negatives = []
+        for item in campaign_negatives:
+            all_negatives.append({
+                "criterion_id": item["criterion_id"],
+                "text": item["text"],
+                "match_type": item["match_type"],
+                "campaign_id": item["campaign_id"],
+                "campaign_name": item["campaign_name"],
+                "ad_group_id": None,
+                "ad_group_name": None,
+                "level": item["level"],
+            })
+        for item in ad_group_negatives:
+            all_negatives.append({
+                "criterion_id": item["criterion_id"],
+                "text": item["text"],
+                "match_type": item["match_type"],
+                "campaign_id": item.get("campaign_id"),
+                "campaign_name": item.get("campaign_name"),
+                "ad_group_id": item.get("ad_group_id"),
+                "ad_group_name": item.get("ad_group_name"),
+                "level": item["level"],
+            })
         report = save_report(all_negatives, "negative_keywords")
+        if report.get("error"):
+            return report
 
         # Count by level
         campaign_count = len(campaign_negatives)

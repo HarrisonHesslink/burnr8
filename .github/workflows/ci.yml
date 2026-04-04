@@ -30,6 +30,8 @@ jobs:
       - run: pip install pip-audit
       - name: CVE scan (dependencies only)
         run: pip-audit -r requirements.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
+      - name: Install project for dependency verification
+        run: pip install "."
       - name: Check for typosquatting
         run: |
           pip show google-ads | grep -q "Author.*Google"

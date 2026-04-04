@@ -273,9 +273,9 @@ def register(mcp):
         ads_csv = []
         for ad in ads:
             flat = {k: v for k, v in ad.items() if k not in ("final_urls", "headlines", "descriptions")}
-            flat["final_urls"] = "; ".join(ad.get("final_urls") or [])
-            flat["headlines"] = "; ".join(ad.get("headlines") or [])
-            flat["descriptions"] = "; ".join(ad.get("descriptions") or [])
+            flat["final_urls"] = "|".join(ad.get("final_urls") or [])
+            flat["headlines"] = "|".join(ad.get("headlines") or [])
+            flat["descriptions"] = "|".join(ad.get("descriptions") or [])
             ads_csv.append(flat)
         ads_report = save_report(ads_csv, "audit-ads", top_n=5)
         if ads_report.get("error"):

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
+from burnr8.reports import save_report
 
 
 class KeywordInput(BaseModel):
@@ -18,8 +19,8 @@ def register(mcp):
     def list_keywords(
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
-    ) -> list[dict]:
-        """List keyword criteria with bids, match types, and quality scores."""
+    ) -> dict:
+        """List keyword criteria with bids, match types, and quality scores. Saves full report to CSV, returns summary + top rows + file path."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -75,7 +76,19 @@ def register(mcp):
                 "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
                 "conversions": float(m.get("conversions", 0)),
             })
-        return results
+
+        report = save_report(results, "keywords")
+        quality_scores = [r["quality_score"] for r in results if r["quality_score"]]
+        match_types: dict[str, int] = {}
+        for r in results:
+            mt = r.get("match_type", "UNKNOWN")
+            match_types[mt] = match_types.get(mt, 0) + 1
+        report["summary"] = {
+            "keyword_count": len(results),
+            "avg_quality_score": round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None,
+            "match_type_distribution": match_types,
+        }
+        return report
 
     @mcp.tool
     @handle_google_ads_errors
@@ -163,8 +176,8 @@ def register(mcp):
         url: Annotated[str | None, Field(description="URL to extract keyword ideas from")] = None,
         language_id: Annotated[str, Field(description="Language criterion ID (1000=English)")] = "1000",
         geo_target_ids: Annotated[list[str] | None, Field(description="Geo target criterion IDs (2840=US)")] = None,
-    ) -> list[dict]:
-        """Get keyword ideas with search volume, competition, and CPC estimates."""
+    ) -> dict:
+        """Get keyword ideas with search volume, competition, and CPC estimates. Saves full report to CSV, returns summary + top rows + file path."""
         if geo_target_ids is None:
             geo_target_ids = ["2840"]
         if err := validate_id(customer_id, "customer_id"):
@@ -202,4 +215,13 @@ def register(mcp):
                 "low_top_of_page_bid_dollars": (metrics.low_top_of_page_bid_micros or 0) / 1_000_000 if metrics else 0,
                 "high_top_of_page_bid_dollars": (metrics.high_top_of_page_bid_micros or 0) / 1_000_000 if metrics else 0,
             })
-        return results
+
+        report = save_report(results, "keyword_research")
+        searches = [r["avg_monthly_searches"] for r in results]
+        cpcs = [r["high_top_of_page_bid_dollars"] for r in results]
+        report["summary"] = {
+            "keyword_count": len(results),
+            "avg_monthly_searches": round(sum(searches) / len(searches), 1) if searches else 0,
+            "avg_cpc_dollars": round(sum(cpcs) / len(cpcs), 2) if cpcs else 0,
+        }
+        return report

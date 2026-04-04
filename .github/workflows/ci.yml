@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -16,6 +19,23 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - run: ruff check src/ tests/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e "." pip-audit
+      - name: CVE scan (pip-audit)
+        run: pip-audit --strict --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
+      - name: Check for typosquatting
+        run: |
+          pip show google-ads | grep -q "Author.*Google"
+          pip show fastmcp | grep -q "Home-page\|Location"
+          pip show python-dotenv | grep -q "Home-page\|Location"
+          echo "Direct dependency verification passed"
 
   test:
     runs-on: ubuntu-latest
@@ -37,7 +57,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, security, test]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

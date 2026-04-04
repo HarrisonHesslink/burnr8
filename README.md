@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Tools](https://img.shields.io/badge/MCP_tools-60-green.svg)]()
 [![CI](https://github.com/HarrisonHesslink/burnr8/actions/workflows/ci.yml/badge.svg)](https://github.com/HarrisonHesslink/burnr8/actions)
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/burnr8)](https://pypi.org/project/burnr8/)
 [![Docker](https://img.shields.io/badge/docker-hub-blue?logo=docker)](https://hub.docker.com/r/harrisonhesslink/burnr8)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-Support-orange?logo=buy-me-a-coffee)](https://buymeacoffee.com/harrisonhesslink)
 
@@ -41,7 +41,7 @@ You:    "Add 'free' as a phrase match negative keyword"
 Claude: Done. Estimated savings: ~$55/month.
 ```
 
-### 55 Tools Across 13 Categories
+### 60 Tools Across 13 Categories
 
 | Category | Tools | What They Do |
 |----------|-------|-------------|

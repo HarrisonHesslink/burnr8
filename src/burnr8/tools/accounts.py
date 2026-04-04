@@ -48,8 +48,10 @@ def register(mcp):
 
     @mcp.tool
     def get_api_usage() -> dict:
-        """Get today's API usage stats: operations count, errors, rate limit status, recent tool calls, and burnr8 version."""
+        """Get today's API usage stats: operations count, errors, rate limit status, recent tool calls, storage stats, and burnr8 version."""
         from burnr8 import __version__
+        from burnr8.reports import get_storage_stats
         stats = get_usage_stats()
         stats["burnr8_version"] = __version__
+        stats["storage"] = get_storage_stats()
         return stats

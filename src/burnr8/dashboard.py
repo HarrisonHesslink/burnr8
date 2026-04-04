@@ -38,6 +38,18 @@ def print_dashboard():
     print(f"  API Ops Today:    {stats['ops_today']:,} / {stats['ops_limit']:,}  {bar(pct)}  {pct}%")
     print(f"  Errors (24h):     {stats['errors_today']}")
 
+    # Storage stats
+    from burnr8.logging import LOG_DIR
+    from burnr8.reports import get_storage_stats
+    storage = get_storage_stats()
+    log_size = 0
+    log_file = LOG_DIR / "burnr8.log"
+    if log_file.exists():
+        log_size = log_file.stat().st_size / 1_048_576
+    print(f"  Reports:          {storage['report_files']} files ({storage['total_size_mb']} MB)")
+    print(f"  Logs:             {log_size:.1f} MB")
+    print()
+
     # Recent activity
     calls = stats["recent_calls"]
     if calls:

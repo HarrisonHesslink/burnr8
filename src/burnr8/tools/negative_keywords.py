@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
+from burnr8.reports import save_report
 
 
 class NegativeKeyword(BaseModel):
@@ -62,9 +63,8 @@ def register(mcp):
                 "level": "CAMPAIGN",
             })
 
-        result = {"campaign_negatives": campaign_negatives}
-
         # --- Ad-group-level negatives (only when ad_group_id supplied) ---
+        ad_group_negatives = []
         if ad_group_id:
             ag_query = f"""
                 SELECT
@@ -84,7 +84,6 @@ def register(mcp):
             ag_query += " ORDER BY ad_group_criterion.keyword.text"
 
             ag_rows = run_gaql(client, customer_id, ag_query)
-            ad_group_negatives = []
             for row in ag_rows:
                 ac = row.get("ad_group_criterion", {})
                 kw = ac.get("keyword", {})
@@ -100,9 +99,30 @@ def register(mcp):
                     "campaign_name": c.get("name"),
                     "level": "AD_GROUP",
                 })
-            result["ad_group_negatives"] = ad_group_negatives
 
-        return result
+        # Combine into flat list and save CSV
+        all_negatives = campaign_negatives + ad_group_negatives
+        report = save_report(all_negatives, "negative_keywords")
+
+        # Count by level
+        campaign_count = len(campaign_negatives)
+        ad_group_count = len(ad_group_negatives)
+
+        # Count by match type
+        match_type_counts: dict[str, int] = {}
+        for neg in all_negatives:
+            mt = neg.get("match_type", "UNKNOWN")
+            match_type_counts[mt] = match_type_counts.get(mt, 0) + 1
+
+        report["summary"] = {
+            "total": len(all_negatives),
+            "by_level": {
+                "CAMPAIGN": campaign_count,
+                "AD_GROUP": ad_group_count,
+            },
+            "by_match_type": match_type_counts,
+        }
+        return report
 
     @mcp.tool
     @handle_google_ads_errors

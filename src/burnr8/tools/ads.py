@@ -62,9 +62,9 @@ def register(mcp):
             results.append({
                 "ad_id": ad.get("id"),
                 "type": ad.get("type"),
-                "final_urls": ad.get("final_urls", []),
-                "headlines": headlines,
-                "descriptions": descriptions,
+                "final_urls": "|".join(ad.get("final_urls", [])),
+                "headlines": "|".join(headlines),
+                "descriptions": "|".join(descriptions),
                 "ad_strength": aga.get("ad_strength"),
                 "status": aga.get("status"),
                 "approval_status": aga.get("policy_summary", {}).get("approval_status"),
@@ -88,6 +88,8 @@ def register(mcp):
             approval_counts[approval] = approval_counts.get(approval, 0) + 1
 
         report = save_report(results, "ads")
+        if report.get("error"):
+            return report
         report["summary"] = {
             "total_ads": len(results),
             "ad_strength_distribution": strength_counts,

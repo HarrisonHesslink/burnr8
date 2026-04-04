@@ -74,26 +74,20 @@ def register(mcp):
                 "campaign_id": campaign.get("id"),
                 "campaign_name": campaign.get("name"),
             }
-            # Include type-specific fields
+            # Include type-specific fields (flattened for CSV)
             sitelink = asset.get("sitelink_asset", {})
             if sitelink:
-                entry["sitelink"] = {
-                    "link_text": sitelink.get("link_text"),
-                    "description1": sitelink.get("description1"),
-                    "description2": sitelink.get("description2"),
-                    "final_urls": asset.get("final_urls", []),
-                }
+                entry["sitelink_link_text"] = sitelink.get("link_text")
+                entry["sitelink_description1"] = sitelink.get("description1")
+                entry["sitelink_description2"] = sitelink.get("description2")
+                entry["sitelink_final_urls"] = "|".join(asset.get("final_urls", []))
             callout = asset.get("callout_asset", {})
             if callout:
-                entry["callout"] = {
-                    "callout_text": callout.get("callout_text"),
-                }
+                entry["callout_text"] = callout.get("callout_text")
             snippet = asset.get("structured_snippet_asset", {})
             if snippet:
-                entry["structured_snippet"] = {
-                    "header": snippet.get("header"),
-                    "values": snippet.get("values", []),
-                }
+                entry["snippet_header"] = snippet.get("header")
+                entry["snippet_values"] = "|".join(snippet.get("values", []))
             results.append(entry)
 
         # Build summary: count by field_type
@@ -103,6 +97,8 @@ def register(mcp):
             type_counts[ft] = type_counts.get(ft, 0) + 1
 
         report = save_report(results, "extensions")
+        if report.get("error"):
+            return report
         report["summary"] = {
             "total_extensions": len(results),
             "count_by_field_type": type_counts,

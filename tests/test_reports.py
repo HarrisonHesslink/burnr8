@@ -1,4 +1,4 @@
-"""Tests for burnr8.reports — CSV export, sanitization, cleanup, and storage stats."""
+"""Tests for burnr8.reports — CSV export, sanitization, cleanup, storage stats, and pluggable handlers."""
 
 import csv
 import os
@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from burnr8.reports import (
     _prune_old_reports,
+    _rows_to_csv_bytes,
     _sanitize_cell,
     get_storage_stats,
     save_report,
@@ -219,7 +220,65 @@ def test_get_storage_stats():
 
 
 def test_get_storage_stats_empty():
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)):
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
         stats = get_storage_stats()
         assert stats["report_files"] == 0
         assert stats["total_size_mb"] == 0
+
+
+# --- CSV bytes helper ---
+
+
+def test_rows_to_csv_bytes():
+    rows = [{"a": 1, "b": "hello"}, {"a": 2, "b": "world"}]
+    csv_bytes = _rows_to_csv_bytes(rows, ["a", "b"])
+    assert isinstance(csv_bytes, bytes)
+    text = csv_bytes.decode("utf-8")
+    assert "a,b" in text
+    assert "1,hello" in text
+    assert "2,world" in text
+
+
+def test_rows_to_csv_bytes_sanitizes():
+    rows = [{"term": "=CMD()", "val": "safe"}]
+    csv_bytes = _rows_to_csv_bytes(rows, ["term", "val"])
+    text = csv_bytes.decode("utf-8")
+    assert "'=CMD()" in text
+
+
+# --- Report mode selection ---
+
+
+def test_save_report_defaults_to_disk():
+    rows = [{"a": 1}]
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+        result = save_report(rows, "test_mode")
+        assert "file" in result
+        assert result["file"] is not None
+        assert "url" not in result
+
+
+def test_save_report_supabase_mode_missing_config():
+    rows = [{"a": 1}]
+    with patch("burnr8.reports.REPORT_MODE", "supabase"), patch.dict(os.environ, {}, clear=True):
+        result = save_report(rows, "test_mode")
+        assert result.get("error") is True
+        assert "BURNR8_SUPABASE_URL" in result["message"]
+
+
+def test_save_report_empty_returns_both_keys():
+    result = save_report([], "empty")
+    assert result["file"] is None
+    assert result["url"] is None
+    assert result["rows"] == 0
+
+
+def test_storage_stats_supabase_mode():
+    with patch("burnr8.reports.REPORT_MODE", "supabase"):
+        stats = get_storage_stats()
+        assert stats["report_mode"] == "supabase"
+
+def test_storage_stats_disk_mode():
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+        stats = get_storage_stats()
+        assert stats["report_mode"] == "disk"

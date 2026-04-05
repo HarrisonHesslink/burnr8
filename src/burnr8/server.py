@@ -250,45 +250,142 @@ def account_structure(customer_id: str) -> str:
 
 
 @mcp.prompt
-def audit(customer_id: str) -> str:
-    """Run a complete Google Ads account audit."""
-    return f"""Run a full audit of Google Ads account {customer_id}:
+def audit(customer_id: str = "", target_cpa: str = "", monthly_budget: str = "") -> str:
+    """Run a complete Google Ads account audit with the 74-check framework."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
+    if target_cpa:
+        context += f", Target CPA: ${target_cpa}"
+    if monthly_budget:
+        context += f", Monthly budget: ${monthly_budget}"
 
-1. Call quick_audit to get the full account snapshot
-2. Identify wasted spend (keywords with spend but 0 conversions)
-3. Check quality scores (flag anything below 5)
-4. Review ad strength (flag anything below GOOD)
-5. Check conversion tracking setup (are primary conversions set correctly?)
-6. Check negative keyword coverage
-7. Summarize findings with a health score and prioritized action items"""
+    return f"""Run a full Google Ads audit. {context}
+
+## Step 1: Pull all data
+Call quick_audit first — it fetches campaigns, keywords, ads, negatives, conversions, and budgets in one call.
+
+## Step 2: Score across 6 categories
+
+### Conversion Tracking (25% weight)
+- Is there exactly ONE primary conversion action? (multiple primaries confuse Smart Bidding)
+- Is attribution model data-driven? (last-click is outdated)
+- Are counting types consistent? (ONE_PER_CLICK for leads, MANY_PER_CLICK for purchases)
+- Call list_conversion_goals to check what Smart Bidding is optimizing toward
+
+### Wasted Spend (20% weight)
+- What % of spend goes to keywords with 0 conversions?
+- Are "free" intent queries blocked? (add "free" as Phrase Match negative)
+- Call get_search_terms_report to find irrelevant queries
+- Calculate monthly wasted spend in dollars
+
+### Account Structure (15% weight)
+- Are ad groups tightly themed? (15-20 keywords max)
+- Do naming conventions exist?
+- Any orphan budgets? (call remove_orphan_budgets with confirm=false to check)
+
+### Keywords (15% weight)
+- Average Quality Score: ≥7 = PASS, 5-6 = WARNING, <5 = FAIL
+- Are top converters on Exact Match? (protect your winners)
+- Any QS 1-2 keywords still enabled? (pause immediately)
+
+### Ads (15% weight)
+- Ad Strength: Good or Excellent = PASS, Average = WARNING, Poor = FAIL
+- Are there 3+ RSAs per ad group?
+- Call list_extensions — need ≥4 sitelinks, ≥4 callouts, structured snippets
+
+### Settings (10% weight)
+- Call get_geo_target_type_setting — should be PRESENCE not PRESENCE_OR_INTEREST
+- Call list_device_bid_adjustments — are mobile/tablet adjusted?
+- Is the budget being fully spent? (underspend = missed opportunity)
+
+## Step 3: Present findings
+Format as a health score report with:
+- Overall score /100 with letter grade
+- Per-category scores
+- Quick wins sorted by estimated dollar impact
+- Action items with specific tool calls to execute each fix"""
 
 
 @mcp.prompt
-def optimize(customer_id: str) -> str:
-    """Find and fix wasted ad spend."""
-    return f"""Optimize Google Ads account {customer_id} for wasted spend:
+def optimize(customer_id: str = "") -> str:
+    """Find and fix wasted ad spend with specific negative keyword recommendations."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
 
-1. Call cleanup_wasted_spend to identify non-converting keywords
-2. Review search terms report for irrelevant queries
-3. Recommend specific negative keywords to add (use Exact match for specific terms, Phrase match for patterns)
-4. Identify keywords to pause (high spend, zero conversions, low quality score)
-5. Present total estimated monthly savings"""
+    return f"""Optimize Google Ads for wasted spend. {context}
+
+## Step 1: Find wasted spend
+Call cleanup_wasted_spend — returns keywords with spend but 0 conversions.
+
+## Step 2: Analyze search terms
+Call get_search_terms_report — look for:
+- Free-intent queries ("free", "gratis", "no cost")
+- Informational queries ("how to", "what is", "tutorial")
+- Job-seeker queries ("jobs", "careers", "salary")
+- Competitor queries (decide if intentional)
+- Irrelevant industry queries
+
+## Step 3: Recommend negative keywords
+CRITICAL RULES:
+- NEVER suggest Broad Match negatives — they block too broadly
+- Default to Exact Match [keyword] for specific irrelevant queries
+- Use Phrase Match "keyword" for irrelevant intent patterns
+- Source from actual Search Terms Report, NOT guesses
+- Group into themed lists: informational, job-seeker, competitor, free-intent
+
+## Step 4: Recommend keyword pauses
+Pause keywords that meet ALL of:
+- Spend > $20 in the period
+- 0 conversions
+- Quality Score < 5 (or no QS data)
+
+## Step 5: Present savings
+- Total monthly wasted spend estimate
+- Per-keyword breakdown (spend, clicks, 0 conversions)
+- Specific negative keywords to add with match types
+- Ask for confirmation before executing any changes"""
 
 
 @mcp.prompt
-def new_campaign(customer_id: str, product: str, url: str) -> str:
-    """Plan and launch a new search campaign."""
-    return f"""Create a new Google Ads search campaign for account {customer_id}:
+def new_campaign(customer_id: str = "", product: str = "", url: str = "", daily_budget: str = "") -> str:
+    """Plan and launch a new search campaign with best practices."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
 
+    return f"""Create a new Google Ads search campaign. {context}
 Product/service: {product}
 Landing page: {url}
+Daily budget: {daily_budget if daily_budget else "Ask the user"}
 
-Steps:
-1. Research keywords related to the product using research_keywords
-2. Recommend campaign structure (ad groups, keyword themes)
-3. Write RSA headlines (15) and descriptions (4) following Google Ads best practices
-4. Use launch_campaign to create everything in one step
-5. Confirm the campaign was created PAUSED and review the setup"""
+## Step 1: Keyword Research
+Call research_keywords with seed keywords from the product description.
+Evaluate results by:
+- Monthly search volume (ignore <100/mo)
+- Competition level (prefer LOW/MEDIUM for new campaigns)
+- Top-of-page bid (sets CPC expectations)
+
+## Step 2: Campaign Structure
+Recommend themed ad groups. Each ad group should:
+- Have 5-15 tightly related keywords
+- Share a common intent (e.g., "buy X" vs "X reviews")
+- Start with Broad Match + Maximize Conversions (Smart Bidding needs data)
+
+## Step 3: Write Ad Copy
+Write 15 headlines (max 30 chars each) and 4 descriptions (max 90 chars each):
+- Headlines: include keyword, CTA, price/offer, differentiator, social proof
+- Descriptions: expand on value prop, include CTA, address objections
+- Do NOT pin headlines unless strategically necessary (reduces RSA flexibility)
+
+## Step 4: Launch
+Call launch_campaign with all components. It creates:
+- Budget (daily, non-shared)
+- Campaign (PAUSED, Search, with correct network settings)
+- Ad group with keywords (Broad match)
+- Responsive Search Ad
+
+## Step 5: Post-Launch Checklist
+- Confirm campaign is PAUSED
+- Verify geo targeting: call get_geo_target_type_setting → should be PRESENCE
+- Recommend: add sitelinks (4+), callouts (4+), structured snippets
+- Remind: enable campaign only when ready (set_campaign_status requires confirm=true)
+- Set expectations: wait 2 weeks for learning phase before optimizing"""
 
 
 if __name__ == "__main__":

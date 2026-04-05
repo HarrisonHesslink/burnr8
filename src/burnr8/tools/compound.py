@@ -6,6 +6,7 @@ from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import dollars_to_micros, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
+from burnr8.session import resolve_customer_id
 
 # Keywords that suggest informational/free intent (for cleanup_wasted_spend)
 _INFORMATIONAL_SIGNALS = [
@@ -21,10 +22,13 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def quick_audit(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         date_range: Annotated[str, Field(description="Date range: TODAY, YESTERDAY, LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Pull all account data and return a formatted audit report in one call. Covers campaigns, keywords, ads, negatives, conversions, and budgets."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):
@@ -319,7 +323,6 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def launch_campaign(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_name: Annotated[str, Field(description="Name for the new campaign")],
         daily_budget_dollars: Annotated[float, Field(description="Daily budget in dollars", gt=0)],
         keywords: Annotated[list[str], Field(description="List of keyword texts (added as Broad match)")],
@@ -329,8 +332,12 @@ def register(mcp):
         cpc_bid: Annotated[float, Field(description="Default CPC bid in dollars")] = 1.0,
         ad_group_name: Annotated[str, Field(description="Name for the ad group")] = "Ad Group 1",
         eu_political_ads: Annotated[bool, Field(description="Set to true if this campaign contains EU political advertising")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a complete campaign setup in one call: budget, campaign (PAUSED, SEARCH, MANUAL_CPC), ad group, keywords (Broad match), and a responsive search ad."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
 
@@ -360,11 +367,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def cleanup_wasted_spend(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         date_range: Annotated[str, Field(description="Date range: TODAY, YESTERDAY, LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
         min_spend: Annotated[float, Field(description="Minimum spend in dollars to flag a keyword as wasted")] = 10.0,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Analyze keywords with spend but zero conversions and return actionable recommendations for reducing wasted ad spend."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):

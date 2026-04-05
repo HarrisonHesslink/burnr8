@@ -6,6 +6,7 @@ from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
 from burnr8.reports import save_report
+from burnr8.session import resolve_customer_id
 
 
 class KeywordInput(BaseModel):
@@ -17,10 +18,13 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_keywords(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List keyword inventory — what keywords exist, their config, bids, match types, and quality scores. Filter by ad group."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -95,11 +99,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def add_keywords(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID to add keywords to")],
         keywords: Annotated[list[KeywordInput], Field(description="List of keywords with text and match_type")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Add one or more keywords to an ad group."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -138,12 +145,15 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def remove_keyword(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the keyword")],
         criterion_id: Annotated[str, Field(description="Keyword criterion ID to remove")],
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Remove a keyword from an ad group. Requires confirm=true."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if not confirm:
             return {
                 "warning": f"This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
@@ -173,13 +183,16 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def research_keywords(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         keywords: Annotated[list[str], Field(description="Seed keywords to research")],
         url: Annotated[str | None, Field(description="URL to extract keyword ideas from")] = None,
         language_id: Annotated[str, Field(description="Language criterion ID (1000=English)")] = "1000",
         geo_target_ids: Annotated[list[str] | None, Field(description="Geo target criterion IDs (2840=US)")] = None,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Get keyword ideas with search volume, competition, and CPC estimates. Saves full report to CSV, returns summary + top rows + file path."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if geo_target_ids is None:
             geo_target_ids = ["2840"]
         if err := validate_id(customer_id, "customer_id"):

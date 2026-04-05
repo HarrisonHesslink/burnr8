@@ -6,6 +6,7 @@ from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
 from burnr8.reports import save_report
+from burnr8.session import resolve_customer_id
 
 
 class NegativeKeyword(BaseModel):
@@ -17,11 +18,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_negative_keywords(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
         ad_group_id: Annotated[str | None, Field(description="Include ad-group-level negatives for this ad group ID")] = None,
     ) -> dict:
         """List negative keywords at campaign level, and optionally at ad group level."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -151,11 +155,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def add_negative_keywords(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to add negative keywords to")],
         keywords: Annotated[list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Add one or more negative keywords at campaign level via CampaignCriterionService."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -195,11 +202,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def add_ad_group_negative_keywords(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID to add negative keywords to")],
         keywords: Annotated[list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Add one or more negative keywords at ad group level via AdGroupCriterionService."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -239,13 +249,16 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def remove_negative_keyword(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         criterion_id: Annotated[str, Field(description="Negative keyword criterion ID to remove")],
         campaign_id: Annotated[str | None, Field(description="Campaign ID (required for campaign-level negatives)")] = None,
         ad_group_id: Annotated[str | None, Field(description="Ad group ID (required for ad-group-level negatives)")] = None,
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Remove a negative keyword. Provide campaign_id for campaign-level or ad_group_id for ad-group-level. Requires confirm=true."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if not confirm:
             return {
                 "warning": f"This will remove negative keyword criterion {criterion_id}. "

@@ -5,16 +5,20 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
+from burnr8.session import resolve_customer_id
 
 
 def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_ad_groups(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
     ) -> list[dict]:
         """List ad groups, optionally filtered by campaign."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -60,12 +64,15 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_ad_group(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to add the ad group to")],
         name: Annotated[str, Field(description="Ad group name")],
         cpc_bid: Annotated[float, Field(description="CPC bid in dollars")] = 1.0,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a new ad group in a campaign."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -93,13 +100,16 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def update_ad_group(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID to update")],
         name: Annotated[str | None, Field(description="New ad group name")] = None,
         cpc_bid: Annotated[float | None, Field(description="New CPC bid in dollars")] = None,
         status: Annotated[str | None, Field(description="New status: ENABLED, PAUSED, or REMOVED")] = None,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Update an ad group's name, bid, or status."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):

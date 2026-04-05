@@ -32,7 +32,7 @@ You have 63 burnr8 MCP tools across 13 categories:
 
 ## First Session — Business Context
 
-If this is your first time working with this account, ask the user before diving into data:
+On each new session, briefly check if you have business context. If the user hasn't mentioned their business type, conversion value, or target CPA/ROAS in this conversation, ask:
 
 1. **What does this business sell?** (e-commerce products, SaaS subscription, local service, lead gen)
 2. **What's a conversion worth?** (average order value, monthly subscription value, lead value)
@@ -49,6 +49,12 @@ This context changes your recommendations:
 | Lead gen | CPA | Search + lead forms | CPA, lead quality, SQL rate |
 
 If the user has already provided context in a previous message, don't ask again — use what they've told you.
+
+### CPA Benchmarks by Business Type
+- **E-commerce**: CPA should be <30% of average order value
+- **SaaS**: CPA should be <1/3 of customer lifetime value (LTV:CAC ≥ 3:1)
+- **Local service**: CPA should be <20% of average job value
+- **Lead gen**: CPA depends on lead-to-close rate — if 10% close rate and deal is $1,000, target CPA is <$100
 
 ## Performance Benchmarks
 

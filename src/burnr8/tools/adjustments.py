@@ -10,8 +10,13 @@ from burnr8.session import resolve_customer_id
 VALID_DEVICE_TYPES = {"MOBILE", "DESKTOP", "TABLET"}
 VALID_PRESENCE_TYPES = {"PRESENCE", "PRESENCE_OR_INTEREST", "SEARCH_INTEREST"}
 VALID_DAYS_OF_WEEK = {
-    "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY",
-    "FRIDAY", "SATURDAY", "SUNDAY",
+    "MONDAY",
+    "TUESDAY",
+    "WEDNESDAY",
+    "THURSDAY",
+    "FRIDAY",
+    "SATURDAY",
+    "SUNDAY",
 }
 
 
@@ -21,12 +26,17 @@ def register(mcp):
     def pause_keyword(
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the keyword")],
         criterion_id: Annotated[str, Field(description="Keyword criterion ID to pause")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Pause a specific keyword by criterion ID."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -45,9 +55,7 @@ def register(mcp):
         criterion.status = client.enums.AdGroupCriterionStatusEnum.PAUSED
         operation.update_mask.paths.append("status")
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=[operation])
         return {
             "resource_name": response.results[0].resource_name,
             "new_status": "PAUSED",
@@ -58,13 +66,20 @@ def register(mcp):
     def set_device_bid_adjustment(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
         device_type: Annotated[str, Field(description="Device type: MOBILE, DESKTOP, or TABLET")],
-        bid_modifier: Annotated[float, Field(description="Bid modifier (0.0 = exclude device, 1.0 = no change, 1.5 = +50%, 0.7 = -30%)")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        bid_modifier: Annotated[
+            float, Field(description="Bid modifier (0.0 = exclude device, 1.0 = no change, 1.5 = +50%, 0.7 = -30%)")
+        ],
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Set a bid adjustment for a device type on a campaign. Creates the device criterion if it doesn't exist (common with Smart Bidding strategies)."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -125,9 +140,7 @@ def register(mcp):
             criterion.bid_modifier = bid_modifier
             action = "created"
 
-        response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
         return {
             "resource_name": response.results[0].resource_name,
             "device_type": device_type.upper(),
@@ -139,12 +152,17 @@ def register(mcp):
     @handle_google_ads_errors
     def list_device_bid_adjustments(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> list[dict]:
         """List current device bid adjustments for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -168,29 +186,40 @@ def register(mcp):
             cc = row.get("campaign_criterion", {})
             device = cc.get("device", {})
             c = row.get("campaign", {})
-            results.append({
-                "criterion_id": cc.get("criterion_id"),
-                "device_type": device.get("type"),
-                "bid_modifier": cc.get("bid_modifier"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-            })
+            results.append(
+                {
+                    "criterion_id": cc.get("criterion_id"),
+                    "device_type": device.get("type"),
+                    "bid_modifier": cc.get("bid_modifier"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                }
+            )
         return results
 
     @mcp.tool
     @handle_google_ads_errors
     def set_ad_schedule(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        day_of_week: Annotated[str, Field(description="Day of week: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY")],
+        day_of_week: Annotated[
+            str, Field(description="Day of week: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY")
+        ],
         start_hour: Annotated[int, Field(description="Start hour (0-23)")],
-        end_hour: Annotated[int, Field(description="End hour (0-24, use 24 for end of day/midnight. Must be greater than start_hour)")],
+        end_hour: Annotated[
+            int, Field(description="End hour (0-24, use 24 for end of day/midnight. Must be greater than start_hour)")
+        ],
         bid_modifier: Annotated[float, Field(description="Bid modifier (1.0 = no change, 1.5 = +50%)")] = 1.0,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Set an ad schedule (dayparting) for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -231,9 +260,7 @@ def register(mcp):
         criterion.ad_schedule.end_minute = client.enums.MinuteOfHourEnum.ZERO
         criterion.bid_modifier = bid_modifier
 
-        response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
         return {
             "resource_name": resource_name,
@@ -247,12 +274,17 @@ def register(mcp):
     @handle_google_ads_errors
     def list_ad_schedules(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> list[dict]:
         """List current ad schedules (dayparting) for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -280,17 +312,19 @@ def register(mcp):
             cc = row.get("campaign_criterion", {})
             schedule = cc.get("ad_schedule", {})
             c = row.get("campaign", {})
-            results.append({
-                "criterion_id": cc.get("criterion_id"),
-                "day_of_week": schedule.get("day_of_week"),
-                "start_hour": schedule.get("start_hour"),
-                "end_hour": schedule.get("end_hour"),
-                "start_minute": schedule.get("start_minute"),
-                "end_minute": schedule.get("end_minute"),
-                "bid_modifier": cc.get("bid_modifier"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-            })
+            results.append(
+                {
+                    "criterion_id": cc.get("criterion_id"),
+                    "day_of_week": schedule.get("day_of_week"),
+                    "start_hour": schedule.get("start_hour"),
+                    "end_hour": schedule.get("end_hour"),
+                    "start_minute": schedule.get("start_minute"),
+                    "end_minute": schedule.get("end_minute"),
+                    "bid_modifier": cc.get("bid_modifier"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                }
+            )
         return results
 
     @mcp.tool
@@ -299,12 +333,17 @@ def register(mcp):
         campaign_id: Annotated[str, Field(description="Campaign ID containing the ad schedule")],
         criterion_id: Annotated[str, Field(description="Ad schedule criterion ID to remove")],
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Remove an ad schedule criterion from a campaign. Requires confirm=true."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if not confirm:
             return {
                 "warning": f"This will remove ad schedule criterion {criterion_id} from campaign {campaign_id}. "
@@ -321,27 +360,28 @@ def register(mcp):
         client = get_client()
         campaign_criterion_service = client.get_service("CampaignCriterionService")
 
-        resource_name = campaign_criterion_service.campaign_criterion_path(
-            customer_id, campaign_id, criterion_id
-        )
+        resource_name = campaign_criterion_service.campaign_criterion_path(customer_id, campaign_id, criterion_id)
         operation = client.get_type("CampaignCriterionOperation")
         operation.remove = resource_name
 
-        response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
         return {"removed": response.results[0].resource_name}
 
     @mcp.tool
     @handle_google_ads_errors
     def list_location_targets(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> list[dict]:
         """List location targets (geo targets) for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -366,29 +406,45 @@ def register(mcp):
             cc = row.get("campaign_criterion", {})
             loc = cc.get("location", {})
             c = row.get("campaign", {})
-            results.append({
-                "criterion_id": cc.get("criterion_id"),
-                "geo_target_constant": loc.get("geo_target_constant"),
-                "bid_modifier": cc.get("bid_modifier"),
-                "negative": cc.get("negative", False),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-            })
+            results.append(
+                {
+                    "criterion_id": cc.get("criterion_id"),
+                    "geo_target_constant": loc.get("geo_target_constant"),
+                    "bid_modifier": cc.get("bid_modifier"),
+                    "negative": cc.get("negative", False),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                }
+            )
         return results
 
     @mcp.tool
     @handle_google_ads_errors
     def add_location_target(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        geo_target_id: Annotated[str, Field(description="Geo target constant ID (e.g. 2840=US, 2826=UK, 2124=Canada, 1014044=New York City). Find IDs at developers.google.com/google-ads/api/data/geotargets")],
-        bid_modifier: Annotated[float, Field(description="Bid modifier for this location (1.0 = no change, 1.2 = +20%)")] = 1.0,
-        negative: Annotated[bool, Field(description="Set to true to EXCLUDE this location instead of targeting it")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        geo_target_id: Annotated[
+            str,
+            Field(
+                description="Geo target constant ID (e.g. 2840=US, 2826=UK, 2124=Canada, 1014044=New York City). Find IDs at developers.google.com/google-ads/api/data/geotargets"
+            ),
+        ],
+        bid_modifier: Annotated[
+            float, Field(description="Bid modifier for this location (1.0 = no change, 1.2 = +20%)")
+        ] = 1.0,
+        negative: Annotated[
+            bool, Field(description="Set to true to EXCLUDE this location instead of targeting it")
+        ] = False,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Add a location target (or exclusion) to a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -408,9 +464,7 @@ def register(mcp):
         if not negative:
             criterion.bid_modifier = bid_modifier
 
-        response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
         return {
             "resource_name": response.results[0].resource_name,
             "geo_target_id": geo_target_id,
@@ -424,12 +478,17 @@ def register(mcp):
         campaign_id: Annotated[str, Field(description="Campaign ID")],
         criterion_id: Annotated[str, Field(description="Location criterion ID to remove")],
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Remove a location target from a campaign. Requires confirm=true."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if not confirm:
             return {
                 "warning": f"This will remove location criterion {criterion_id} from campaign {campaign_id}. "
@@ -444,27 +503,28 @@ def register(mcp):
 
         client = get_client()
         campaign_criterion_service = client.get_service("CampaignCriterionService")
-        resource_name = campaign_criterion_service.campaign_criterion_path(
-            customer_id, campaign_id, criterion_id
-        )
+        resource_name = campaign_criterion_service.campaign_criterion_path(customer_id, campaign_id, criterion_id)
         operation = client.get_type("CampaignCriterionOperation")
         operation.remove = resource_name
 
-        response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
         return {"removed": response.results[0].resource_name}
 
     @mcp.tool
     @handle_google_ads_errors
     def get_geo_target_type_setting(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get the location targeting presence setting for a campaign (Presence vs Presence or Interest)."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -496,23 +556,41 @@ def register(mcp):
     @handle_google_ads_errors
     def set_geo_target_type_setting(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        positive_type: Annotated[str, Field(description="Who sees your ads: PRESENCE (people IN the location — recommended), PRESENCE_OR_INTEREST (people in or interested in the location), SEARCH_INTEREST (people searching for the location)")] = "PRESENCE",
-        negative_type: Annotated[str, Field(description="Who is excluded: PRESENCE (people IN excluded locations) or PRESENCE_OR_INTEREST")] = "PRESENCE",
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        positive_type: Annotated[
+            str,
+            Field(
+                description="Who sees your ads: PRESENCE (people IN the location — recommended), PRESENCE_OR_INTEREST (people in or interested in the location), SEARCH_INTEREST (people searching for the location)"
+            ),
+        ] = "PRESENCE",
+        negative_type: Annotated[
+            str, Field(description="Who is excluded: PRESENCE (people IN excluded locations) or PRESENCE_OR_INTEREST")
+        ] = "PRESENCE",
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Set the location targeting presence mode for a campaign. PRESENCE is recommended — it targets people physically in your locations, not just searching about them."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if positive_type.upper() not in VALID_PRESENCE_TYPES:
-            return {"error": True, "message": f"Invalid positive_type '{positive_type}'. Must be one of: {', '.join(sorted(VALID_PRESENCE_TYPES))}"}
+            return {
+                "error": True,
+                "message": f"Invalid positive_type '{positive_type}'. Must be one of: {', '.join(sorted(VALID_PRESENCE_TYPES))}",
+            }
         neg_valid = {"PRESENCE", "PRESENCE_OR_INTEREST"}
         if negative_type.upper() not in neg_valid:
-            return {"error": True, "message": f"Invalid negative_type '{negative_type}'. Must be one of: {', '.join(sorted(neg_valid))}"}
+            return {
+                "error": True,
+                "message": f"Invalid negative_type '{negative_type}'. Must be one of: {', '.join(sorted(neg_valid))}",
+            }
 
         client = get_client()
         campaign_service = client.get_service("CampaignService")
@@ -532,14 +610,14 @@ def register(mcp):
         campaign.resource_name = campaign_service.campaign_path(customer_id, campaign_id)
         campaign.geo_target_type_setting.positive_geo_target_type = positive_map[positive_type.upper()]
         campaign.geo_target_type_setting.negative_geo_target_type = negative_map[negative_type.upper()]
-        operation.update_mask.paths.extend([
-            "geo_target_type_setting.positive_geo_target_type",
-            "geo_target_type_setting.negative_geo_target_type",
-        ])
-
-        response = campaign_service.mutate_campaigns(
-            customer_id=customer_id, operations=[operation]
+        operation.update_mask.paths.extend(
+            [
+                "geo_target_type_setting.positive_geo_target_type",
+                "geo_target_type_setting.negative_geo_target_type",
+            ]
         )
+
+        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
         return {
             "resource_name": response.results[0].resource_name,
             "positive_geo_target_type": positive_type.upper(),

@@ -1,6 +1,5 @@
 from typing import Annotated
 
-from google.ads.googleads.errors import GoogleAdsException
 from pydantic import Field
 
 from burnr8.client import get_client
@@ -93,7 +92,7 @@ def register(mcp):
                     "campaign_id": c.get("id"),
                     "campaign_name": c.get("name"),
                     "status": c.get("status"),
-                    "spend": round(cost, 2),
+                    "cost_dollars": round(cost, 2),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "conversions": round(float(m.get("conversions", 0)), 1),
@@ -176,6 +175,8 @@ def register(mcp):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
+
+        from google.ads.googleads.errors import GoogleAdsException
 
         client = get_client()
         query = f"""

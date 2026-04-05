@@ -3,8 +3,6 @@ import time
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar
 
-from google.ads.googleads.errors import GoogleAdsException
-
 from burnr8.logging import log_tool_call, new_correlation_id
 
 P = ParamSpec("P")
@@ -39,42 +37,48 @@ def handle_google_ads_errors(fn: Callable[P, R]) -> Callable[P, R | dict]:
                 log_tool_call(fn.__name__, customer_id, duration, "ok", detail)
 
             return result
-        except GoogleAdsException as ex:
+        except Exception as ex:
             duration = time.monotonic() - start
-            errors = []
-            for error in ex.failure.errors:
-                err = {"message": error.message[:200], "code": str(error.error_code)}
-                if error.location and error.location.field_path_elements:
-                    err["field_path"] = [el.field_name for el in error.location.field_path_elements]
-                errors.append(err)
-            log_tool_call(
-                fn.__name__,
-                customer_id,
-                duration,
-                "error",
-                f'request_id={ex.request_id} status={ex.error.code().name} msg="{errors[0]["message"][:100] if errors else ""}"',
-            )
-            return {
-                "error": True,
-                "request_id": ex.request_id,
-                "status": ex.error.code().name,
-                "errors": errors,
-            }
-        except (KeyError, ValueError, TypeError) as ex:
-            duration = time.monotonic() - start
-            log_tool_call(fn.__name__, customer_id, duration, "error", f'msg="{ex}"')
-            return {
-                "error": True,
-                "message": str(ex),
-            }
-        except OSError as ex:
-            duration = time.monotonic() - start
-            # Don't leak full exception text — may contain paths or system info
-            safe_msg = str(ex)[:200]
-            log_tool_call(fn.__name__, customer_id, duration, "error", f'msg="{safe_msg}"')
-            return {
-                "error": True,
-                "message": safe_msg,
-            }
+
+            # Lazy import to avoid loading SDK at startup
+            from google.ads.googleads.errors import GoogleAdsException
+
+            if isinstance(ex, GoogleAdsException):
+                errors = []
+                for error in ex.failure.errors:
+                    err = {"message": error.message[:200], "code": str(error.error_code)}
+                    if error.location and error.location.field_path_elements:
+                        err["field_path"] = [el.field_name for el in error.location.field_path_elements]
+                    errors.append(err)
+                log_tool_call(
+                    fn.__name__,
+                    customer_id,
+                    duration,
+                    "error",
+                    f'request_id={ex.request_id} status={ex.error.code().name} msg="{errors[0]["message"][:100] if errors else ""}"',
+                )
+                return {
+                    "error": True,
+                    "message": errors[0]["message"] if errors else "Unknown Google Ads API error",
+                    "request_id": ex.request_id,
+                    "status": ex.error.code().name,
+                    "errors": errors,
+                }
+            elif isinstance(ex, (KeyError, ValueError, TypeError)):
+                log_tool_call(fn.__name__, customer_id, duration, "error", f'msg="{ex}"')
+                return {
+                    "error": True,
+                    "message": str(ex),
+                }
+            elif isinstance(ex, OSError):
+                # Don't leak full exception text — may contain paths or system info
+                safe_msg = str(ex)[:200]
+                log_tool_call(fn.__name__, customer_id, duration, "error", f'msg="{safe_msg}"')
+                return {
+                    "error": True,
+                    "message": safe_msg,
+                }
+            else:
+                raise
 
     return wrapper

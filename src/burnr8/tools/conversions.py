@@ -22,11 +22,21 @@ _CONVERSION_ACTION_QUERY = """
 """
 
 VALID_CONVERSION_TYPES = {
-    "WEBPAGE", "UPLOAD_CLICKS", "UPLOAD_CALLS", "CLICK_TO_CALL", "STORE_VISIT",
+    "WEBPAGE",
+    "UPLOAD_CLICKS",
+    "UPLOAD_CALLS",
+    "CLICK_TO_CALL",
+    "STORE_VISIT",
 }
 VALID_CONVERSION_CATEGORIES = {
-    "DEFAULT", "PAGE_VIEW", "PURCHASE", "SIGNUP", "LEAD", "DOWNLOAD",
-    "ADD_TO_CART", "BEGIN_CHECKOUT",
+    "DEFAULT",
+    "PAGE_VIEW",
+    "PURCHASE",
+    "SIGNUP",
+    "LEAD",
+    "DOWNLOAD",
+    "ADD_TO_CART",
+    "BEGIN_CHECKOUT",
 }
 VALID_COUNTING_TYPES = {"ONE_PER_CLICK", "MANY_PER_CLICK"}
 VALID_CONVERSION_STATUSES = {"ENABLED", "REMOVED", "HIDDEN"}
@@ -36,12 +46,17 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_conversion_actions(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> list[dict]:
         """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -52,29 +67,36 @@ def register(mcp):
             ca = row.get("conversion_action", {})
             vs = ca.get("value_settings", {})
             am = ca.get("attribution_model_settings", {})
-            results.append({
-                "id": ca.get("id"),
-                "name": ca.get("name"),
-                "type": ca.get("type"),
-                "category": ca.get("category"),
-                "status": ca.get("status"),
-                "counting_type": ca.get("counting_type"),
-                "default_value": vs.get("default_value"),
-                "always_use_default_value": vs.get("always_use_default_value"),
-                "attribution_model": am.get("attribution_model"),
-            })
+            results.append(
+                {
+                    "id": ca.get("id"),
+                    "name": ca.get("name"),
+                    "type": ca.get("type"),
+                    "category": ca.get("category"),
+                    "status": ca.get("status"),
+                    "counting_type": ca.get("counting_type"),
+                    "default_value": vs.get("default_value"),
+                    "always_use_default_value": vs.get("always_use_default_value"),
+                    "attribution_model": am.get("attribution_model"),
+                }
+            )
         return results
 
     @mcp.tool
     @handle_google_ads_errors
     def get_conversion_action(
         conversion_action_id: Annotated[str, Field(description="Conversion action ID")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get detailed info for a specific conversion action by ID."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(conversion_action_id, "conversion_action_id"):
@@ -104,31 +126,56 @@ def register(mcp):
     @handle_google_ads_errors
     def create_conversion_action(
         name: Annotated[str, Field(description="Name for the conversion action (e.g. 'Purchase', 'Sign Up')")],
-        type: Annotated[str, Field(description="Conversion type: WEBPAGE, UPLOAD_CLICKS, UPLOAD_CALLS, CLICK_TO_CALL, STORE_VISIT")] = "WEBPAGE",
-        category: Annotated[str, Field(description="Conversion category: DEFAULT, PAGE_VIEW, PURCHASE, SIGNUP, LEAD, DOWNLOAD, ADD_TO_CART, BEGIN_CHECKOUT")] = "DEFAULT",
-        counting_type: Annotated[str, Field(description="Counting type: ONE_PER_CLICK or MANY_PER_CLICK")] = "ONE_PER_CLICK",
+        type: Annotated[
+            str, Field(description="Conversion type: WEBPAGE, UPLOAD_CLICKS, UPLOAD_CALLS, CLICK_TO_CALL, STORE_VISIT")
+        ] = "WEBPAGE",
+        category: Annotated[
+            str,
+            Field(
+                description="Conversion category: DEFAULT, PAGE_VIEW, PURCHASE, SIGNUP, LEAD, DOWNLOAD, ADD_TO_CART, BEGIN_CHECKOUT"
+            ),
+        ] = "DEFAULT",
+        counting_type: Annotated[
+            str, Field(description="Counting type: ONE_PER_CLICK or MANY_PER_CLICK")
+        ] = "ONE_PER_CLICK",
         default_value: Annotated[float, Field(description="Default conversion value in dollars")] = 0.0,
-        always_use_default_value: Annotated[bool, Field(description="If true, always use the default value instead of transaction-specific values")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        always_use_default_value: Annotated[
+            bool, Field(description="If true, always use the default value instead of transaction-specific values")
+        ] = False,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a new conversion action for tracking sign-ups, purchases, etc. Starts ENABLED by default."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
 
         type_upper = type.upper()
         if type_upper not in VALID_CONVERSION_TYPES:
-            return {"error": True, "message": f"Invalid type '{type}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_TYPES))}"}
+            return {
+                "error": True,
+                "message": f"Invalid type '{type}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_TYPES))}",
+            }
 
         category_upper = category.upper()
         if category_upper not in VALID_CONVERSION_CATEGORIES:
-            return {"error": True, "message": f"Invalid category '{category}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_CATEGORIES))}"}
+            return {
+                "error": True,
+                "message": f"Invalid category '{category}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_CATEGORIES))}",
+            }
 
         counting_upper = counting_type.upper()
         if counting_upper not in VALID_COUNTING_TYPES:
-            return {"error": True, "message": f"Invalid counting_type '{counting_type}'. Must be one of: {', '.join(sorted(VALID_COUNTING_TYPES))}"}
+            return {
+                "error": True,
+                "message": f"Invalid counting_type '{counting_type}'. Must be one of: {', '.join(sorted(VALID_COUNTING_TYPES))}",
+            }
 
         client = get_client()
         conversion_action_service = client.get_service("ConversionActionService")
@@ -169,9 +216,7 @@ def register(mcp):
         action.value_settings.default_value = default_value
         action.value_settings.always_use_default_value = always_use_default_value
 
-        response = conversion_action_service.mutate_conversion_actions(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         return {
@@ -192,15 +237,25 @@ def register(mcp):
         conversion_action_id: Annotated[str, Field(description="Conversion action ID to update")],
         name: Annotated[str | None, Field(description="New name for the conversion action")] = None,
         status: Annotated[str | None, Field(description="New status: ENABLED, REMOVED, or HIDDEN")] = None,
-        counting_type: Annotated[str | None, Field(description="New counting type: ONE_PER_CLICK or MANY_PER_CLICK")] = None,
+        counting_type: Annotated[
+            str | None, Field(description="New counting type: ONE_PER_CLICK or MANY_PER_CLICK")
+        ] = None,
         default_value: Annotated[float | None, Field(description="New default conversion value in dollars")] = None,
-        always_use_default_value: Annotated[bool | None, Field(description="If true, always use the default value instead of transaction-specific values")] = None,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        always_use_default_value: Annotated[
+            bool | None,
+            Field(description="If true, always use the default value instead of transaction-specific values"),
+        ] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Update a conversion action's name, value, status, or counting type."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(conversion_action_id, "conversion_action_id"):
@@ -211,9 +266,7 @@ def register(mcp):
 
         operation = client.get_type("ConversionActionOperation")
         action = operation.update
-        action.resource_name = conversion_action_service.conversion_action_path(
-            customer_id, conversion_action_id
-        )
+        action.resource_name = conversion_action_service.conversion_action_path(customer_id, conversion_action_id)
 
         field_mask = []
 
@@ -224,7 +277,10 @@ def register(mcp):
         if status is not None:
             status_upper = status.upper()
             if status_upper not in VALID_CONVERSION_STATUSES:
-                return {"error": True, "message": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_STATUSES))}"}
+                return {
+                    "error": True,
+                    "message": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_STATUSES))}",
+                }
             status_map = {
                 "ENABLED": client.enums.ConversionActionStatusEnum.ENABLED,
                 "REMOVED": client.enums.ConversionActionStatusEnum.REMOVED,
@@ -236,7 +292,10 @@ def register(mcp):
         if counting_type is not None:
             counting_upper = counting_type.upper()
             if counting_upper not in VALID_COUNTING_TYPES:
-                return {"error": True, "message": f"Invalid counting_type '{counting_type}'. Must be one of: {', '.join(sorted(VALID_COUNTING_TYPES))}"}
+                return {
+                    "error": True,
+                    "message": f"Invalid counting_type '{counting_type}'. Must be one of: {', '.join(sorted(VALID_COUNTING_TYPES))}",
+                }
             counting_map = {
                 "ONE_PER_CLICK": client.enums.ConversionActionCountingTypeEnum.ONE_PER_CLICK,
                 "MANY_PER_CLICK": client.enums.ConversionActionCountingTypeEnum.MANY_PER_CLICK,
@@ -257,7 +316,5 @@ def register(mcp):
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = conversion_action_service.mutate_conversion_actions(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation])
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}

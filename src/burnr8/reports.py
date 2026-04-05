@@ -19,7 +19,10 @@ _VALID_MODES = {"disk", "supabase"}
 REPORT_MODE = os.environ.get("BURNR8_REPORT_MODE", "disk")
 if REPORT_MODE not in _VALID_MODES:
     import warnings
-    warnings.warn(f"Unknown BURNR8_REPORT_MODE={REPORT_MODE!r}, falling back to 'disk'. Valid: {_VALID_MODES}", stacklevel=1)
+
+    warnings.warn(
+        f"Unknown BURNR8_REPORT_MODE={REPORT_MODE!r}, falling back to 'disk'. Valid: {_VALID_MODES}", stacklevel=1
+    )
     REPORT_MODE = "disk"
 REPORTS_DIR = Path(os.environ.get("BURNR8_REPORTS_DIR", os.path.expanduser("~/.burnr8/reports")))
 
@@ -153,6 +156,7 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
     # Prefix with user_id so dashboard can list per-user reports
     try:
         from burnr8.logging import cloud_user_id
+
         user_id = cloud_user_id.get()
     except (ImportError, LookupError):
         user_id = None
@@ -221,11 +225,23 @@ def get_storage_stats() -> dict:
         }
 
     if not REPORTS_DIR.exists():
-        return {"report_mode": "disk", "report_files": 0, "total_size_mb": 0, "oldest_file": None, "reports_dir": str(REPORTS_DIR)}
+        return {
+            "report_mode": "disk",
+            "report_files": 0,
+            "total_size_mb": 0,
+            "oldest_file": None,
+            "reports_dir": str(REPORTS_DIR),
+        }
 
     files = list(REPORTS_DIR.glob("*.csv"))
     if not files:
-        return {"report_mode": "disk", "report_files": 0, "total_size_mb": 0, "oldest_file": None, "reports_dir": str(REPORTS_DIR)}
+        return {
+            "report_mode": "disk",
+            "report_files": 0,
+            "total_size_mb": 0,
+            "oldest_file": None,
+            "reports_dir": str(REPORTS_DIR),
+        }
 
     file_stats = [f.stat() for f in files if f.exists()]
     total_bytes = sum(s.st_size for s in file_stats)

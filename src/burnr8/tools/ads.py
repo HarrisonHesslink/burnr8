@@ -13,13 +13,18 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_ads(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List ads with approval status and performance metrics. Saves full results to CSV, returns summary + top rows."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -63,24 +68,26 @@ def register(mcp):
             headlines = [h.get("text", "") for h in rsa.get("headlines", [])] if rsa else []
             descriptions = [d.get("text", "") for d in rsa.get("descriptions", [])] if rsa else []
 
-            results.append({
-                "ad_id": ad.get("id"),
-                "type": ad.get("type"),
-                "final_urls": "|".join(ad.get("final_urls", [])),
-                "headlines": "|".join(headlines),
-                "descriptions": "|".join(descriptions),
-                "ad_strength": aga.get("ad_strength"),
-                "status": aga.get("status"),
-                "approval_status": aga.get("policy_summary", {}).get("approval_status"),
-                "ad_group_id": ag.get("id"),
-                "ad_group_name": ag.get("name"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
-                "conversions": float(m.get("conversions", 0)),
-            })
+            results.append(
+                {
+                    "ad_id": ad.get("id"),
+                    "type": ad.get("type"),
+                    "final_urls": "|".join(ad.get("final_urls", [])),
+                    "headlines": "|".join(headlines),
+                    "descriptions": "|".join(descriptions),
+                    "ad_strength": aga.get("ad_strength"),
+                    "status": aga.get("status"),
+                    "approval_status": aga.get("policy_summary", {}).get("approval_status"),
+                    "ad_group_id": ag.get("id"),
+                    "ad_group_name": ag.get("name"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "conversions": float(m.get("conversions", 0)),
+                }
+            )
 
         # Build summary: ad strength distribution and approval status counts
         strength_counts: dict[str, int] = {}
@@ -108,12 +115,17 @@ def register(mcp):
         headlines: Annotated[list[str], Field(description="List of 3-15 headline texts (max 30 chars each)")],
         descriptions: Annotated[list[str], Field(description="List of 2-4 description texts (max 90 chars each)")],
         final_url: Annotated[str, Field(description="Landing page URL")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a responsive search ad in an ad group."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -141,11 +153,13 @@ def register(mcp):
             desc.text = desc_text
             ad.responsive_search_ad.descriptions.append(desc)
 
-        response = ad_group_ad_service.mutate_ad_group_ads(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
-        return {"resource_name": resource_name, "headlines_count": len(headlines), "descriptions_count": len(descriptions)}
+        return {
+            "resource_name": resource_name,
+            "headlines_count": len(headlines),
+            "descriptions_count": len(descriptions),
+        }
 
     @mcp.tool
     @handle_google_ads_errors
@@ -153,29 +167,31 @@ def register(mcp):
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the ad")],
         ad_id: Annotated[str, Field(description="Ad ID")],
         status: Annotated[str, Field(description="New status: ENABLED, PAUSED, or REMOVED")],
-        confirm: Annotated[bool, Field(description="Must be true to execute. Enabling an ad means it can serve and spend budget.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        confirm: Annotated[
+            bool, Field(description="Must be true to execute. Enabling an ad means it can serve and spend budget.")
+        ] = False,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Enable, pause, or remove an ad. Requires confirm=true for safety."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:
-            return {
-                "warning": f"This will set ad {ad_id} to {status.upper()}. "
-                "Set confirm=true to execute."
-            }
+            return {"warning": f"This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute."}
 
         client = get_client()
         ad_group_ad_service = client.get_service("AdGroupAdService")
 
         operation = client.get_type("AdGroupAdOperation")
         ad_group_ad = operation.update
-        ad_group_ad.resource_name = ad_group_ad_service.ad_group_ad_path(
-            customer_id, ad_group_id, ad_id
-        )
+        ad_group_ad.resource_name = ad_group_ad_service.ad_group_ad_path(customer_id, ad_group_id, ad_id)
 
         status_map = {
             "ENABLED": client.enums.AdGroupAdStatusEnum.ENABLED,
@@ -185,7 +201,5 @@ def register(mcp):
         ad_group_ad.status = status_map[status.upper()]
         operation.update_mask.paths.append("status")
 
-        response = ad_group_ad_service.mutate_ad_group_ads(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation])
         return {"resource_name": response.results[0].resource_name, "new_status": status.upper()}

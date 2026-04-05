@@ -18,13 +18,18 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_keywords(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List keyword inventory — what keywords exist, their config, bids, match types, and quality scores. Filter by ad group."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -64,22 +69,24 @@ def register(mcp):
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            results.append({
-                "criterion_id": cr.get("criterion_id"),
-                "text": kw.get("text"),
-                "match_type": kw.get("match_type"),
-                "status": cr.get("status"),
-                "cpc_bid_dollars": int(cr.get("cpc_bid_micros", 0)) / 1_000_000,
-                "quality_score": qi.get("quality_score"),
-                "ad_group_id": ag.get("id"),
-                "ad_group_name": ag.get("name"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
-                "conversions": float(m.get("conversions", 0)),
-            })
+            results.append(
+                {
+                    "criterion_id": cr.get("criterion_id"),
+                    "text": kw.get("text"),
+                    "match_type": kw.get("match_type"),
+                    "status": cr.get("status"),
+                    "cpc_bid_dollars": int(cr.get("cpc_bid_micros", 0)) / 1_000_000,
+                    "quality_score": qi.get("quality_score"),
+                    "ad_group_id": ag.get("id"),
+                    "ad_group_name": ag.get("name"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "conversions": float(m.get("conversions", 0)),
+                }
+            )
 
         report = save_report(results, "keywords")
         if report.get("error"):
@@ -101,12 +108,17 @@ def register(mcp):
     def add_keywords(
         ad_group_id: Annotated[str, Field(description="Ad group ID to add keywords to")],
         keywords: Annotated[list[KeywordInput], Field(description="List of keywords with text and match_type")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Add one or more keywords to an ad group."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -134,12 +146,11 @@ def register(mcp):
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=operations
-        )
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations)
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
+            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in keywords],
         }
 
     @mcp.tool
@@ -148,16 +159,24 @@ def register(mcp):
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the keyword")],
         criterion_id: Annotated[str, Field(description="Keyword criterion ID to remove")],
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Remove a keyword from an ad group. Requires confirm=true."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if not confirm:
             return {
-                "warning": f"This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
-                "Set confirm=true to execute."
+                "warning": True,
+                "criterion_id": criterion_id,
+                "ad_group_id": ad_group_id,
+                "message": f"This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
+                f"Set confirm=true to execute.",
             }
 
         if err := validate_id(customer_id, "customer_id"):
@@ -169,15 +188,11 @@ def register(mcp):
         client = get_client()
         ad_group_criterion_service = client.get_service("AdGroupCriterionService")
 
-        resource_name = ad_group_criterion_service.ad_group_criterion_path(
-            customer_id, ad_group_id, criterion_id
-        )
+        resource_name = ad_group_criterion_service.ad_group_criterion_path(customer_id, ad_group_id, criterion_id)
         operation = client.get_type("AdGroupCriterionOperation")
         operation.remove = resource_name
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=[operation])
         return {"removed": response.results[0].resource_name}
 
     @mcp.tool
@@ -187,12 +202,17 @@ def register(mcp):
         url: Annotated[str | None, Field(description="URL to extract keyword ideas from")] = None,
         language_id: Annotated[str, Field(description="Language criterion ID (1000=English)")] = "1000",
         geo_target_ids: Annotated[list[str] | None, Field(description="Geo target criterion IDs (2840=US)")] = None,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get keyword ideas with search volume, competition, and CPC estimates. Saves full report to CSV, returns summary + top rows + file path."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if geo_target_ids is None:
             geo_target_ids = ["2840"]
         if err := validate_id(customer_id, "customer_id"):
@@ -223,13 +243,19 @@ def register(mcp):
         results = []
         for idea in response.results:
             metrics = idea.keyword_idea_metrics
-            results.append({
-                "keyword": idea.text,
-                "avg_monthly_searches": metrics.avg_monthly_searches if metrics else 0,
-                "competition": metrics.competition.name if metrics else "UNKNOWN",
-                "low_top_of_page_bid_dollars": (metrics.low_top_of_page_bid_micros or 0) / 1_000_000 if metrics else 0,
-                "high_top_of_page_bid_dollars": (metrics.high_top_of_page_bid_micros or 0) / 1_000_000 if metrics else 0,
-            })
+            results.append(
+                {
+                    "keyword": idea.text,
+                    "avg_monthly_searches": metrics.avg_monthly_searches if metrics else 0,
+                    "competition": metrics.competition.name if metrics else "UNKNOWN",
+                    "low_top_of_page_bid_dollars": (metrics.low_top_of_page_bid_micros or 0) / 1_000_000
+                    if metrics
+                    else 0,
+                    "high_top_of_page_bid_dollars": (metrics.high_top_of_page_bid_micros or 0) / 1_000_000
+                    if metrics
+                    else 0,
+                }
+            )
 
         report = save_report(results, "keyword_research")
         if report.get("error"):

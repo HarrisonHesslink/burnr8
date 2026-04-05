@@ -482,8 +482,8 @@ class TestSetCampaignStatus:
             customer_id="1234567890",
         )
 
-        assert "warning" in result
-        assert "confirm=true" in result["warning"]
+        assert result["warning"] is True
+        assert "confirm" in result["message"].lower()
 
     def test_with_confirm_succeeds(self, mock_ads_client):
         set_active_account("1234567890")

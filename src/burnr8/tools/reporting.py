@@ -15,12 +15,17 @@ def register(mcp):
     def run_gaql_query(
         query: Annotated[str, Field(description="GAQL query to execute")],
         limit: Annotated[int, Field(description="Max rows to return (0 = no limit)")] = 100,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Execute a raw GAQL query. Saves full results to CSV. WARNING: limit=0 fetches all rows — use with caution on large accounts."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -30,14 +35,21 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def get_campaign_performance(
-        date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, THIS_MONTH, LAST_MONTH, etc.")] = "LAST_30_DAYS",
+        date_range: Annotated[
+            str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, THIS_MONTH, LAST_MONTH, etc.")
+        ] = "LAST_30_DAYS",
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get campaign performance metrics. Saves full report to CSV, returns summary + top rows."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):
@@ -76,19 +88,21 @@ def register(mcp):
             conv = float(m.get("conversions", 0))
             total_spend += cost
             total_conversions += conv
-            results.append({
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "status": c.get("status"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "ctr": round(float(m.get("ctr", 0)), 4),
-                "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
-                "cost_dollars": round(cost, 2),
-                "conversions": round(conv, 1),
-                "conversions_value": round(float(m.get("conversions_value", 0)), 2),
-                "cost_per_conversion": round(int(m.get("cost_per_conversion", 0)) / 1_000_000, 2),
-            })
+            results.append(
+                {
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "status": c.get("status"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "ctr": round(float(m.get("ctr", 0)), 4),
+                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "cost_dollars": round(cost, 2),
+                    "conversions": round(conv, 1),
+                    "conversions_value": round(float(m.get("conversions_value", 0)), 2),
+                    "cost_per_conversion": round(int(m.get("cost_per_conversion", 0)) / 1_000_000, 2),
+                }
+            )
 
         report = save_report(results, "campaign_performance")
         report["summary"] = {
@@ -104,12 +118,17 @@ def register(mcp):
     def get_ad_group_performance(
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get ad group level performance metrics. Saves full report to CSV, returns summary + top rows."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):
@@ -139,37 +158,53 @@ def register(mcp):
 
         rows = run_gaql(client, customer_id, query)
         results = []
+        total_spend = 0
         for row in rows:
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            results.append({
-                "ad_group_id": ag.get("id"),
-                "ad_group_name": ag.get("name"),
-                "status": ag.get("status"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "ctr": round(float(m.get("ctr", 0)), 4),
-                "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
-                "cost_dollars": round(int(m.get("cost_micros", 0)) / 1_000_000, 2),
-                "conversions": round(float(m.get("conversions", 0)), 1),
-            })
+            cost = round(int(m.get("cost_micros", 0)) / 1_000_000, 2)
+            total_spend += cost
+            results.append(
+                {
+                    "ad_group_id": ag.get("id"),
+                    "ad_group_name": ag.get("name"),
+                    "status": ag.get("status"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "ctr": round(float(m.get("ctr", 0)), 4),
+                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "cost_dollars": cost,
+                    "conversions": round(float(m.get("conversions", 0)), 1),
+                }
+            )
 
-        return save_report(results, "ad_group_performance")
+        report = save_report(results, "ad_group_performance")
+        report["summary"] = {
+            "date_range": date_range.upper(),
+            "total_spend": round(total_spend, 2),
+            "ad_groups_count": len(results),
+        }
+        return report
 
     @mcp.tool
     @handle_google_ads_errors
     def get_keyword_performance(
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get keyword spending performance — cost, clicks, CTR, CPC, conversions over a date range. Filter by campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):
@@ -213,20 +248,22 @@ def register(mcp):
             qs = qi.get("quality_score")
             if qs is not None and int(qs) > 0:
                 quality_scores.append(int(qs))
-            results.append({
-                "keyword": kw.get("text"),
-                "match_type": kw.get("match_type"),
-                "quality_score": qs,
-                "ad_group_id": ag.get("id"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "ctr": round(float(m.get("ctr", 0)), 4),
-                "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
-                "cost_dollars": round(int(m.get("cost_micros", 0)) / 1_000_000, 2),
-                "conversions": round(float(m.get("conversions", 0)), 1),
-            })
+            results.append(
+                {
+                    "keyword": kw.get("text"),
+                    "match_type": kw.get("match_type"),
+                    "quality_score": qs,
+                    "ad_group_id": ag.get("id"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "ctr": round(float(m.get("ctr", 0)), 4),
+                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "cost_dollars": round(int(m.get("cost_micros", 0)) / 1_000_000, 2),
+                    "conversions": round(float(m.get("conversions", 0)), 1),
+                }
+            )
 
         report = save_report(results, "keyword_performance")
         report["summary"] = {
@@ -241,7 +278,9 @@ def register(mcp):
     def get_search_terms_report(
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get search terms that triggered your ads, sorted by spend (highest first). Saves full report to CSV, returns summary + top spenders.
 
@@ -249,7 +288,10 @@ def register(mcp):
         which can include personally identifiable information (PII). Handle with care."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):
@@ -290,17 +332,19 @@ def register(mcp):
             total_spend += cost
             if conv == 0 and cost > 0:
                 zero_conv_spend += cost
-            results.append({
-                "search_term": st.get("search_term"),
-                "status": st.get("status"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "ad_group_id": ag.get("id"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "cost_dollars": round(cost, 2),
-                "conversions": round(conv, 1),
-            })
+            results.append(
+                {
+                    "search_term": st.get("search_term"),
+                    "status": st.get("status"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "ad_group_id": ag.get("id"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "cost_dollars": round(cost, 2),
+                    "conversions": round(conv, 1),
+                }
+            )
 
         report = save_report(results, "search_terms")
         report["summary"] = {

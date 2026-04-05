@@ -156,7 +156,10 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
                 "duration": round(duration, 1),
             }
         ]
-        _save_usage(usage)
+        # Copy data for writing outside the lock
+        snapshot = dict(usage)
+
+    _save_usage(snapshot)
 
     # Cloud mode: enqueue async insert to Supabase usage_logs.
     # Reads ContextVars here (calling thread), not in the worker.
@@ -210,6 +213,8 @@ def _write_cloud_log(row: dict) -> None:
     supabase_key = os.environ.get("BURNR8_SUPABASE_KEY")
     if not supabase_url or not supabase_key:
         return
+    if not supabase_url.startswith("https://"):
+        return
 
     with contextlib.suppress(Exception):
         requests.post(
@@ -227,7 +232,8 @@ def _write_cloud_log(row: dict) -> None:
 
 def get_usage_stats() -> dict:
     """Get today's usage stats."""
-    data = _load_usage()
+    with _usage_lock:
+        data = _get_usage()
     return {
         "date": data["date"],
         "ops_today": data["ops"],

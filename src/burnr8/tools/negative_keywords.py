@@ -18,14 +18,21 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_negative_keywords(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
-        ad_group_id: Annotated[str | None, Field(description="Include ad-group-level negatives for this ad group ID")] = None,
+        ad_group_id: Annotated[
+            str | None, Field(description="Include ad-group-level negatives for this ad group ID")
+        ] = None,
     ) -> dict:
         """List negative keywords at campaign level, and optionally at ad group level."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -58,14 +65,16 @@ def register(mcp):
             cc = row.get("campaign_criterion", {})
             kw = cc.get("keyword", {})
             c = row.get("campaign", {})
-            campaign_negatives.append({
-                "criterion_id": cc.get("criterion_id"),
-                "text": kw.get("text"),
-                "match_type": kw.get("match_type"),
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "level": "CAMPAIGN",
-            })
+            campaign_negatives.append(
+                {
+                    "criterion_id": cc.get("criterion_id"),
+                    "text": kw.get("text"),
+                    "match_type": kw.get("match_type"),
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "level": "CAMPAIGN",
+                }
+            )
 
         # --- Ad-group-level negatives (only when ad_group_id supplied) ---
         ad_group_negatives = []
@@ -93,41 +102,47 @@ def register(mcp):
                 kw = ac.get("keyword", {})
                 ag = row.get("ad_group", {})
                 c = row.get("campaign", {})
-                ad_group_negatives.append({
-                    "criterion_id": ac.get("criterion_id"),
-                    "text": kw.get("text"),
-                    "match_type": kw.get("match_type"),
-                    "ad_group_id": ag.get("id"),
-                    "ad_group_name": ag.get("name"),
-                    "campaign_id": c.get("id"),
-                    "campaign_name": c.get("name"),
-                    "level": "AD_GROUP",
-                })
+                ad_group_negatives.append(
+                    {
+                        "criterion_id": ac.get("criterion_id"),
+                        "text": kw.get("text"),
+                        "match_type": kw.get("match_type"),
+                        "ad_group_id": ag.get("id"),
+                        "ad_group_name": ag.get("name"),
+                        "campaign_id": c.get("id"),
+                        "campaign_name": c.get("name"),
+                        "level": "AD_GROUP",
+                    }
+                )
 
         # Combine into flat list with normalized schema (all rows get all 8 keys)
         all_negatives = []
         for item in campaign_negatives:
-            all_negatives.append({
-                "criterion_id": item["criterion_id"],
-                "text": item["text"],
-                "match_type": item["match_type"],
-                "campaign_id": item["campaign_id"],
-                "campaign_name": item["campaign_name"],
-                "ad_group_id": None,
-                "ad_group_name": None,
-                "level": item["level"],
-            })
+            all_negatives.append(
+                {
+                    "criterion_id": item["criterion_id"],
+                    "text": item["text"],
+                    "match_type": item["match_type"],
+                    "campaign_id": item["campaign_id"],
+                    "campaign_name": item["campaign_name"],
+                    "ad_group_id": None,
+                    "ad_group_name": None,
+                    "level": item["level"],
+                }
+            )
         for item in ad_group_negatives:
-            all_negatives.append({
-                "criterion_id": item["criterion_id"],
-                "text": item["text"],
-                "match_type": item["match_type"],
-                "campaign_id": item.get("campaign_id"),
-                "campaign_name": item.get("campaign_name"),
-                "ad_group_id": item.get("ad_group_id"),
-                "ad_group_name": item.get("ad_group_name"),
-                "level": item["level"],
-            })
+            all_negatives.append(
+                {
+                    "criterion_id": item["criterion_id"],
+                    "text": item["text"],
+                    "match_type": item["match_type"],
+                    "campaign_id": item.get("campaign_id"),
+                    "campaign_name": item.get("campaign_name"),
+                    "ad_group_id": item.get("ad_group_id"),
+                    "ad_group_name": item.get("ad_group_name"),
+                    "level": item["level"],
+                }
+            )
         report = save_report(all_negatives, "negative_keywords")
         if report.get("error"):
             return report
@@ -156,13 +171,20 @@ def register(mcp):
     @handle_google_ads_errors
     def add_negative_keywords(
         campaign_id: Annotated[str, Field(description="Campaign ID to add negative keywords to")],
-        keywords: Annotated[list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        keywords: Annotated[
+            list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")
+        ],
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Add one or more negative keywords at campaign level via CampaignCriterionService."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -191,25 +213,31 @@ def register(mcp):
             )
             operations.append(operation)
 
-        response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=operations
-        )
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=operations)
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
+            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in keywords],
         }
 
     @mcp.tool
     @handle_google_ads_errors
     def add_ad_group_negative_keywords(
         ad_group_id: Annotated[str, Field(description="Ad group ID to add negative keywords to")],
-        keywords: Annotated[list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        keywords: Annotated[
+            list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")
+        ],
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Add one or more negative keywords at ad group level via AdGroupCriterionService."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -238,31 +266,41 @@ def register(mcp):
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=operations
-        )
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations)
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
+            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in keywords],
         }
 
     @mcp.tool
     @handle_google_ads_errors
     def remove_negative_keyword(
         criterion_id: Annotated[str, Field(description="Negative keyword criterion ID to remove")],
-        campaign_id: Annotated[str | None, Field(description="Campaign ID (required for campaign-level negatives)")] = None,
-        ad_group_id: Annotated[str | None, Field(description="Ad group ID (required for ad-group-level negatives)")] = None,
+        campaign_id: Annotated[
+            str | None, Field(description="Campaign ID (required for campaign-level negatives)")
+        ] = None,
+        ad_group_id: Annotated[
+            str | None, Field(description="Ad group ID (required for ad-group-level negatives)")
+        ] = None,
         confirm: Annotated[bool, Field(description="Must be true to execute removal.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Remove a negative keyword. Provide campaign_id for campaign-level or ad_group_id for ad-group-level. Requires confirm=true."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if not confirm:
             return {
-                "warning": f"This will remove negative keyword criterion {criterion_id}. "
-                "Set confirm=true to execute."
+                "warning": True,
+                "criterion_id": criterion_id,
+                "level": "CAMPAIGN" if campaign_id else "AD_GROUP" if ad_group_id else "UNKNOWN",
+                "message": f"This will remove negative keyword criterion {criterion_id}. Set confirm=true to execute.",
             }
 
         if err := validate_id(customer_id, "customer_id"):
@@ -271,7 +309,10 @@ def register(mcp):
             return {"error": True, "message": err}
 
         if not campaign_id and not ad_group_id:
-            return {"error": True, "message": "Provide either campaign_id (campaign-level) or ad_group_id (ad-group-level)."}
+            return {
+                "error": True,
+                "message": "Provide either campaign_id (campaign-level) or ad_group_id (ad-group-level).",
+            }
 
         if campaign_id and ad_group_id:
             return {"error": True, "message": "Provide only one of campaign_id or ad_group_id, not both."}
@@ -282,9 +323,7 @@ def register(mcp):
             if err := validate_id(campaign_id, "campaign_id"):
                 return {"error": True, "message": err}
             campaign_criterion_service = client.get_service("CampaignCriterionService")
-            resource_name = campaign_criterion_service.campaign_criterion_path(
-                customer_id, campaign_id, criterion_id
-            )
+            resource_name = campaign_criterion_service.campaign_criterion_path(customer_id, campaign_id, criterion_id)
             operation = client.get_type("CampaignCriterionOperation")
             operation.remove = resource_name
             response = campaign_criterion_service.mutate_campaign_criteria(
@@ -294,9 +333,7 @@ def register(mcp):
             if err := validate_id(ad_group_id, "ad_group_id"):
                 return {"error": True, "message": err}
             ad_group_criterion_service = client.get_service("AdGroupCriterionService")
-            resource_name = ad_group_criterion_service.ad_group_criterion_path(
-                customer_id, ad_group_id, criterion_id
-            )
+            resource_name = ad_group_criterion_service.ad_group_criterion_path(customer_id, ad_group_id, criterion_id)
             operation = client.get_type("AdGroupCriterionOperation")
             operation.remove = resource_name
             response = ad_group_criterion_service.mutate_ad_group_criteria(

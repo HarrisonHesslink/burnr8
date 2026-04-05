@@ -13,7 +13,12 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+_VALID_MODES = {"disk", "supabase"}
 REPORT_MODE = os.environ.get("BURNR8_REPORT_MODE", "disk")
+if REPORT_MODE not in _VALID_MODES:
+    import warnings
+    warnings.warn(f"Unknown BURNR8_REPORT_MODE={REPORT_MODE!r}, falling back to 'disk'. Valid: {_VALID_MODES}", stacklevel=1)
+    REPORT_MODE = "disk"
 REPORTS_DIR = Path(os.environ.get("BURNR8_REPORTS_DIR", os.path.expanduser("~/.burnr8/reports")))
 
 # Characters that trigger formula execution in Excel/LibreOffice
@@ -78,10 +83,11 @@ def _prune_old_reports(max_age_days: int = 7) -> int:
 
 def _save_to_disk(rows: list[dict], fieldnames: list[str], report_name: str, top_n: int) -> dict:
     """Write CSV to local disk with restrictive permissions."""
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-    if REPORTS_DIR.is_symlink():
+    # Check symlink BEFORE creating directory
+    if REPORTS_DIR.exists() and REPORTS_DIR.is_symlink():
         return {"error": True, "message": f"REPORTS_DIR is a symlink — refusing to write: {REPORTS_DIR}"}
+
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     _prune_old_reports(max_age_days=7)
 
@@ -144,6 +150,7 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         "Content-Type": "application/json",
     }
 
+    url_warning = None
     try:
         sign_resp = requests.post(
             sign_url,
@@ -154,15 +161,19 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         sign_resp.raise_for_status()
         signed_url = f"{supabase_url}/storage/v1{sign_resp.json()['signedURL']}"
     except Exception:
-        # Upload succeeded but signing failed — return the public path as fallback
+        # Upload succeeded but signing failed — fallback to public URL with warning
         signed_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
+        url_warning = "Signed URL generation failed. Public URL returned — may not work if bucket is private."
 
-    return {
+    result = {
         "url": signed_url,
         "rows": len(rows),
         "columns": fieldnames,
         "top": rows[:top_n],
     }
+    if url_warning:
+        result["url_warning"] = url_warning
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -388,5 +388,112 @@ Call launch_campaign with all components. It creates:
 - Set expectations: wait 2 weeks for learning phase before optimizing"""
 
 
+@mcp.prompt
+def budget_reallocation(customer_id: str = "") -> str:
+    """Analyze budget allocation and recommend where to move spend."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
+    return f"""Analyze budget allocation. {context}
+
+## Step 1: Pull performance data
+Call get_campaign_performance with LAST_30_DAYS for all campaigns.
+Call list_budgets to see daily budget amounts.
+
+## Step 2: Identify budget-constrained campaigns
+Look for campaigns where:
+- Spend is consistently near the daily budget (>90% utilization)
+- CPA is below target (good performance, just needs more budget)
+- Impression share loss due to budget is high (use run_gaql_query with metrics.search_budget_lost_impression_share)
+
+## Step 3: Identify underspending campaigns
+Look for campaigns where:
+- Spend is well below daily budget (<50% utilization)
+- CPA is above target or conversions are low
+
+## Step 4: Recommend reallocations
+Present as a table:
+| Campaign | Current Budget | Spend | CPA | Recommendation | New Budget |
+Show total budget stays the same — just redistributed.
+
+## Step 5: Estimate impact
+Calculate: if we move $X from low-ROI to high-ROI, estimated additional conversions at the high-ROI campaign's CPA.
+Ask for confirmation before making any changes."""
+
+
+@mcp.prompt
+def ad_copy(customer_id: str = "", campaign_id: str = "") -> str:
+    """Generate new RSA ad variations based on current performance."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
+    campaign_context = f", Campaign: {campaign_id}" if campaign_id else ""
+    return f"""Generate new ad copy variations. {context}{campaign_context}
+
+## Step 1: Analyze current ads
+Call list_ads to get existing RSA headlines and descriptions.
+Call get_campaign_performance to identify the best-performing campaign/ad group.
+
+## Step 2: Identify what's working
+Look at the top-performing ad's headlines and descriptions. Categorize each by angle:
+- CTA ("Start Free", "Try Now")
+- Price/Offer ("$9.99/mo", "7-Day Free Trial")
+- Social Proof ("Join 5,000+ Users", "Rated #1")
+- Feature ("AI-Powered", "1200+ Questions")
+- Pain Point ("Stop Wasting Time", "Struggling With...")
+- Differentiator ("Unlike UWorld", "No Credit Card")
+
+## Step 3: Generate new variations
+Write 15 headlines (max 30 chars each) and 4 descriptions (max 90 chars each) using these frameworks:
+- Problem-Agitate-Solve: state the problem, make it urgent, offer the solution
+- Before-After-Bridge: current state → desired state → your product as the bridge
+- Social Proof Lead: impressive stat → what you do → CTA
+- Question Hook: ask a question the user is thinking → answer with your product
+
+Ensure variety across angles — don't write 15 CTA headlines.
+
+## Step 4: Recommend placement
+Suggest which ad group to add the new RSA to.
+Offer to create via create_responsive_search_ad.
+
+## Rules
+- Every headline must be ≤30 characters
+- Every description must be ≤90 characters
+- Do NOT pin headlines unless strategically necessary
+- Include at least 2 headlines with the primary keyword"""
+
+
+@mcp.prompt
+def trends(customer_id: str = "") -> str:
+    """Detect week-over-week performance changes and anomalies."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
+    return f"""Detect performance trends and anomalies. {context}
+
+## Step 1: Compare this week vs last week
+Call get_campaign_performance with LAST_7_DAYS.
+Call get_campaign_performance with LAST_14_DAYS and subtract this week's data to get last week's numbers. Note: this gives approximate results. For exact 7-day comparison, use run_gaql_query with explicit date ranges (e.g. segments.date BETWEEN '2026-03-28' AND '2026-04-03').
+
+## Step 2: Calculate week-over-week changes
+For each campaign, calculate % change in:
+- Spend
+- CPA (cost per conversion)
+- CTR
+- Conversions
+- Impressions
+
+## Step 3: Flag anomalies
+Flag anything with >20% week-over-week change:
+- 🔴 CPA increased >20% — investigate immediately
+- 🟢 CPA decreased >20% — understand why (replicate if intentional)
+- 🔴 CTR dropped >20% — ad fatigue? audience shift?
+- 🟡 Spend increased >20% without conversion increase — waste risk
+
+## Step 4: Check for new patterns
+Call get_search_terms_report LAST_7_DAYS — any new high-spend search terms that weren't there before?
+Call get_keyword_performance — any Quality Score drops?
+
+## Step 5: Present findings
+Table format:
+| Campaign | Metric | Last Week | This Week | Change | Flag |
+Sort by severity (biggest negative changes first).
+End with recommended actions for each flagged item."""
+
+
 if __name__ == "__main__":
     mcp.run()

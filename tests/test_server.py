@@ -33,6 +33,9 @@ def test_prompts_registered():
     assert "audit" in names
     assert "optimize" in names
     assert "new_campaign" in names
+    assert "budget_reallocation" in names
+    assert "ad_copy" in names
+    assert "trends" in names
 
 
 def test_resources_registered():
@@ -61,4 +64,4 @@ def test_prompt_count():
     """Verify expected prompt count."""
     from burnr8.server import mcp
     prompts = asyncio.run(mcp.list_prompts())
-    assert len(prompts) == 3
+    assert len(prompts) == 6

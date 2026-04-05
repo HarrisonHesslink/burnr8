@@ -94,9 +94,7 @@ def account_performance(customer_id: str) -> str:
                 "period": "LAST_30_DAYS",
                 "total_spend": round(total_spend, 2),
                 "total_conversions": round(total_conversions, 1),
-                "avg_cpa": round(total_spend / total_conversions, 2)
-                if total_conversions > 0
-                else None,
+                "avg_cpa": round(total_spend / total_conversions, 2) if total_conversions > 0 else None,
                 "campaigns": campaigns,
             },
             indent=2,
@@ -154,16 +152,8 @@ def account_keywords(customer_id: str) -> str:
                     "conversions": float(m.get("conversions", 0)),
                 }
             )
-        avg_qs = (
-            round(sum(quality_scores) / len(quality_scores), 1)
-            if quality_scores
-            else None
-        )
-        low_qs = [
-            k
-            for k in keywords
-            if k["quality_score"] is not None and int(k["quality_score"]) < 5
-        ]
+        avg_qs = round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else None
+        low_qs = [k for k in keywords if k["quality_score"] is not None and int(k["quality_score"]) < 5]
         return json.dumps(
             {
                 "customer_id": customer_id,
@@ -218,9 +208,7 @@ def account_structure(customer_id: str) -> str:
             c = row.get("campaign", {})
             b = row.get("campaign_budget", {})
             cid = c.get("id")
-            ag_count = sum(
-                1 for ag in ad_groups if ag.get("campaign", {}).get("id") == cid
-            )
+            ag_count = sum(1 for ag in ad_groups if ag.get("campaign", {}).get("id") == cid)
             structure.append(
                 {
                     "campaign_id": cid,
@@ -228,9 +216,7 @@ def account_structure(customer_id: str) -> str:
                     "status": c.get("status"),
                     "channel_type": c.get("advertising_channel_type"),
                     "bidding_strategy": c.get("bidding_strategy_type"),
-                    "daily_budget": round(
-                        int(b.get("amount_micros", 0)) / 1_000_000, 2
-                    ),
+                    "daily_budget": round(int(b.get("amount_micros", 0)) / 1_000_000, 2),
                     "ad_group_count": ag_count,
                 }
             )
@@ -493,6 +479,60 @@ Table format:
 | Campaign | Metric | Last Week | This Week | Change | Flag |
 Sort by severity (biggest negative changes first).
 End with recommended actions for each flagged item."""
+
+
+@mcp.prompt
+def competitors(customer_id: str = "", campaign_id: str = "") -> str:
+    """Analyze competitive positioning — impression share, lost opportunities, and competitor domains."""
+    context = f"Account: {customer_id}" if customer_id else "Use the active account"
+    campaign_filter = f", Campaign: {campaign_id}" if campaign_id else ""
+
+    return f"""Analyze competitive positioning in Google Ads. {context}{campaign_filter}
+
+## Step 1: Pull impression share data
+Call get_competitive_metrics — this works for ALL accounts and shows:
+- Search impression share (% of eligible impressions you received)
+- Top/absolute top impression share (ad position quality)
+- Budget-lost impression share (impressions lost because budget ran out)
+- Rank-lost impression share (impressions lost due to low Quality Score or bids)
+
+## Step 2: Try auction insights (if available)
+Call get_auction_insights for the top-spending campaign — this shows specific competitor domains.
+If it returns an allowlisting error, skip this step and note it's unavailable.
+
+## Step 3: Analyze competitive gaps
+For each campaign, identify:
+- **Budget-limited campaigns**: budget_lost_impression_share > 10% = you're leaving impressions on the table
+- **Rank-limited campaigns**: rank_lost_impression_share > 20% = competitors outbid or outrank you
+- **Low absolute top share**: abs_top_impression_share < 30% = you rarely appear as the first ad
+- **Exact match weakness**: exact_match_impression_share much lower than broad = your exact keywords aren't competitive
+
+## Step 4: Cross-reference with performance
+Call get_campaign_performance for the same date range. Compare:
+- Are high-impression-share campaigns also high-converting?
+- Are budget-limited campaigns the ones with best CPA? (If yes, increase budget immediately)
+- Are rank-limited campaigns worth fighting for? (Check CPA — if profitable, improve QS or raise bids)
+
+## Step 5: Present competitive intelligence report
+Format as:
+
+### Competitive Position Summary
+| Campaign | IS% | Top IS% | Budget Lost | Rank Lost | Action |
+|----------|-----|---------|-------------|-----------|--------|
+
+### Opportunities (sorted by estimated impact)
+1. [Campaign X] — Losing Y% of impressions to budget. Estimated Z additional clicks/month at current CTR.
+2. [Campaign Y] — Rank-limited. QS improvement from 5→7 would recover ~N% impression share.
+
+### Competitor Landscape (if auction insights available)
+| Competitor | Their IS% | Overlap | They Outrank You | You Outrank Them |
+|------------|-----------|---------|------------------|------------------|
+
+### Recommended Actions
+- Budget changes (with specific dollar amounts)
+- QS improvement targets (which keywords to focus on)
+- Bid strategy adjustments
+- Ask for confirmation before executing any changes"""
 
 
 if __name__ == "__main__":

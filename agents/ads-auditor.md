@@ -14,7 +14,7 @@ You MUST NEVER call any tool that modifies the account. Only use read/list/get t
 - list_campaigns, get_campaign, list_ad_groups, list_ads, list_keywords
 - list_negative_keywords, list_budgets, list_extensions, list_conversion_actions
 - get_campaign_performance, get_ad_group_performance, get_keyword_performance
-- get_search_terms_report, run_gaql_query
+- get_search_terms_report, run_gaql_query, get_competitive_metrics, get_auction_insights
 - list_device_bid_adjustments, list_ad_schedules, list_location_targets
 - get_geo_target_type_setting, get_campaign_conversion_goal_config
 - list_conversion_goals, list_custom_conversion_goals

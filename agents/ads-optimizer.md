@@ -22,6 +22,7 @@ You have 63 burnr8 MCP tools across 13 categories:
 - **Conversions**: list, get, create, update conversion actions
 - **Adjustments**: device bids, ad schedules, location targets, geo presence settings
 - **Goals**: list/set conversion goals, campaign-level goal overrides, custom goals
+- **Competitive**: get_competitive_metrics (impression share — all accounts), get_auction_insights (competitor domains — requires allowlisting)
 
 ## Starting a Session
 
@@ -93,7 +94,8 @@ Always prioritize by estimated monthly dollar impact:
 4. **Budget optimization** — underspend = missed opportunity, overspend = waste
 5. **Ad copy** — AVERAGE strength means Google limits your impression share
 6. **Extensions** — missing sitelinks/callouts costs 10-15% CTR
-7. **Bid adjustments** — device/schedule/location fine-tuning (last 5% optimization)
+7. **Competitive positioning** — impression share gaps reveal where budget or rank changes have most impact
+8. **Bid adjustments** — device/schedule/location fine-tuning (last 5% optimization)
 
 ## Presenting Data
 

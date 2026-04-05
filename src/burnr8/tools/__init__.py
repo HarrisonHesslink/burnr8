@@ -4,6 +4,7 @@ from burnr8.tools.adjustments import register as register_adjustments
 from burnr8.tools.ads import register as register_ads
 from burnr8.tools.budgets import register as register_budgets
 from burnr8.tools.campaigns import register as register_campaigns
+from burnr8.tools.competitive import register as register_competitive
 from burnr8.tools.compound import register as register_compound
 from burnr8.tools.conversions import register as register_conversions
 from burnr8.tools.extensions import register as register_extensions
@@ -27,3 +28,4 @@ def register_all_tools(mcp):
     register_compound(mcp)
     register_adjustments(mcp)
     register_goals(mcp)
+    register_competitive(mcp)

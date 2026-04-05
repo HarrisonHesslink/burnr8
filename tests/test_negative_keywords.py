@@ -168,6 +168,16 @@ class TestAddNegativeKeywords:
         set_active_account("1234567890")
         client = mock_ads_client["client"]
 
+        # Override default to return 2 resource names matching 2 keywords
+        from unittest.mock import MagicMock
+
+        resp = MagicMock()
+        r1, r2 = MagicMock(), MagicMock()
+        r1.resource_name = "customers/1234567890/campaignCriteria/222~601"
+        r2.resource_name = "customers/1234567890/campaignCriteria/222~602"
+        resp.results = [r1, r2]
+        client.get_service("CampaignCriterionService").mutate_campaign_criteria.return_value = resp
+
         tool = _register_tool("add_negative_keywords")
         result = tool(
             campaign_id="222",
@@ -179,8 +189,8 @@ class TestAddNegativeKeywords:
         )
 
         assert "error" not in result, f"Unexpected error: {result}"
-        assert result["added"] == 1  # mock returns 1 resource_name
-        assert "resource_names" in result
+        assert result["added"] == 2
+        assert len(result["resource_names"]) == 2
 
         # Verify mutate was called once with 2 operations
         svc = client.get_service("CampaignCriterionService")
@@ -204,6 +214,10 @@ class TestAddNegativeKeywords:
         assert "error" not in result
         svc = client.get_service("CampaignCriterionService")
         svc.mutate_campaign_criteria.assert_called_once()
+        # Verify the operation's match_type was set to BROAD (the default)
+        call_args = svc.mutate_campaign_criteria.call_args
+        ops = call_args.kwargs.get("operations") or call_args[1].get("operations")
+        assert ops[0].create.keyword.match_type == "BROAD"
 
     def test_no_active_account(self, mock_ads_client):
         tool = _register_tool("add_negative_keywords")

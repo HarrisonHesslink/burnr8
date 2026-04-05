@@ -270,11 +270,20 @@ def _make_mock_run_gaql(query_map: dict[str, list[dict]]):
 
 def _mock_save_report(rows, report_name, top_n=10):
     """Mock save_report that returns the same shape without writing files."""
-    top = rows[:top_n] if rows else []
+    if not rows:
+        return {
+            "file": None,
+            "url": None,
+            "rows": 0,
+            "top": [],
+            "message": "No data returned.",
+        }
+    fieldnames = list(rows[0].keys())
     return {
         "file": f"/tmp/mock_reports/{report_name}.csv",
         "rows": len(rows),
-        "top": top,
+        "columns": fieldnames,
+        "top": rows[:top_n],
     }
 
 
@@ -313,8 +322,15 @@ def mock_ads_client():
     for mod in _REPORT_MODULES:
         patches.append(patch(f"{mod}.save_report", side_effect=_mock_save_report))
 
-    # Suppress logging side-effects
+    # Suppress logging and usage stat side-effects
     patches.append(patch("burnr8.errors.log_tool_call"))
+    patches.append(
+        patch(
+            "burnr8.tools.accounts.get_usage_stats",
+            return_value={"operations_today": 0, "errors_today": 0, "last_tool": None},
+        )
+    )
+    patches.append(patch("burnr8.tools.accounts.get_recent_errors", return_value=[]))
 
     for p in patches:
         p.start()

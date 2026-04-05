@@ -1,6 +1,5 @@
 """Tests for burnr8.helpers — conversion functions and validators."""
 
-
 from burnr8.helpers import (
     dollars_to_micros,
     micros_to_dollars,
@@ -12,6 +11,7 @@ from burnr8.helpers import (
 # ---------------------------------------------------------------------------
 # micros_to_dollars
 # ---------------------------------------------------------------------------
+
 
 class TestMicrosToDollars:
     def test_one_million_micros(self):
@@ -30,6 +30,7 @@ class TestMicrosToDollars:
 # ---------------------------------------------------------------------------
 # dollars_to_micros
 # ---------------------------------------------------------------------------
+
 
 class TestDollarsToMicros:
     def test_one_dollar(self):
@@ -52,6 +53,7 @@ class TestDollarsToMicros:
 # ---------------------------------------------------------------------------
 # validate_id
 # ---------------------------------------------------------------------------
+
 
 class TestValidateId:
     def test_valid_numeric(self):
@@ -79,6 +81,7 @@ class TestValidateId:
 # validate_status
 # ---------------------------------------------------------------------------
 
+
 class TestValidateStatus:
     def test_enabled(self):
         assert validate_status("ENABLED") is None
@@ -105,6 +108,7 @@ class TestValidateStatus:
 # ---------------------------------------------------------------------------
 # validate_date_range
 # ---------------------------------------------------------------------------
+
 
 class TestValidateDateRange:
     def test_last_30_days(self):

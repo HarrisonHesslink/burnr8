@@ -123,7 +123,14 @@ class TestCreateBudget:
         assert "resource_name" in result
 
         # Verify mutate was called
-        client.get_service("CampaignBudgetService").mutate_campaign_budgets.assert_called_once()
+        svc = client.get_service("CampaignBudgetService")
+        svc.mutate_campaign_budgets.assert_called_once()
+        # Verify explicitly_shared=False (critical for Smart Bidding — see CLAUDE.md)
+        call_args = svc.mutate_campaign_budgets.call_args
+        ops = call_args.kwargs.get("operations") or call_args[0][1]
+        if not isinstance(ops, list):
+            ops = [ops]
+        assert ops[0].create.explicitly_shared is False
 
 
 # ---------------------------------------------------------------------------

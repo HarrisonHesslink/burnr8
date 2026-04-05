@@ -270,6 +270,7 @@ class TestCreateCampaign:
 
     def test_maximize_conversions_with_target_cpa(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
 
         tool = _register_tool("create_campaign")
         result = tool(
@@ -282,6 +283,14 @@ class TestCreateCampaign:
 
         assert "error" not in result
         assert result["id"] == "222"
+        # Verify the proto field was set with correct micros value
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.create.maximize_conversions.target_cpa_micros == 10_000_000
 
     def test_target_cpa_strategy(self, mock_ads_client):
         set_active_account("1234567890")

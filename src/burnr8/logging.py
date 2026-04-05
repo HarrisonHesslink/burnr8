@@ -1,7 +1,9 @@
+import contextlib
 import contextvars
 import json
 import logging
 import os
+import queue
 import threading
 import uuid
 from datetime import UTC, datetime
@@ -20,8 +22,16 @@ _usage_cache: dict | None = None
 # Correlation ID for tracing multi-tool workflows (e.g. quick_audit → 6 GAQL queries)
 correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
 
-# Cloud user ID — set by the hosted server during credential resolution
+# Cloud user ID — set by the hosted server during credential resolution.
+# IMPORTANT: Must be set in the same thread/context that executes the tool call.
+# If using a thread pool, use contextvars.copy_context().run() to propagate.
 cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
+
+# Bounded queue for cloud log writes — single worker thread, max 100 pending items.
+# Items beyond the limit are silently dropped (backpressure).
+_cloud_queue: queue.Queue | None = None
+_cloud_worker: threading.Thread | None = None
+_cloud_init_lock = threading.Lock()
 
 
 def new_correlation_id() -> str:
@@ -124,27 +134,51 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
         ]
         _save_usage(usage)
 
-    # Cloud mode: async insert to Supabase usage_logs
+    # Cloud mode: enqueue async insert to Supabase usage_logs.
+    # Reads ContextVars here (calling thread), not in the worker.
     if CLOUD_MODE:
         user_id = cloud_user_id.get()
         if user_id:
-            threading.Thread(
-                target=_write_cloud_log,
-                args=(user_id, tool_name, customer_id, duration, status, detail, cid),
-                daemon=True,
-            ).start()
+            row = {
+                "user_id": user_id,
+                "tool_name": tool_name,
+                # Full customer_id for per-account cloud analytics (intentional)
+                "customer_id": customer_id,
+                "duration_ms": round(duration * 1000),
+                "status": status,
+                "correlation_id": cid,
+                "created_at": datetime.now(UTC).isoformat(),
+                # detail omitted — may contain PII (search terms, error messages)
+            }
+            _enqueue_cloud_log(row)
 
 
-def _write_cloud_log(
-    user_id: str,
-    tool_name: str,
-    customer_id: str | None,
-    duration: float,
-    status: str,
-    detail: str,
-    correlation_id: str | None,
-) -> None:
-    """Insert a usage log row into Supabase. Runs in a daemon thread — fire-and-forget."""
+def _enqueue_cloud_log(row: dict) -> None:
+    """Enqueue a row for the cloud log worker. Non-blocking, drops if queue is full."""
+    global _cloud_queue, _cloud_worker
+    if _cloud_queue is None:
+        with _cloud_init_lock:
+            if _cloud_queue is None:
+                _cloud_queue = queue.Queue(maxsize=100)
+                _cloud_worker = threading.Thread(target=_cloud_log_worker, daemon=True)
+                _cloud_worker.start()
+
+    with contextlib.suppress(queue.Full):
+        _cloud_queue.put_nowait(row)
+
+
+def _cloud_log_worker() -> None:
+    """Single background thread that drains the cloud log queue."""
+    while True:
+        row = _cloud_queue.get()  # type: ignore[union-attr]
+        if row is None:
+            break
+        _write_cloud_log(row)
+        _cloud_queue.task_done()  # type: ignore[union-attr]
+
+
+def _write_cloud_log(row: dict) -> None:
+    """Insert a usage log row into Supabase. Called from the cloud worker thread."""
     try:
         import requests
     except ImportError:
@@ -154,19 +188,6 @@ def _write_cloud_log(
     supabase_key = os.environ.get("BURNR8_SUPABASE_KEY")
     if not supabase_url or not supabase_key:
         return
-
-    row = {
-        "user_id": user_id,
-        "tool_name": tool_name,
-        "customer_id": customer_id,
-        "duration_ms": round(duration * 1000),
-        "status": status,
-        "detail": detail[:500] if detail else None,
-        "correlation_id": correlation_id,
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-
-    import contextlib
 
     with contextlib.suppress(Exception):
         requests.post(

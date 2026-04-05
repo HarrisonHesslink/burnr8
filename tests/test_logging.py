@@ -217,10 +217,8 @@ def test_get_recent_errors_respects_limit():
 # --- Cloud logging ---
 
 
-def test_cloud_log_fires_when_cloud_mode_and_user_id_set():
-    """In cloud mode with a user_id, log_tool_call should spawn a thread to write to Supabase."""
-    import tempfile
-
+def test_cloud_log_enqueues_when_cloud_mode_and_user_id_set():
+    """In cloud mode with a user_id, log_tool_call should enqueue a cloud log row."""
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
@@ -229,34 +227,28 @@ def test_cloud_log_fires_when_cloud_mode_and_user_id_set():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
             patch("burnr8.logging.CLOUD_MODE", True),
-            patch("burnr8.logging._write_cloud_log") as mock_cloud,
+            patch("burnr8.logging._enqueue_cloud_log") as mock_enqueue,
         ):
             from burnr8.logging import cloud_user_id, log_tool_call
 
             cloud_user_id.set("user-abc-123")
             log_tool_call("test_tool", "123456", 0.5, "ok", "detail=test")
 
-            # _write_cloud_log should NOT be called directly — it's called via Thread
-            # But since we patched it, the Thread target is the mock
-            # Verify the thread was started by checking the mock was called
-            # (patching replaces the function the Thread targets)
-            import time
-
-            time.sleep(0.1)  # give daemon thread time to start
-            mock_cloud.assert_called_once()
-            args = mock_cloud.call_args[0]
-            assert args[0] == "user-abc-123"  # user_id
-            assert args[1] == "test_tool"  # tool_name
-            assert args[3] == 0.5  # duration
-            assert args[4] == "ok"  # status
+            mock_enqueue.assert_called_once()
+            row = mock_enqueue.call_args[0][0]
+            assert row["user_id"] == "user-abc-123"
+            assert row["tool_name"] == "test_tool"
+            assert row["customer_id"] == "123456"
+            assert row["duration_ms"] == 500
+            assert row["status"] == "ok"
+            # detail is intentionally excluded from cloud logs (PII risk)
+            assert "detail" not in row
 
             cloud_user_id.set(None)
 
 
 def test_cloud_log_skipped_when_no_user_id():
-    """Cloud mode without user_id should not attempt cloud logging."""
-    import tempfile
-
+    """Cloud mode without user_id should not enqueue."""
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
@@ -265,22 +257,17 @@ def test_cloud_log_skipped_when_no_user_id():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
             patch("burnr8.logging.CLOUD_MODE", True),
-            patch("burnr8.logging._write_cloud_log") as mock_cloud,
+            patch("burnr8.logging._enqueue_cloud_log") as mock_enqueue,
         ):
             from burnr8.logging import cloud_user_id, log_tool_call
 
             cloud_user_id.set(None)
             log_tool_call("test_tool", "123456", 0.5, "ok")
-            import time
-
-            time.sleep(0.1)
-            mock_cloud.assert_not_called()
+            mock_enqueue.assert_not_called()
 
 
 def test_cloud_log_skipped_when_not_cloud_mode():
     """Without BURNR8_CLOUD, no cloud logging should happen."""
-    import tempfile
-
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
@@ -289,12 +276,79 @@ def test_cloud_log_skipped_when_not_cloud_mode():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
             patch("burnr8.logging.CLOUD_MODE", False),
-            patch("burnr8.logging._write_cloud_log") as mock_cloud,
+            patch("burnr8.logging._enqueue_cloud_log") as mock_enqueue,
         ):
             from burnr8.logging import log_tool_call
 
             log_tool_call("test_tool", "123456", 0.5, "ok")
-            mock_cloud.assert_not_called()
+            mock_enqueue.assert_not_called()
+
+
+def test_write_cloud_log_posts_correct_row():
+    """_write_cloud_log should POST to Supabase with correct headers and row."""
+    from unittest.mock import MagicMock
+
+    mock_post = MagicMock()
+    row = {
+        "user_id": "user-abc",
+        "tool_name": "list_campaigns",
+        "customer_id": "1234567890",
+        "duration_ms": 500,
+        "status": "ok",
+        "correlation_id": "abc123def456",
+        "created_at": "2026-04-05T00:00:00+00:00",
+    }
+
+    with (
+        patch("burnr8.logging.os.environ.get") as mock_env,
+        patch.dict("sys.modules", {"requests": MagicMock()}),
+    ):
+        import sys
+
+        mock_requests = sys.modules["requests"]
+        mock_requests.post = mock_post
+        mock_env.side_effect = lambda k, d=None: {
+            "BURNR8_SUPABASE_URL": "https://test.supabase.co",
+            "BURNR8_SUPABASE_KEY": "test-key",
+        }.get(k, d)
+
+        from burnr8.logging import _write_cloud_log
+
+        _write_cloud_log(row)
+
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args
+        assert "rest/v1/usage_logs" in call_kwargs[0][0] or call_kwargs.kwargs.get("url", call_kwargs[0][0])
+        headers = call_kwargs.kwargs.get("headers") or call_kwargs[1].get("headers")
+        assert headers["Authorization"] == "Bearer test-key"
+        assert headers["apikey"] == "test-key"
+        assert headers["Prefer"] == "return=minimal"
+        assert call_kwargs.kwargs.get("timeout") == 5 or call_kwargs[1].get("timeout") == 5
+
+
+def test_write_cloud_log_suppresses_network_errors():
+    """_write_cloud_log should not raise on network failures."""
+    from unittest.mock import MagicMock
+
+    mock_post = MagicMock(side_effect=ConnectionError("network down"))
+
+    with (
+        patch("burnr8.logging.os.environ.get") as mock_env,
+        patch.dict("sys.modules", {"requests": MagicMock()}),
+    ):
+        import sys
+
+        mock_requests = sys.modules["requests"]
+        mock_requests.post = mock_post
+        mock_env.side_effect = lambda k, d=None: {
+            "BURNR8_SUPABASE_URL": "https://test.supabase.co",
+            "BURNR8_SUPABASE_KEY": "test-key",
+        }.get(k, d)
+
+        from burnr8.logging import _write_cloud_log
+
+        # Should not raise
+        _write_cloud_log({"user_id": "test", "tool_name": "test"})
 
 
 # --- Log level ---

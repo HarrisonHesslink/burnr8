@@ -39,6 +39,7 @@ build-backend = "setuptools.build_meta"
 
 [project.scripts]
 burnr8 = "burnr8.dashboard:main"
+burnr8-setup = "burnr8.setup:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

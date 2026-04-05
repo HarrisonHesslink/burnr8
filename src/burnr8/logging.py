@@ -83,12 +83,17 @@ def _load_usage() -> dict:
 
 def _save_usage(data: dict) -> None:
     """Atomic write: temp file then replace."""
-    LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp = USAGE_FILE.with_suffix(".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with open(fd, "w") as f:
-        f.write(json.dumps(data, indent=2))
-    tmp.replace(USAGE_FILE)
+    global _usage_cache
+    try:
+        LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+        tmp = USAGE_FILE.with_suffix(".tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with open(fd, "w") as f:
+            f.write(json.dumps(data, indent=2))
+        tmp.replace(USAGE_FILE)
+    except OSError:
+        _usage_cache = None
+        raise
 
 
 def _get_usage() -> dict:

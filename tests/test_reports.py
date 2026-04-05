@@ -1,4 +1,4 @@
-"""Tests for burnr8.reports — CSV export, sanitization, cleanup, and storage stats."""
+"""Tests for burnr8.reports — CSV export, sanitization, cleanup, storage stats, and pluggable handlers."""
 
 import csv
 import os
@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from burnr8.reports import (
     _prune_old_reports,
+    _rows_to_csv_bytes,
     _sanitize_cell,
     get_storage_stats,
     save_report,
@@ -219,7 +220,126 @@ def test_get_storage_stats():
 
 
 def test_get_storage_stats_empty():
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)):
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
         stats = get_storage_stats()
         assert stats["report_files"] == 0
         assert stats["total_size_mb"] == 0
+
+
+# --- CSV bytes helper ---
+
+
+def test_rows_to_csv_bytes():
+    rows = [{"a": 1, "b": "hello"}, {"a": 2, "b": "world"}]
+    csv_bytes = _rows_to_csv_bytes(rows, ["a", "b"])
+    assert isinstance(csv_bytes, bytes)
+    text = csv_bytes.decode("utf-8")
+    assert "a,b" in text
+    assert "1,hello" in text
+    assert "2,world" in text
+
+
+def test_rows_to_csv_bytes_sanitizes():
+    rows = [{"term": "=CMD()", "val": "safe"}]
+    csv_bytes = _rows_to_csv_bytes(rows, ["term", "val"])
+    text = csv_bytes.decode("utf-8")
+    assert "'=CMD()" in text
+
+
+# --- Report mode selection ---
+
+
+def test_save_report_defaults_to_disk():
+    rows = [{"a": 1}]
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+        result = save_report(rows, "test_mode")
+        assert "file" in result
+        assert result["file"] is not None
+        assert "url" not in result
+
+
+def test_save_report_supabase_mode_missing_config():
+    rows = [{"a": 1}]
+    with patch("burnr8.reports.REPORT_MODE", "supabase"), patch.dict(os.environ, {}, clear=True):
+        result = save_report(rows, "test_mode")
+        assert result.get("error") is True
+        assert "BURNR8_SUPABASE_URL" in result["message"]
+
+
+def test_save_report_empty_returns_both_keys():
+    result = save_report([], "empty")
+    assert result["file"] is None
+    assert result["url"] is None
+    assert result["rows"] == 0
+
+
+def test_storage_stats_supabase_mode():
+    with patch("burnr8.reports.REPORT_MODE", "supabase"):
+        stats = get_storage_stats()
+        assert stats["report_mode"] == "supabase"
+
+def test_storage_stats_disk_mode():
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+        stats = get_storage_stats()
+        assert stats["report_mode"] == "disk"
+
+
+# --- Supabase happy path ---
+
+
+def test_save_report_supabase_success():
+    """Test successful Supabase upload + signed URL generation."""
+    from unittest.mock import MagicMock
+
+    rows = [{"keyword": "test", "clicks": 10}]
+
+    mock_upload_resp = MagicMock()
+    mock_upload_resp.raise_for_status = MagicMock()
+
+    mock_sign_resp = MagicMock()
+    mock_sign_resp.raise_for_status = MagicMock()
+    mock_sign_resp.json.return_value = {"signedURL": "/object/sign/reports/test.csv?token=abc"}
+
+    with patch("burnr8.reports.REPORT_MODE", "supabase"), \
+         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123", "BURNR8_SUPABASE_BUCKET": "reports"}), \
+         patch("requests.post", side_effect=[mock_upload_resp, mock_sign_resp]):
+        result = save_report(rows, "test_report")
+
+        assert "url" in result
+        assert "test.supabase.co" in result["url"]
+        assert result["rows"] == 1
+        assert result.get("error") is None
+        assert result.get("url_warning") is None
+
+
+def test_save_report_supabase_sign_failure_returns_warning():
+    """Test that sign failure returns a public URL with a warning."""
+    from unittest.mock import MagicMock
+
+    rows = [{"keyword": "test", "clicks": 10}]
+
+    mock_upload_resp = MagicMock()
+    mock_upload_resp.raise_for_status = MagicMock()
+
+    with patch("burnr8.reports.REPORT_MODE", "supabase"), \
+         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123", "BURNR8_SUPABASE_BUCKET": "reports"}), \
+         patch("requests.post", side_effect=[mock_upload_resp, Exception("sign failed")]):
+        result = save_report(rows, "test_report")
+
+        assert "url" in result
+        assert "public" in result["url"]
+        assert result["url_warning"] is not None
+        assert "Signed URL generation failed" in result["url_warning"]
+
+
+def test_save_report_supabase_upload_failure():
+    """Test that upload failure returns error."""
+    rows = [{"keyword": "test", "clicks": 10}]
+
+    with patch("burnr8.reports.REPORT_MODE", "supabase"), \
+         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123"}), \
+         patch("requests.post", side_effect=Exception("connection refused")):
+        result = save_report(rows, "test_report")
+
+        assert result.get("error") is True
+        assert "upload failed" in result["message"].lower()

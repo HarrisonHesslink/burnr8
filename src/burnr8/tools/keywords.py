@@ -20,7 +20,7 @@ def register(mcp):
         customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
-        """List keyword criteria with bids, match types, and quality scores. Saves full report to CSV, returns summary + top rows + file path."""
+        """List keyword inventory — what keywords exist, their config, bids, match types, and quality scores. Filter by ad group."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):

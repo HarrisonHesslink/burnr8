@@ -1,12 +1,26 @@
-"""Report export utilities — saves full data to CSV, returns summary to Claude."""
+"""Report export utilities — saves full data to CSV, returns summary to Claude.
+
+Supports pluggable output backends via BURNR8_REPORT_MODE env var:
+- "disk" (default): writes CSV to ~/.burnr8/reports/
+- "supabase": uploads CSV to Supabase Storage, returns signed URL
+"""
 
 import csv
+import io
 import os
 import re
+import threading
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+_VALID_MODES = {"disk", "supabase"}
+REPORT_MODE = os.environ.get("BURNR8_REPORT_MODE", "disk")
+if REPORT_MODE not in _VALID_MODES:
+    import warnings
+    warnings.warn(f"Unknown BURNR8_REPORT_MODE={REPORT_MODE!r}, falling back to 'disk'. Valid: {_VALID_MODES}", stacklevel=1)
+    REPORT_MODE = "disk"
 REPORTS_DIR = Path(os.environ.get("BURNR8_REPORTS_DIR", os.path.expanduser("~/.burnr8/reports")))
 
 # Characters that trigger formula execution in Excel/LibreOffice
@@ -20,7 +34,6 @@ _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 def _sanitize_cell(value: object) -> object:
     """Prevent CSV formula injection — strips control chars and prefixes dangerous cells."""
     if isinstance(value, str) and value:
-        # Strip tab/newline injection vectors first
         value = value.translate(_CONTROL_CHARS)
         if value and value[0] in _FORMULA_CHARS:
             return "'" + value
@@ -30,6 +43,28 @@ def _sanitize_cell(value: object) -> object:
 def _sanitize_row(row: dict) -> dict:
     """Sanitize all string values in a row dict."""
     return {k: _sanitize_cell(v) for k, v in row.items()}
+
+
+def _rows_to_csv_bytes(rows: list[dict], fieldnames: list[str]) -> bytes:
+    """Render sanitized rows as CSV bytes (UTF-8). Shared by both handlers."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(_sanitize_row(row))
+    return buf.getvalue().encode("utf-8")
+
+
+def _generate_filename(report_name: str) -> str:
+    """Generate a collision-resistant filename."""
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%d_%H%M%S")
+    suffix = uuid.uuid4().hex[:8]
+    return f"{report_name}_{timestamp}_{suffix}.csv"
+
+
+# ---------------------------------------------------------------------------
+# Disk handler (default, self-hosted)
+# ---------------------------------------------------------------------------
 
 
 def _prune_old_reports(max_age_days: int = 7) -> int:
@@ -48,83 +83,40 @@ def _prune_old_reports(max_age_days: int = 7) -> int:
     return deleted
 
 
-def get_storage_stats() -> dict:
-    """Get report storage stats: file count, total size, oldest file."""
-    if not REPORTS_DIR.exists():
-        return {"report_files": 0, "total_size_mb": 0, "oldest_file": None}
-
-    files = list(REPORTS_DIR.glob("*.csv"))
-    if not files:
-        return {"report_files": 0, "total_size_mb": 0, "oldest_file": None, "reports_dir": str(REPORTS_DIR)}
-
-    # Single stat() per file
-    file_stats = [f.stat() for f in files if f.exists()]
-    total_bytes = sum(s.st_size for s in file_stats)
-    oldest = min((s.st_mtime for s in file_stats), default=None)
-
-    return {
-        "report_files": len(files),
-        "total_size_mb": round(total_bytes / 1_048_576, 2),
-        "oldest_file": datetime.fromtimestamp(oldest, tz=UTC).strftime("%Y-%m-%d") if oldest else None,
-        "reports_dir": str(REPORTS_DIR),
-    }
+_last_pruned: float = 0.0
+_prune_lock = threading.Lock()
 
 
-def save_report(rows: list[dict], report_name: str, top_n: int = 10) -> dict:
-    """Save a list of dicts as CSV and return a summary with top rows + file path.
+def _maybe_prune():
+    global _last_pruned
+    now = time.monotonic()
+    if now - _last_pruned < 300:  # 5 minutes
+        return
+    with _prune_lock:
+        # Double-check after acquiring lock
+        if now - _last_pruned < 300:
+            return
+        _last_pruned = now
+        _prune_old_reports(max_age_days=7)
 
-    Security:
-    - Validates report_name (alphanumeric + hyphens/underscores only)
-    - Sanitizes cells to prevent CSV formula injection (including tab/newline bypass)
-    - Writes with restrictive permissions (0o600)
-    - Checks REPORTS_DIR is not a symlink
 
-    Disk management:
-    - Auto-prunes files older than 7 days
-    - Uses UUID suffix to prevent filename collisions
-
-    Args:
-        rows: Full result set from a GAQL query
-        report_name: Name for the file (alphanumeric, hyphens, underscores only)
-        top_n: Number of rows to include inline in the summary
-
-    Returns:
-        dict with file path, row count, top rows, and the full column list
-    """
-    if not rows:
-        return {
-            "file": None,
-            "rows": 0,
-            "top": [],
-            "message": "No data returned.",
-        }
-
-    # Validate report_name to prevent path traversal
-    if not _SAFE_NAME.match(report_name):
-        return {"error": True, "message": f"Invalid report_name: {report_name!r}"}
+def _save_to_disk(rows: list[dict], fieldnames: list[str], report_name: str, top_n: int) -> dict:
+    """Write CSV to local disk with restrictive permissions."""
+    # Check symlink BEFORE creating directory
+    if REPORTS_DIR.exists() and REPORTS_DIR.is_symlink():
+        return {"error": True, "message": f"REPORTS_DIR is a symlink — refusing to write: {REPORTS_DIR}"}
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Refuse to write into symlinked directories
-    if REPORTS_DIR.is_symlink():
-        return {"error": True, "message": f"REPORTS_DIR is a symlink — refusing to write: {REPORTS_DIR}"}
+    _maybe_prune()
 
-    # Auto-prune old reports
-    _prune_old_reports(max_age_days=7)
-
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%d_%H%M%S")
-    suffix = uuid.uuid4().hex[:8]
-    filename = f"{report_name}_{timestamp}_{suffix}.csv"
+    filename = _generate_filename(report_name)
     filepath = REPORTS_DIR / filename
 
-    # Write CSV with restrictive permissions and formula sanitization
-    fieldnames = list(rows[0].keys())
+    csv_bytes = _rows_to_csv_bytes(rows, fieldnames)
     fd = os.open(filepath, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with open(fd, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(_sanitize_row(row))
+    with open(fd, "wb") as f:
+        f.write(csv_bytes)
 
     return {
         "file": str(filepath),
@@ -132,3 +124,144 @@ def save_report(rows: list[dict], report_name: str, top_n: int = 10) -> dict:
         "columns": fieldnames,
         "top": rows[:top_n],
     }
+
+
+# ---------------------------------------------------------------------------
+# Supabase Storage handler (hosted/burnrate.sh)
+# ---------------------------------------------------------------------------
+
+
+def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str, top_n: int) -> dict:
+    """Upload CSV to Supabase Storage and return a signed download URL."""
+    try:
+        import requests
+    except ImportError:
+        return {"error": True, "message": "requests package required for Supabase mode"}
+
+    supabase_url = os.environ.get("BURNR8_SUPABASE_URL")
+    supabase_key = os.environ.get("BURNR8_SUPABASE_KEY")
+    bucket = os.environ.get("BURNR8_SUPABASE_BUCKET", "reports")
+
+    if not supabase_url or not supabase_key:
+        return {"error": True, "message": "BURNR8_SUPABASE_URL and BURNR8_SUPABASE_KEY required for Supabase mode"}
+
+    filename = _generate_filename(report_name)
+    csv_bytes = _rows_to_csv_bytes(rows, fieldnames)
+
+    # Upload to Supabase Storage
+    upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{filename}"
+    headers = {
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "text/csv",
+        "x-upsert": "false",
+    }
+
+    try:
+        resp = requests.post(upload_url, headers=headers, data=csv_bytes, timeout=30)
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        return {"error": True, "message": f"Supabase upload failed: HTTP {e.response.status_code}"}
+    except Exception:
+        return {"error": True, "message": "Supabase upload failed (network error)"}
+
+    # Create signed URL (24 hour expiry)
+    sign_url = f"{supabase_url}/storage/v1/object/sign/{bucket}/{filename}"
+    sign_headers = {
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+    }
+
+    url_warning = None
+    try:
+        sign_resp = requests.post(
+            sign_url,
+            headers=sign_headers,
+            json={"expiresIn": 86400},
+            timeout=10,
+        )
+        sign_resp.raise_for_status()
+        signed_url = f"{supabase_url}/storage/v1{sign_resp.json()['signedURL']}"
+    except Exception:
+        # Upload succeeded but signing failed — fallback to public URL with warning
+        signed_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
+        url_warning = "Signed URL generation failed. Public URL returned — may not work if bucket is private."
+
+    result = {
+        "url": signed_url,
+        "rows": len(rows),
+        "columns": fieldnames,
+        "top": rows[:top_n],
+    }
+    if url_warning:
+        result["url_warning"] = url_warning
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Storage stats
+# ---------------------------------------------------------------------------
+
+
+def get_storage_stats() -> dict:
+    """Get report storage stats. Disk mode returns file count/size. Supabase mode returns mode indicator."""
+    if REPORT_MODE == "supabase":
+        return {
+            "report_mode": "supabase",
+            "supabase_bucket": os.environ.get("BURNR8_SUPABASE_BUCKET", "reports"),
+        }
+
+    if not REPORTS_DIR.exists():
+        return {"report_mode": "disk", "report_files": 0, "total_size_mb": 0, "oldest_file": None, "reports_dir": str(REPORTS_DIR)}
+
+    files = list(REPORTS_DIR.glob("*.csv"))
+    if not files:
+        return {"report_mode": "disk", "report_files": 0, "total_size_mb": 0, "oldest_file": None, "reports_dir": str(REPORTS_DIR)}
+
+    file_stats = [f.stat() for f in files if f.exists()]
+    total_bytes = sum(s.st_size for s in file_stats)
+    oldest = min((s.st_mtime for s in file_stats), default=None)
+
+    return {
+        "report_mode": "disk",
+        "report_files": len(files),
+        "total_size_mb": round(total_bytes / 1_048_576, 2),
+        "oldest_file": datetime.fromtimestamp(oldest, tz=UTC).strftime("%Y-%m-%d") if oldest else None,
+        "reports_dir": str(REPORTS_DIR),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+
+def save_report(rows: list[dict], report_name: str, top_n: int = 10) -> dict:
+    """Save rows as CSV and return summary + location (file path or URL).
+
+    The output backend is controlled by BURNR8_REPORT_MODE:
+    - "disk" (default): writes to ~/.burnr8/reports/, returns {"file": "..."}
+    - "supabase": uploads to Supabase Storage, returns {"url": "..."}
+
+    Shared behavior (both modes):
+    - Validates report_name (path traversal prevention)
+    - Sanitizes cells (CSV formula injection + control char injection)
+    - Returns top_n rows inline for context efficiency
+    """
+    if not rows:
+        return {
+            "file": None,
+            "url": None,
+            "rows": 0,
+            "top": [],
+            "message": "No data returned.",
+        }
+
+    if not _SAFE_NAME.match(report_name):
+        return {"error": True, "message": f"Invalid report_name: {report_name!r}"}
+
+    fieldnames = list(rows[0].keys())
+
+    if REPORT_MODE == "supabase":
+        return _save_to_supabase(rows, fieldnames, report_name, top_n)
+    else:
+        return _save_to_disk(rows, fieldnames, report_name, top_n)

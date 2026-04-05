@@ -16,7 +16,7 @@ def register(mcp):
         query: Annotated[str, Field(description="GAQL query to execute")],
         limit: Annotated[int, Field(description="Max rows to return (0 = no limit)")] = 100,
     ) -> dict:
-        """Execute a raw GAQL query. Saves full results to CSV, returns summary + top rows + file path."""
+        """Execute a raw GAQL query. Saves full results to CSV. WARNING: limit=0 fetches all rows — use with caution on large accounts."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -156,7 +156,7 @@ def register(mcp):
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
     ) -> dict:
-        """Get keyword level performance with quality scores. Saves full report to CSV, returns summary + top rows."""
+        """Get keyword spending performance — cost, clicks, CTR, CPC, conversions over a date range. Filter by campaign."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):
@@ -230,7 +230,10 @@ def register(mcp):
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
     ) -> dict:
-        """Get search terms that triggered your ads, sorted by spend (highest first). Saves full report to CSV, returns summary + top spenders."""
+        """Get search terms that triggered your ads, sorted by spend (highest first). Saves full report to CSV, returns summary + top spenders.
+
+        Note: Top rows returned inline may contain actual user search queries,
+        which can include personally identifiable information (PII). Handle with care."""
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_date_range(date_range):

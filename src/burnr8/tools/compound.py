@@ -257,17 +257,17 @@ def register(mcp):
         campaigns_report = save_report(campaigns, "audit-campaigns", top_n=5)
         if campaigns_report.get("error"):
             return campaigns_report
-        files["campaigns"] = campaigns_report.get("file")
+        files["campaigns"] = campaigns_report.get("file") or campaigns_report.get("url")
 
         keywords_report = save_report(top_keywords, "audit-keywords", top_n=5)
         if keywords_report.get("error"):
             return keywords_report
-        files["keywords"] = keywords_report.get("file")
+        files["keywords"] = keywords_report.get("file") or keywords_report.get("url")
 
         low_qs_report = save_report(low_quality_keywords, "audit-low-qs-keywords", top_n=5)
         if low_qs_report.get("error"):
             return low_qs_report
-        files["low_quality_keywords"] = low_qs_report.get("file")
+        files["low_quality_keywords"] = low_qs_report.get("file") or low_qs_report.get("url")
 
         # Flatten list fields in ads for CSV compatibility
         ads_csv = []
@@ -280,17 +280,17 @@ def register(mcp):
         ads_report = save_report(ads_csv, "audit-ads", top_n=5)
         if ads_report.get("error"):
             return ads_report
-        files["ads"] = ads_report.get("file")
+        files["ads"] = ads_report.get("file") or ads_report.get("url")
 
         conversions_report = save_report(conversion_actions, "audit-conversions", top_n=5)
         if conversions_report.get("error"):
             return conversions_report
-        files["conversion_actions"] = conversions_report.get("file")
+        files["conversion_actions"] = conversions_report.get("file") or conversions_report.get("url")
 
         budgets_report = save_report(budgets, "audit-budgets", top_n=5)
         if budgets_report.get("error"):
             return budgets_report
-        files["budgets"] = budgets_report.get("file")
+        files["budgets"] = budgets_report.get("file") or budgets_report.get("url")
 
         return {
             "files": files,

@@ -4,6 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import burnr8.session as _session
+
 
 class MockGoogleAdsClient:
     """A fake GoogleAdsClient that provides mock services, types, and enums.
@@ -71,9 +73,7 @@ def _build_enums() -> MagicMock:
     enums.EuPoliticalAdvertisingStatusEnum.DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING = (
         "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"
     )
-    enums.EuPoliticalAdvertisingStatusEnum.CONTAINS_EU_POLITICAL_ADVERTISING = (
-        "CONTAINS_EU_POLITICAL_ADVERTISING"
-    )
+    enums.EuPoliticalAdvertisingStatusEnum.CONTAINS_EU_POLITICAL_ADVERTISING = "CONTAINS_EU_POLITICAL_ADVERTISING"
     return enums
 
 
@@ -94,26 +94,18 @@ def _build_service(name: str) -> MagicMock:
     svc = MagicMock(name=f"Service:{name}")
 
     if name == "CampaignBudgetService":
-        svc.mutate_campaign_budgets.return_value = _make_mutate_response(
-            "customers/1234567890/campaignBudgets/111"
-        )
+        svc.mutate_campaign_budgets.return_value = _make_mutate_response("customers/1234567890/campaignBudgets/111")
     elif name == "CampaignService":
-        svc.mutate_campaigns.return_value = _make_mutate_response(
-            "customers/1234567890/campaigns/222"
-        )
+        svc.mutate_campaigns.return_value = _make_mutate_response("customers/1234567890/campaigns/222")
     elif name == "AdGroupService":
-        svc.mutate_ad_groups.return_value = _make_mutate_response(
-            "customers/1234567890/adGroups/333"
-        )
+        svc.mutate_ad_groups.return_value = _make_mutate_response("customers/1234567890/adGroups/333")
     elif name == "AdGroupCriterionService":
         svc.mutate_ad_group_criteria.return_value = _make_mutate_response(
             "customers/1234567890/adGroupCriteria/333~444",
             "customers/1234567890/adGroupCriteria/333~445",
         )
     elif name == "AdGroupAdService":
-        svc.mutate_ad_group_ads.return_value = _make_mutate_response(
-            "customers/1234567890/adGroupAds/333~555"
-        )
+        svc.mutate_ad_group_ads.return_value = _make_mutate_response("customers/1234567890/adGroupAds/333~555")
 
     return svc
 
@@ -169,12 +161,20 @@ def mock_ads_client():
         query_map.update(new_map)
 
     with (
-        patch("burnr8.client.get_client", return_value=client),
         patch("burnr8.tools.compound.get_client", return_value=client),
         patch("burnr8.tools.compound.run_gaql", side_effect=mock_gaql),
+        patch("burnr8.errors.log_tool_call"),
     ):
         yield {
             "client": client,
             "set_gaql": set_gaql,
             "run_gaql": mock_gaql,
         }
+
+
+@pytest.fixture(autouse=True)
+def _reset_session():
+    """Reset active account between tests to prevent state leakage."""
+    _session._active_account = None
+    yield
+    _session._active_account = None

@@ -7,10 +7,18 @@ from burnr8.session import set_active_account
 # ---------------------------------------------------------------------------
 
 
-def _campaign_row(cid="1", name="Campaign A", status="ENABLED",
-                  impressions=1000, clicks=50, cost_micros=25_000_000,
-                  conversions=5.0, conversions_value=100.0, ctr=0.05,
-                  average_cpc=500_000):
+def _campaign_row(
+    cid="1",
+    name="Campaign A",
+    status="ENABLED",
+    impressions=1000,
+    clicks=50,
+    cost_micros=25_000_000,
+    conversions=5.0,
+    conversions_value=100.0,
+    ctr=0.05,
+    average_cpc=500_000,
+):
     return {
         "campaign": {
             "id": cid,
@@ -31,11 +39,19 @@ def _campaign_row(cid="1", name="Campaign A", status="ENABLED",
     }
 
 
-def _keyword_row(text="buy shoes", match_type="BROAD", quality_score=7,
-                 impressions=500, clicks=30, cost_micros=15_000_000,
-                 conversions=3.0, status="ENABLED",
-                 ad_group="AG1", campaign="Campaign A",
-                 criterion_id="101"):
+def _keyword_row(
+    text="buy shoes",
+    match_type="BROAD",
+    quality_score=7,
+    impressions=500,
+    clicks=30,
+    cost_micros=15_000_000,
+    conversions=3.0,
+    status="ENABLED",
+    ad_group="AG1",
+    campaign="Campaign A",
+    criterion_id="101",
+):
     return {
         "ad_group_criterion": {
             "criterion_id": criterion_id,
@@ -54,10 +70,17 @@ def _keyword_row(text="buy shoes", match_type="BROAD", quality_score=7,
     }
 
 
-def _ad_row(ad_id="201", ad_type="RESPONSIVE_SEARCH_AD",
-            headlines=None, descriptions=None, ad_strength="GOOD",
-            impressions=400, clicks=20, cost_micros=10_000_000,
-            conversions=2.0):
+def _ad_row(
+    ad_id="201",
+    ad_type="RESPONSIVE_SEARCH_AD",
+    headlines=None,
+    descriptions=None,
+    ad_strength="GOOD",
+    impressions=400,
+    clicks=20,
+    cost_micros=10_000_000,
+    conversions=2.0,
+):
     return {
         "ad_group_ad": {
             "ad": {
@@ -88,9 +111,14 @@ def _negative_row(criterion_id="301"):
     return {"campaign_criterion": {"criterion_id": criterion_id}}
 
 
-def _conversion_row(ca_id="401", name="Purchase", status="ENABLED",
-                    ca_type="WEBPAGE", category="PURCHASE",
-                    counting_type="ONE_PER_CLICK"):
+def _conversion_row(
+    ca_id="401",
+    name="Purchase",
+    status="ENABLED",
+    ca_type="WEBPAGE",
+    category="PURCHASE",
+    counting_type="ONE_PER_CLICK",
+):
     return {
         "conversion_action": {
             "id": ca_id,
@@ -103,9 +131,15 @@ def _conversion_row(ca_id="401", name="Purchase", status="ENABLED",
     }
 
 
-def _budget_row(bid="501", name="Budget A", amount_micros=50_000_000,
-                status="ENABLED", delivery_method="STANDARD",
-                explicitly_shared=False, reference_count=1):
+def _budget_row(
+    bid="501",
+    name="Budget A",
+    amount_micros=50_000_000,
+    status="ENABLED",
+    delivery_method="STANDARD",
+    explicitly_shared=False,
+    reference_count=1,
+):
     return {
         "campaign_budget": {
             "id": bid,
@@ -148,16 +182,19 @@ class TestQuickAudit:
         """quick_audit should return summary, files, and top_* keys."""
         set_active_account("1234567890")
 
-        mock_ads_client["set_gaql"]({
-            "FROM campaign\n": [_campaign_row()],
-            "FROM keyword_view": [_keyword_row()],
-            "FROM ad_group_ad": [_ad_row()],
-            "FROM campaign_criterion": [_negative_row()],
-            "FROM conversion_action": [_conversion_row()],
-            "FROM campaign_budget": [_budget_row()],
-        })
+        mock_ads_client["set_gaql"](
+            {
+                "campaign.advertising_channel_type": [_campaign_row()],
+                "FROM keyword_view": [_keyword_row()],
+                "FROM ad_group_ad": [_ad_row()],
+                "FROM campaign_criterion": [_negative_row()],
+                "FROM conversion_action": [_conversion_row()],
+                "FROM campaign_budget": [_budget_row()],
+            }
+        )
 
         import burnr8.reports as reports_mod
+
         original_dir = reports_mod.REPORTS_DIR
         reports_mod.REPORTS_DIR = tmp_path
         try:
@@ -186,8 +223,7 @@ class TestQuickAudit:
         # Verify files dict
         assert "files" in result
         files = result["files"]
-        for key in ("campaigns", "keywords", "low_quality_keywords",
-                    "ads", "conversion_actions", "budgets"):
+        for key in ("campaigns", "keywords", "low_quality_keywords", "ads", "conversion_actions", "budgets"):
             assert key in files
 
         # Verify top_ keys
@@ -203,6 +239,7 @@ class TestQuickAudit:
         mock_ads_client["set_gaql"]({})
 
         import burnr8.reports as reports_mod
+
         original_dir = reports_mod.REPORTS_DIR
         reports_mod.REPORTS_DIR = tmp_path
         try:
@@ -238,16 +275,19 @@ class TestCleanupWastedSpend:
         set_active_account("1234567890")
 
         # Two keywords: one with conversions, one wasted
-        mock_ads_client["set_gaql"]({
-            "FROM keyword_view": [
-                _keyword_row(text="buy shoes", cost_micros=20_000_000,
-                             conversions=3.0, criterion_id="101"),
-                _keyword_row(text="free shoe tutorial", cost_micros=15_000_000,
-                             conversions=0.0, criterion_id="102"),
-            ],
-        })
+        mock_ads_client["set_gaql"](
+            {
+                "FROM keyword_view": [
+                    _keyword_row(text="buy shoes", cost_micros=20_000_000, conversions=3.0, criterion_id="101"),
+                    _keyword_row(
+                        text="free shoe tutorial", cost_micros=15_000_000, conversions=0.0, criterion_id="102"
+                    ),
+                ],
+            }
+        )
 
         import burnr8.reports as reports_mod
+
         original_dir = reports_mod.REPORTS_DIR
         reports_mod.REPORTS_DIR = tmp_path
         try:
@@ -264,21 +304,26 @@ class TestCleanupWastedSpend:
         assert result["suggested_negative_count"] >= 1
         neg_kws = [n["keyword"] for n in result["suggested_negatives"]]
         assert "free shoe tutorial" in neg_kws
+        # Converting keyword should NOT appear in negatives
+        assert "buy shoes" not in neg_kws
 
     def test_returns_empty_when_all_keywords_convert(self, mock_ads_client, tmp_path):
         """No wasted keywords when every keyword has conversions > 0."""
         set_active_account("1234567890")
 
-        mock_ads_client["set_gaql"]({
-            "FROM keyword_view": [
-                _keyword_row(text="buy shoes", cost_micros=20_000_000,
-                             conversions=5.0, criterion_id="101"),
-                _keyword_row(text="running shoes sale", cost_micros=30_000_000,
-                             conversions=2.0, criterion_id="102"),
-            ],
-        })
+        mock_ads_client["set_gaql"](
+            {
+                "FROM keyword_view": [
+                    _keyword_row(text="buy shoes", cost_micros=20_000_000, conversions=5.0, criterion_id="101"),
+                    _keyword_row(
+                        text="running shoes sale", cost_micros=30_000_000, conversions=2.0, criterion_id="102"
+                    ),
+                ],
+            }
+        )
 
         import burnr8.reports as reports_mod
+
         original_dir = reports_mod.REPORTS_DIR
         reports_mod.REPORTS_DIR = tmp_path
         try:
@@ -436,6 +481,54 @@ class TestLaunchCampaign:
         assert result["partial_failure"] is True
         # Budget and campaign should have been created before the failure
         created = result["created_before_failure"]
-        assert "budget" in created
-        assert "campaign" in created
+        assert created["budget"] == "customers/1234567890/campaignBudgets/111"
+        assert created["campaign"] == "customers/1234567890/campaigns/222"
         assert "ad_group" not in created
+
+
+# ---------------------------------------------------------------------------
+# Missing account / validation tests
+# ---------------------------------------------------------------------------
+
+
+class TestNoActiveAccount:
+    """Tools should error when no customer_id and no active account."""
+
+    def test_quick_audit_no_account(self, mock_ads_client):
+        tool = _register_tool("quick_audit")
+        result = tool()
+        assert result["error"] is True
+        assert "customer_id" in result["message"].lower() or "active account" in result["message"].lower()
+
+    def test_cleanup_wasted_spend_no_account(self, mock_ads_client):
+        tool = _register_tool("cleanup_wasted_spend")
+        result = tool()
+        assert result["error"] is True
+
+    def test_launch_campaign_no_account(self, mock_ads_client):
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Test",
+            daily_budget_dollars=10.0,
+            keywords=["test"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+        )
+        assert result["error"] is True
+
+
+class TestDateRangeValidation:
+    """Tools should reject invalid date ranges."""
+
+    def test_quick_audit_invalid_date_range(self, mock_ads_client):
+        set_active_account("1234567890")
+        tool = _register_tool("quick_audit")
+        result = tool(customer_id="1234567890", date_range="LAST_100_DAYS")
+        assert result["error"] is True
+
+    def test_cleanup_invalid_date_range(self, mock_ads_client):
+        set_active_account("1234567890")
+        tool = _register_tool("cleanup_wasted_spend")
+        result = tool(customer_id="1234567890", date_range="INVALID")
+        assert result["error"] is True

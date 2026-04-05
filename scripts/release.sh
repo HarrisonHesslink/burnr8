@@ -63,7 +63,7 @@ else
     sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/g" .claude-plugin/marketplace.json
     sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/g" .claude-plugin/plugin.json
     sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/g" plugins/burnr8-cloud/.claude-plugin/plugin.json
-    sed -i "s/  version: .*/  version: ${VERSION}/" skills/google-ads-audit/SKILL.md
+    sed -i "s/^  version: .*/  version: ${VERSION}/" skills/google-ads-audit/SKILL.md
 
     # --- Create PR for version bump (branch protection) ---
     RELEASE_BRANCH="release-v${VERSION}"

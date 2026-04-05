@@ -14,6 +14,8 @@ _REQUIRED_VARS = [
     "GOOGLE_ADS_REFRESH_TOKEN",
 ]
 
+__all__ = ["get_client"]
+
 
 def get_client() -> GoogleAdsClient:
     global _client

@@ -5,6 +5,8 @@ import threading
 _active_account: str | None = None
 _lock = threading.Lock()
 
+__all__ = ["set_active_account", "get_active_account", "resolve_customer_id"]
+
 
 def set_active_account(customer_id: str) -> None:
     """Set the active Google Ads customer ID for the session."""

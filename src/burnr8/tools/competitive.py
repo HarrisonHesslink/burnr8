@@ -1,5 +1,6 @@
 from typing import Annotated
 
+from google.ads.googleads.errors import GoogleAdsException
 from pydantic import Field
 
 from burnr8.client import get_client
@@ -106,29 +107,31 @@ def register(mcp):
             )
 
         report = save_report(results, "competitive_metrics")
+        if not results:
+            return report
 
         # Build opportunity analysis
         opportunities = []
         for r in results:
             if r["status"] != "ENABLED":
                 continue
-            budget_lost = r["budget_lost_impression_share"]
-            rank_lost = r["rank_lost_impression_share"]
-            if budget_lost is not None and budget_lost > 0.10:
+            budget_lost_share = r["budget_lost_impression_share"]
+            rank_lost_share = r["rank_lost_impression_share"]
+            if budget_lost_share is not None and budget_lost_share > 0.10:
                 opportunities.append(
                     {
                         "campaign": r["campaign_name"],
                         "issue": "budget_limited",
-                        "lost_share": round(budget_lost, 3),
+                        "lost_share": round(budget_lost_share, 3),
                         "action": "Increase daily budget or reallocate from lower-performing campaigns",
                     }
                 )
-            if rank_lost is not None and rank_lost > 0.20:
+            if rank_lost_share is not None and rank_lost_share > 0.20:
                 opportunities.append(
                     {
                         "campaign": r["campaign_name"],
                         "issue": "rank_limited",
-                        "lost_share": round(rank_lost, 3),
+                        "lost_share": round(rank_lost_share, 3),
                         "action": "Improve Quality Score (ad relevance, landing page) or increase bids",
                     }
                 )
@@ -194,12 +197,11 @@ def register(mcp):
 
         try:
             rows = run_gaql(client, customer_id, query)
-        except Exception as e:
-            error_str = str(e)
-            if (
-                "not allowed" in error_str.lower()
-                or "not permitted" in error_str.lower()
-                or "unrecognized" in error_str.lower()
+        except GoogleAdsException as e:
+            error_codes = [str(err.error_code) for err in e.failure.errors]
+            if any(
+                "NOT_PERMITTED" in code or "AUTHORIZATION_ERROR" in code or "UNRECOGNIZED_FIELD" in code
+                for code in error_codes
             ):
                 return {
                     "error": True,
@@ -231,6 +233,8 @@ def register(mcp):
             )
 
         report = save_report(results, "auction_insights")
+        if not results:
+            return report
         report["summary"] = {
             "date_range": date_range.upper(),
             "campaign_id": campaign_id,

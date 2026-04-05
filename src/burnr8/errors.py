@@ -3,7 +3,7 @@ import time
 
 from google.ads.googleads.errors import GoogleAdsException
 
-from burnr8.logging import log_tool_call
+from burnr8.logging import log_tool_call, new_correlation_id
 
 
 def handle_google_ads_errors(fn):
@@ -11,6 +11,7 @@ def handle_google_ads_errors(fn):
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        new_correlation_id()
         start = time.monotonic()
         customer_id = kwargs.get("customer_id") or (args[0] if args else None)
         try:

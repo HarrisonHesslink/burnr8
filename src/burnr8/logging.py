@@ -1,7 +1,9 @@
+import contextvars
 import json
 import logging
 import os
 import threading
+import uuid
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -13,6 +15,21 @@ USAGE_FILE = LOG_DIR / "usage.json"
 _logger: logging.Logger | None = None
 _usage_lock = threading.Lock()
 _usage_cache: dict | None = None
+
+# Correlation ID for tracing multi-tool workflows (e.g. quick_audit → 6 GAQL queries)
+correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
+
+
+def new_correlation_id() -> str:
+    """Generate and set a new correlation ID. Returns the ID."""
+    cid = uuid.uuid4().hex[:12]
+    correlation_id.set(cid)
+    return cid
+
+
+def get_correlation_id() -> str | None:
+    """Get the current correlation ID, or None if not set."""
+    return correlation_id.get()
 
 
 def get_logger() -> logging.Logger:
@@ -74,6 +91,9 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
     """Log a tool call and update daily usage counters. Thread-safe."""
     logger = get_logger()
     msg = f"tool={tool_name}"
+    cid = get_correlation_id()
+    if cid:
+        msg += f" cid={cid}"
     if customer_id:
         msg += f" customer={customer_id[:6]}"
     msg += f" duration={duration:.1f}s status={status}"

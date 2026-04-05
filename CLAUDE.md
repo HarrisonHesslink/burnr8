@@ -1,6 +1,6 @@
 # burnr8 — Google Ads MCP Server
 
-A FastMCP server with 60 tools for managing Google Ads via Claude Code.
+A FastMCP server with 65 tools for managing Google Ads via Claude Code.
 
 ## Setup
 
@@ -21,7 +21,7 @@ PYTHONPATH=src .venv/bin/python -m burnr8.server
 
 ```bash
 pip install -e ".[dev]"       # Install with dev deps
-pytest tests/ -v              # Run 60 tests
+pytest tests/ -v              # Run tests
 ruff check src/ tests/        # Lint
 pip-audit                     # CVE scan
 burnr8                        # Terminal dashboard (API usage + spend)
@@ -39,10 +39,10 @@ src/burnr8/
 ├── logging.py      # File logger + daily usage counter (~/.burnr8/logs/)
 ├── reports.py      # CSV export (save_report, get_storage_stats); ~/.burnr8/reports/; formula sanitization; 7-day auto-prune
 ├── dashboard.py    # Terminal dashboard (burnr8 command)
-└── tools/          # 13 modules, 60 tools
+└── tools/          # 14 modules, 65 tools
 ```
 
-## Tool Categories (60 tools)
+## Tool Categories (65 tools)
 
 | Category | Tools | Key Operations |
 |----------|-------|---------------|
@@ -59,12 +59,14 @@ src/burnr8/
 | Compound | 3 | quick_audit, launch_campaign, cleanup_wasted_spend |
 | Adjustments | 11 | device bids, ad schedules, location targets, geo presence |
 | Goals | 5 | conversion goals, campaign-level goal overrides |
+| Competitive | 2 | impression share metrics, auction insights |
 
 ## Common Workflows
 
 - **Full audit**: Use `quick_audit` or `/project:audit` — pulls all data in one call
 - **Fix wasted spend**: Use `cleanup_wasted_spend` then `add_negative_keywords`
 - **Launch campaign**: Use `launch_campaign` — creates budget + campaign + ad group + keywords + RSA
+- **Competitive analysis**: Use `get_competitive_metrics` for impression share, or `/project:competitors`
 - **Check usage**: Use `get_api_usage` — shows ops count and version
 
 ## Safety

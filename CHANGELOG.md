@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-04-05
+
+### Added
+
+- Multi-account management: `set_active_account_tool`, `get_active_account_tool`, `resolve_customer_id` fallback (BUR-8, BUR-9, BUR-10)
+- 2 competitive insight tools: `get_competitive_metrics` (impression share, all accounts), `get_auction_insights` (competitor domains, requires allowlisting) (BUR-65)
+- 4 new MCP prompts: `budget_reallocation`, `ad_copy`, `trends`, `competitors`
+- 4 new slash commands: `/project:budget`, `/project:adcopy`, `/project:trends`, `/project:competitors`
+- Business context awareness in agents — ask about business type and benchmarks before auditing (BUR-64)
+- `test_competitive.py` with 8 tests for `_fmt_share`
+
+### Changed
+
+- Tool count: 63 → 65 (14 modules)
+- Prompt count: 3 → 7
+- Slash command count: 5 → 9
+
+## [0.5.1] - 2026-04-05
+
+### Added
+
+- Claude Code plugin for one-click install via marketplace
+- Pluggable report handler: `BURNR8_REPORT_MODE=disk|supabase` (BUR-48)
+- Supabase Storage backend for cloud deployments
+
+### Fixed
+
+- Release script for branch protection (two-phase: PR then tag)
+
+## [0.5.0] - 2026-04-04
+
+### Added
+
+- Docker image with multi-arch builds (amd64 + arm64)
+- Docker Hub + GHCR publishing
+- CSV export for all list/report tools (BUR-1 through BUR-7)
+- CSV formula injection sanitization
+- 7-day report auto-prune with throttling
+- Report storage stats in `get_api_usage`
+
 ## [0.4.0] - 2026-04-04
 
 ### Added
@@ -78,6 +118,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth setup script
 - Google Ads API v23
 
+[0.6.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.5.0...v0.6.0
+[0.5.1]: https://github.com/harrisonhesslink/burnr8/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/harrisonhesslink/burnr8/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.1.0...v0.2.0

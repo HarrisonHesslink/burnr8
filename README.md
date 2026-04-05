@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tools](https://img.shields.io/badge/MCP_tools-60-green.svg)]()
+[![Tools](https://img.shields.io/badge/MCP_tools-65-green.svg)]()
 [![CI](https://github.com/HarrisonHesslink/burnr8/actions/workflows/ci.yml/badge.svg)](https://github.com/HarrisonHesslink/burnr8/actions)
 [![PyPI](https://img.shields.io/pypi/v/burnr8)](https://pypi.org/project/burnr8/)
 [![Docker](https://img.shields.io/badge/docker-hub-blue?logo=docker)](https://hub.docker.com/r/harrisonhesslink/burnr8)
@@ -25,7 +25,7 @@
 - [FAQ](#faq)
 - [License](#license)
 
-burnr8 is an MCP server that gives [Claude Code](https://claude.ai/code) full control over Google Ads. 60 tools across 13 categories for managing campaigns, keywords, budgets, ads, extensions, conversion tracking, bid adjustments, ad scheduling, conversion goals, and reporting — all from your CLI. Includes 2 custom agents, 5 slash commands, MCP resources, and prompt templates.
+burnr8 is an MCP server that gives [Claude Code](https://claude.ai/code) full control over Google Ads. 65 tools across 14 categories for managing campaigns, keywords, budgets, ads, extensions, conversion tracking, bid adjustments, ad scheduling, conversion goals, competitive insights, and reporting — all from your CLI. Includes 2 custom agents, 9 slash commands, 7 prompt templates, and MCP resources.
 
 > This is an unofficial tool and is not affiliated with or endorsed by Google.
 
@@ -41,7 +41,7 @@ You:    "Add 'free' as a phrase match negative keyword"
 Claude: Done. Estimated savings: ~$55/month.
 ```
 
-### 60 Tools Across 13 Categories
+### 65 Tools Across 14 Categories
 
 | Category | Tools | What They Do |
 |----------|-------|-------------|
@@ -58,6 +58,7 @@ Claude: Done. Estimated savings: ~$55/month.
 | **Compound** | 3 | `quick_audit`, `launch_campaign`, `cleanup_wasted_spend` — multi-step operations in one call |
 | **Adjustments** | 11 | Pause keywords, device bids, ad schedules, location targeting, geo presence settings |
 | **Goals** | 5 | List/set conversion goals, campaign-level goal config, custom conversion goals |
+| **Competitive** | 2 | Impression share metrics, auction insights (competitor domains) |
 
 ### Custom Agents
 
@@ -73,6 +74,10 @@ Claude: Done. Estimated savings: ~$55/month.
 | `/project:waste` | Wasted spend report |
 | `/project:launch` | Launch a new campaign |
 | `/project:status` | Account status check |
+| `/project:competitors` | Competitive positioning analysis |
+| `/project:budget` | Budget reallocation recommendations |
+| `/project:adcopy` | Generate new RSA ad variations |
+| `/project:trends` | Week-over-week performance trends |
 
 ### MCP Resources & Prompts
 
@@ -87,6 +92,10 @@ Claude: Done. Estimated savings: ~$55/month.
 - `audit` — run a complete account audit
 - `optimize` — find and fix wasted spend
 - `new_campaign` — plan and launch a new search campaign
+- `competitors` — competitive positioning analysis
+- `budget_reallocation` — optimize budget distribution
+- `ad_copy` — generate new RSA ad variations
+- `trends` — detect week-over-week performance changes
 
 ### Safety Built In
 
@@ -296,7 +305,7 @@ burnr8/
 │   ├── logging.py         # Structured logging + rate limit tracking
 │   ├── reports.py         # CSV export + sanitization + storage stats
 │   ├── dashboard.py       # Terminal dashboard
-│   └── tools/             # 60 MCP tools
+│   └── tools/             # 65 MCP tools across 14 modules
 │       ├── accounts.py
 │       ├── campaigns.py
 │       ├── ad_groups.py
@@ -309,13 +318,14 @@ burnr8/
 │       ├── conversions.py
 │       ├── compound.py
 │       ├── adjustments.py
-│       └── goals.py
+│       ├── goals.py
+│       └── competitive.py
 ├── .claude/
 │   ├── agents/            # 2 custom agents (ads-optimizer, ads-auditor)
-│   └── commands/          # 5 slash commands (audit, spend, waste, launch, status)
+│   └── commands/          # 9 slash commands
 ├── setup_oauth.py         # OAuth refresh token generator
 ├── .env.example           # Credential template
-└── pyproject.toml         # v0.4.0
+└── pyproject.toml
 ```
 
 ---

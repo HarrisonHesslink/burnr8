@@ -51,7 +51,7 @@ def get_logger() -> logging.Logger:
     if _logger is None:
         with _usage_lock:
             if _logger is None:  # double-check
-                LOG_DIR.mkdir(parents=True, exist_ok=True)
+                LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
                 log_path = LOG_DIR / "burnr8.log"
                 # Create log file with restrictive permissions if it doesn't exist
                 if not log_path.exists():
@@ -83,7 +83,7 @@ def _load_usage() -> dict:
 
 def _save_usage(data: dict) -> None:
     """Atomic write: temp file then replace."""
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp = USAGE_FILE.with_suffix(".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with open(fd, "w") as f:

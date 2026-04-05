@@ -57,5 +57,14 @@ def handle_google_ads_errors(fn):
                 "error": True,
                 "message": str(ex),
             }
+        except OSError as ex:
+            duration = time.monotonic() - start
+            # Don't leak full exception text — may contain paths or system info
+            safe_msg = str(ex)[:200]
+            log_tool_call(fn.__name__, customer_id, duration, "error", f"msg=\"{safe_msg}\"")
+            return {
+                "error": True,
+                "message": safe_msg,
+            }
 
     return wrapper

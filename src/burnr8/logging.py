@@ -1,7 +1,9 @@
+import contextlib
 import contextvars
 import json
 import logging
 import os
+import queue
 import threading
 import uuid
 from datetime import UTC, datetime
@@ -11,6 +13,7 @@ from pathlib import Path
 LOG_DIR = Path(os.environ.get("BURNR8_LOG_DIR", os.path.expanduser("~/.burnr8/logs")))
 LOG_LEVEL = os.environ.get("BURNR8_LOG_LEVEL", "INFO").upper()
 USAGE_FILE = LOG_DIR / "usage.json"
+CLOUD_MODE = bool(os.environ.get("BURNR8_CLOUD"))
 
 _logger: logging.Logger | None = None
 _usage_lock = threading.Lock()
@@ -18,6 +21,17 @@ _usage_cache: dict | None = None
 
 # Correlation ID for tracing multi-tool workflows (e.g. quick_audit → 6 GAQL queries)
 correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
+
+# Cloud user ID — set by the hosted server during credential resolution.
+# IMPORTANT: Must be set in the same thread/context that executes the tool call.
+# If using a thread pool, use contextvars.copy_context().run() to propagate.
+cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
+
+# Bounded queue for cloud log writes — single worker thread, max 100 pending items.
+# Items beyond the limit are silently dropped (backpressure).
+_cloud_queue: queue.Queue | None = None
+_cloud_worker: threading.Thread | None = None
+_cloud_init_lock = threading.Lock()
 
 
 def new_correlation_id() -> str:
@@ -46,12 +60,10 @@ def get_logger() -> logging.Logger:
                 _logger = logging.getLogger("burnr8")
                 _logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
                 # Rotating handler: 10MB max, 3 backups
-                handler = RotatingFileHandler(
-                    log_path, maxBytes=10_000_000, backupCount=3
+                handler = RotatingFileHandler(log_path, maxBytes=10_000_000, backupCount=3)
+                handler.setFormatter(
+                    logging.Formatter("%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
                 )
-                handler.setFormatter(logging.Formatter(
-                    "%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-                ))
                 _logger.addHandler(handler)
     return _logger
 
@@ -112,13 +124,81 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
             usage["errors"] += 1
 
         # Keep last 50 calls
-        usage["calls"] = usage.get("calls", [])[-49:] + [{
-            "time": datetime.now(UTC).strftime("%H:%M:%S"),
-            "tool": tool_name,
-            "status": status,
-            "duration": round(duration, 1),
-        }]
+        usage["calls"] = usage.get("calls", [])[-49:] + [
+            {
+                "time": datetime.now(UTC).strftime("%H:%M:%S"),
+                "tool": tool_name,
+                "status": status,
+                "duration": round(duration, 1),
+            }
+        ]
         _save_usage(usage)
+
+    # Cloud mode: enqueue async insert to Supabase usage_logs.
+    # Reads ContextVars here (calling thread), not in the worker.
+    if CLOUD_MODE:
+        user_id = cloud_user_id.get()
+        if user_id:
+            # Normalize status to match CHECK constraint ('ok', 'error')
+            db_status = "error" if status in ("error", "warn") else "ok"
+            row = {
+                "user_id": user_id,  # uuid — must match auth.users.id
+                "tool_name": tool_name,
+                "customer_id": customer_id,
+                "status": db_status,
+                "duration_ms": round(duration * 1000),
+            }
+            _enqueue_cloud_log(row)
+
+
+def _enqueue_cloud_log(row: dict) -> None:
+    """Enqueue a row for the cloud log worker. Non-blocking, drops if queue is full."""
+    global _cloud_queue, _cloud_worker
+    if _cloud_queue is None:
+        with _cloud_init_lock:
+            if _cloud_queue is None:
+                _cloud_queue = queue.Queue(maxsize=100)
+                _cloud_worker = threading.Thread(target=_cloud_log_worker, daemon=True)
+                _cloud_worker.start()
+
+    with contextlib.suppress(queue.Full):
+        _cloud_queue.put_nowait(row)
+
+
+def _cloud_log_worker() -> None:
+    """Single background thread that drains the cloud log queue."""
+    while True:
+        row = _cloud_queue.get()  # type: ignore[union-attr]
+        if row is None:
+            break
+        _write_cloud_log(row)
+        _cloud_queue.task_done()  # type: ignore[union-attr]
+
+
+def _write_cloud_log(row: dict) -> None:
+    """Insert a usage log row into Supabase. Called from the cloud worker thread."""
+    try:
+        import requests
+    except ImportError:
+        return
+
+    supabase_url = os.environ.get("BURNR8_SUPABASE_URL")
+    supabase_key = os.environ.get("BURNR8_SUPABASE_KEY")
+    if not supabase_url or not supabase_key:
+        return
+
+    with contextlib.suppress(Exception):
+        requests.post(
+            f"{supabase_url}/rest/v1/usage_logs",
+            headers={
+                "Authorization": f"Bearer {supabase_key}",
+                "apikey": supabase_key,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json=row,
+            timeout=5,
+        )
 
 
 def get_usage_stats() -> dict:

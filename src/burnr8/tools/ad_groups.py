@@ -12,13 +12,18 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_ad_groups(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
     ) -> list[dict]:
         """List ad groups, optionally filtered by campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -47,18 +52,20 @@ def register(mcp):
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            results.append({
-                "id": ag.get("id"),
-                "name": ag.get("name"),
-                "status": ag.get("status"),
-                "type": ag.get("type"),
-                "cpc_bid_dollars": int(ag.get("cpc_bid_micros", 0)) / 1_000_000,
-                "campaign_id": c.get("id"),
-                "campaign_name": c.get("name"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
-            })
+            results.append(
+                {
+                    "id": ag.get("id"),
+                    "name": ag.get("name"),
+                    "status": ag.get("status"),
+                    "type": ag.get("type"),
+                    "cpc_bid_dollars": int(ag.get("cpc_bid_micros", 0)) / 1_000_000,
+                    "campaign_id": c.get("id"),
+                    "campaign_name": c.get("name"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                }
+            )
         return results
 
     @mcp.tool
@@ -67,12 +74,17 @@ def register(mcp):
         campaign_id: Annotated[str, Field(description="Campaign ID to add the ad group to")],
         name: Annotated[str, Field(description="Ad group name")],
         cpc_bid: Annotated[float, Field(description="CPC bid in dollars")] = 1.0,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a new ad group in a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -90,9 +102,7 @@ def register(mcp):
         ad_group.type_ = client.enums.AdGroupTypeEnum.SEARCH_STANDARD
         ad_group.cpc_bid_micros = dollars_to_micros(cpc_bid)
 
-        response = ad_group_service.mutate_ad_groups(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         return {"id": new_id, "resource_name": resource_name, "name": name}
@@ -104,12 +114,17 @@ def register(mcp):
         name: Annotated[str | None, Field(description="New ad group name")] = None,
         cpc_bid: Annotated[float | None, Field(description="New CPC bid in dollars")] = None,
         status: Annotated[str | None, Field(description="New status: ENABLED, PAUSED, or REMOVED")] = None,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Update an ad group's name, bid, or status."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -144,7 +159,5 @@ def register(mcp):
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = ad_group_service.mutate_ad_groups(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}

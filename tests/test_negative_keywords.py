@@ -276,8 +276,8 @@ class TestRemoveNegativeKeyword:
         tool = _register_tool("remove_negative_keyword")
         result = tool(criterion_id="601", campaign_id="222", customer_id="1234567890")
 
-        assert "warning" in result
-        assert "confirm" in result["warning"].lower()
+        assert result["warning"] is True
+        assert "confirm" in result["message"].lower()
 
     def test_campaign_level_removal(self, mock_ads_client):
         """With confirm=True and campaign_id, removes via CampaignCriterionService."""

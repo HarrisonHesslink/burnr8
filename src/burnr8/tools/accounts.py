@@ -23,18 +23,24 @@ def register(mcp):
             cid = resource_name.split("/")[-1]
             # Fetch account name
             try:
-                rows = run_gaql(client, cid, """
+                rows = run_gaql(
+                    client,
+                    cid,
+                    """
                     SELECT customer.id, customer.descriptive_name, customer.manager, customer.status
                     FROM customer LIMIT 1
-                """)
+                """,
+                )
                 if rows:
                     c = rows[0].get("customer", {})
-                    accounts.append({
-                        "customer_id": cid,
-                        "name": c.get("descriptive_name", "Unknown"),
-                        "is_manager": c.get("manager", False),
-                        "status": c.get("status"),
-                    })
+                    accounts.append(
+                        {
+                            "customer_id": cid,
+                            "name": c.get("descriptive_name", "Unknown"),
+                            "is_manager": c.get("manager", False),
+                            "status": c.get("status"),
+                        }
+                    )
                 else:
                     accounts.append({"customer_id": cid, "name": "Unknown"})
             except Exception:
@@ -44,7 +50,9 @@ def register(mcp):
         return {
             "accounts": accounts,
             "active_account": active,
-            "hint": "Call set_active_account with a customer_id to set the default for all tools." if not active else None,
+            "hint": "Call set_active_account with a customer_id to set the default for all tools."
+            if not active
+            else None,
         }
 
     @mcp.tool
@@ -58,9 +66,13 @@ def register(mcp):
         # Fetch account name for confirmation
         try:
             client = get_client()
-            rows = run_gaql(client, customer_id, """
+            rows = run_gaql(
+                client,
+                customer_id,
+                """
                 SELECT customer.id, customer.descriptive_name FROM customer LIMIT 1
-            """)
+            """,
+            )
             name = rows[0].get("customer", {}).get("descriptive_name", "Unknown") if rows else "Unknown"
         except Exception:
             name = "Unknown"
@@ -81,12 +93,17 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def get_account_info(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Get account details including name, currency, timezone, and status."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         client = get_client()
         query = """
             SELECT
@@ -110,6 +127,7 @@ def register(mcp):
         """Get today's API usage stats: operations count, errors, rate limit status, recent tool calls, storage stats, and burnr8 version."""
         from burnr8 import __version__
         from burnr8.reports import get_storage_stats
+
         stats = get_usage_stats()
         stats["burnr8_version"] = __version__
         stats["storage"] = get_storage_stats()

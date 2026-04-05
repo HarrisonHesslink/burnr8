@@ -12,12 +12,17 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_budgets(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> list[dict]:
         """List all campaign budgets with spend data."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -37,15 +42,17 @@ def register(mcp):
         results = []
         for row in rows:
             b = row.get("campaign_budget", {})
-            results.append({
-                "id": b.get("id"),
-                "name": b.get("name"),
-                "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
-                "status": b.get("status"),
-                "delivery_method": b.get("delivery_method"),
-                "shared": b.get("explicitly_shared"),
-                "campaigns_using": b.get("reference_count"),
-            })
+            results.append(
+                {
+                    "id": b.get("id"),
+                    "name": b.get("name"),
+                    "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
+                    "status": b.get("status"),
+                    "delivery_method": b.get("delivery_method"),
+                    "shared": b.get("explicitly_shared"),
+                    "campaigns_using": b.get("reference_count"),
+                }
+            )
         return results
 
     @mcp.tool
@@ -53,12 +60,17 @@ def register(mcp):
     def create_budget(
         name: Annotated[str, Field(description="Budget name")],
         amount_dollars: Annotated[float, Field(description="Daily budget amount in dollars", gt=0)],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a new daily campaign budget."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -72,9 +84,7 @@ def register(mcp):
         budget.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
         budget.explicitly_shared = False
 
-        response = budget_service.mutate_campaign_budgets(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         return {"id": new_id, "resource_name": resource_name, "name": name, "amount_dollars": amount_dollars}
@@ -84,13 +94,20 @@ def register(mcp):
     def update_budget(
         budget_id: Annotated[str, Field(description="Budget ID to update")],
         amount_dollars: Annotated[float, Field(description="New daily budget amount in dollars", gt=0)],
-        confirm: Annotated[bool, Field(description="Must be true to execute. Changing budget affects ad spend.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        confirm: Annotated[
+            bool, Field(description="Must be true to execute. Changing budget affects ad spend.")
+        ] = False,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Update a campaign budget amount. Requires confirm=true."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if not confirm:
             return {
                 "warning": f"This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
@@ -110,21 +127,26 @@ def register(mcp):
         budget.amount_micros = dollars_to_micros(amount_dollars)
         operation.update_mask.paths.append("amount_micros")
 
-        response = budget_service.mutate_campaign_budgets(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[operation])
         return {"resource_name": response.results[0].resource_name, "new_amount_dollars": amount_dollars}
 
     @mcp.tool
     @handle_google_ads_errors
     def remove_orphan_budgets(
-        confirm: Annotated[bool, Field(description="Must be true to execute. Removes budgets not attached to any campaign.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        confirm: Annotated[
+            bool, Field(description="Must be true to execute. Removes budgets not attached to any campaign.")
+        ] = False,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Find and remove orphan budgets (reference_count = 0). Requires confirm=true."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -144,11 +166,13 @@ def register(mcp):
         orphans = []
         for row in rows:
             b = row.get("campaign_budget", {})
-            orphans.append({
-                "id": b.get("id"),
-                "name": b.get("name"),
-                "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
-            })
+            orphans.append(
+                {
+                    "id": b.get("id"),
+                    "name": b.get("name"),
+                    "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
+                }
+            )
 
         if not orphans:
             return {"message": "No orphan budgets found.", "removed": 0}
@@ -167,9 +191,7 @@ def register(mcp):
             op.remove = budget_service.campaign_budget_path(customer_id, str(orphan["id"]))
             operations.append(op)
 
-        response = budget_service.mutate_campaign_budgets(
-            customer_id=customer_id, operations=operations
-        )
+        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=operations)
         return {
             "removed": len(response.results),
             "removed_budgets": orphans,

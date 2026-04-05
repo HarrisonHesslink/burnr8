@@ -13,14 +13,29 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_extensions(
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
-        campaign_id: Annotated[str | None, Field(description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account.")] = None,
-        field_type: Annotated[str | None, Field(description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
+        campaign_id: Annotated[
+            str | None,
+            Field(
+                description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account."
+            ),
+        ] = None,
+        field_type: Annotated[
+            str | None,
+            Field(
+                description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE"
+            ),
+        ] = None,
     ) -> dict:
         """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account. Saves full results to CSV, returns summary + top rows."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -123,12 +138,17 @@ def register(mcp):
         final_url: Annotated[str, Field(description="Landing page URL for the sitelink")],
         description1: Annotated[str | None, Field(description="First description line (max 35 characters)")] = None,
         description2: Annotated[str | None, Field(description="Second description line (max 35 characters)")] = None,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a sitelink extension asset and link it to a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -148,17 +168,13 @@ def register(mcp):
         if description2 is not None:
             asset.sitelink_asset.description2 = description2
 
-        asset_response = asset_service.mutate_assets(
-            customer_id=customer_id, operations=[asset_operation]
-        )
+        asset_response = asset_service.mutate_assets(customer_id=customer_id, operations=[asset_operation])
         asset_resource_name = asset_response.results[0].resource_name
 
         # Step 2: Link the asset to the campaign
         campaign_asset_operation = client.get_type("CampaignAssetOperation")
         campaign_asset = campaign_asset_operation.create
-        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(
-            customer_id, campaign_id
-        )
+        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(customer_id, campaign_id)
         campaign_asset.asset = asset_resource_name
         campaign_asset.field_type = client.enums.AssetFieldTypeEnum.SITELINK
 
@@ -180,12 +196,17 @@ def register(mcp):
     def create_callout(
         campaign_id: Annotated[str, Field(description="Campaign ID to link the callout to")],
         callout_text: Annotated[str, Field(description="Callout text (max 25 characters, e.g. 'Free Shipping')")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a callout extension asset and link it to a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -200,17 +221,13 @@ def register(mcp):
         asset = asset_operation.create
         asset.callout_asset.callout_text = callout_text
 
-        asset_response = asset_service.mutate_assets(
-            customer_id=customer_id, operations=[asset_operation]
-        )
+        asset_response = asset_service.mutate_assets(customer_id=customer_id, operations=[asset_operation])
         asset_resource_name = asset_response.results[0].resource_name
 
         # Step 2: Link the asset to the campaign
         campaign_asset_operation = client.get_type("CampaignAssetOperation")
         campaign_asset = campaign_asset_operation.create
-        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(
-            customer_id, campaign_id
-        )
+        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(customer_id, campaign_id)
         campaign_asset.asset = asset_resource_name
         campaign_asset.field_type = client.enums.AssetFieldTypeEnum.CALLOUT
 
@@ -230,14 +247,26 @@ def register(mcp):
     @handle_google_ads_errors
     def create_structured_snippet(
         campaign_id: Annotated[str, Field(description="Campaign ID to link the structured snippet to")],
-        header: Annotated[str, Field(description="Snippet header (e.g. 'Types', 'Brands', 'Styles'). Must be a predefined Google Ads header value.")],
-        values: Annotated[list[str], Field(description="List of snippet values (3-10 recommended, e.g. ['Type A', 'Type B'])")],
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        header: Annotated[
+            str,
+            Field(
+                description="Snippet header (e.g. 'Types', 'Brands', 'Styles'). Must be a predefined Google Ads header value."
+            ),
+        ],
+        values: Annotated[
+            list[str], Field(description="List of snippet values (3-10 recommended, e.g. ['Type A', 'Type B'])")
+        ],
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create a structured snippet extension asset and link it to a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -256,17 +285,13 @@ def register(mcp):
         for value in values:
             asset.structured_snippet_asset.values.append(value)
 
-        asset_response = asset_service.mutate_assets(
-            customer_id=customer_id, operations=[asset_operation]
-        )
+        asset_response = asset_service.mutate_assets(customer_id=customer_id, operations=[asset_operation])
         asset_resource_name = asset_response.results[0].resource_name
 
         # Step 2: Link the asset to the campaign
         campaign_asset_operation = client.get_type("CampaignAssetOperation")
         campaign_asset = campaign_asset_operation.create
-        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(
-            customer_id, campaign_id
-        )
+        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(customer_id, campaign_id)
         campaign_asset.asset = asset_resource_name
         campaign_asset.field_type = client.enums.AssetFieldTypeEnum.STRUCTURED_SNIPPET
 
@@ -287,14 +312,21 @@ def register(mcp):
     @handle_google_ads_errors
     def create_image_extension(
         campaign_id: Annotated[str, Field(description="Campaign ID to link the image extension to")],
-        image_url: Annotated[str, Field(description="Public URL of the image to upload (must be square 1:1 ratio, min 300x300px)")],
+        image_url: Annotated[
+            str, Field(description="Public URL of the image to upload (must be square 1:1 ratio, min 300x300px)")
+        ],
         asset_name: Annotated[str | None, Field(description="Optional name for the image asset")] = None,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Create an image extension asset from a URL and link it to a campaign. Image must be square (1:1 ratio), minimum 300x300 pixels."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -348,17 +380,13 @@ def register(mcp):
         if asset_name:
             asset.name = asset_name
 
-        asset_response = asset_service.mutate_assets(
-            customer_id=customer_id, operations=[asset_operation]
-        )
+        asset_response = asset_service.mutate_assets(customer_id=customer_id, operations=[asset_operation])
         asset_resource_name = asset_response.results[0].resource_name
 
         # Step 2: Link the asset to the campaign as an image extension
         campaign_asset_operation = client.get_type("CampaignAssetOperation")
         campaign_asset = campaign_asset_operation.create
-        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(
-            customer_id, campaign_id
-        )
+        campaign_asset.campaign = client.get_service("CampaignService").campaign_path(customer_id, campaign_id)
         campaign_asset.asset = asset_resource_name
         campaign_asset.field_type = client.enums.AssetFieldTypeEnum.SQUARE_MARKETING_IMAGE
 
@@ -377,14 +405,24 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def remove_extension(
-        campaign_asset_resource_name: Annotated[str, Field(description="Full resource name of the campaign asset link to remove (e.g. 'customers/123/campaignAssets/456~789~SITELINK')")],
+        campaign_asset_resource_name: Annotated[
+            str,
+            Field(
+                description="Full resource name of the campaign asset link to remove (e.g. 'customers/123/campaignAssets/456~789~SITELINK')"
+            ),
+        ],
         confirm: Annotated[bool, Field(description="Must be true to execute the removal.")] = False,
-        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
     ) -> dict:
         """Remove an extension link from a campaign. Requires confirm=true for safety. This removes the link between the asset and campaign, not the asset itself."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
-            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
+            return {
+                "error": True,
+                "message": "No customer_id provided and no active account set. Call set_active_account first.",
+            }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if not confirm:
@@ -400,9 +438,7 @@ def register(mcp):
         operation = client.get_type("CampaignAssetOperation")
         operation.remove = campaign_asset_resource_name
 
-        response = campaign_asset_service.mutate_campaign_assets(
-            customer_id=customer_id, operations=[operation]
-        )
+        response = campaign_asset_service.mutate_campaign_assets(customer_id=customer_id, operations=[operation])
         return {
             "removed_resource_name": response.results[0].resource_name,
         }

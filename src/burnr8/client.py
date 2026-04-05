@@ -26,7 +26,7 @@ def get_client() -> GoogleAdsClient:
     if _client is None:
         with _client_lock:
             if _client is None:
-                from google.ads.googleads.client import GoogleAdsClient
+                from google.ads.googleads.client import GoogleAdsClient as _GAC
 
                 missing = [v for v in _REQUIRED_VARS if not os.environ.get(v)]
                 if missing:
@@ -44,5 +44,5 @@ def get_client() -> GoogleAdsClient:
                 login_customer_id = os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID")
                 if login_customer_id:
                     config["login_customer_id"] = login_customer_id.replace("-", "")
-                _client = GoogleAdsClient.load_from_dict(config_dict=config, version="v23")
+                _client = _GAC.load_from_dict(config_dict=config, version="v23")
     return _client

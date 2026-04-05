@@ -7,11 +7,25 @@ _client: GoogleAdsClient | None = None
 _client_lock = threading.Lock()
 
 
+_REQUIRED_VARS = [
+    "GOOGLE_ADS_DEVELOPER_TOKEN",
+    "GOOGLE_ADS_CLIENT_ID",
+    "GOOGLE_ADS_CLIENT_SECRET",
+    "GOOGLE_ADS_REFRESH_TOKEN",
+]
+
+
 def get_client() -> GoogleAdsClient:
     global _client
     if _client is None:
         with _client_lock:
             if _client is None:
+                missing = [v for v in _REQUIRED_VARS if not os.environ.get(v)]
+                if missing:
+                    raise OSError(
+                        f"Missing required credentials: {', '.join(missing)}. "
+                        "Run 'burnr8-setup' to configure, or set these environment variables."
+                    )
                 config = {
                     "developer_token": os.environ["GOOGLE_ADS_DEVELOPER_TOKEN"],
                     "client_id": os.environ["GOOGLE_ADS_CLIENT_ID"],

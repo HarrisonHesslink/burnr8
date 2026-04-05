@@ -106,7 +106,7 @@ def _save_to_disk(rows: list[dict], fieldnames: list[str], report_name: str, top
     if REPORTS_DIR.exists() and REPORTS_DIR.is_symlink():
         return {"error": True, "message": f"REPORTS_DIR is a symlink — refusing to write: {REPORTS_DIR}"}
 
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     _maybe_prune()
 

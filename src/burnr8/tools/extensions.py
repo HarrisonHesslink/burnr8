@@ -300,15 +300,34 @@ def register(mcp):
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
+        import ipaddress
+        import socket
+        from urllib.parse import urlparse
+
         import requests
 
-        # Download the image
+        # Validate image_url to prevent SSRF
+        parsed = urlparse(image_url)
+        if parsed.scheme not in ("http", "https"):
+            return {"error": True, "message": f"image_url must use http or https, got: {parsed.scheme!r}"}
+        if not parsed.hostname:
+            return {"error": True, "message": "image_url has no hostname"}
         try:
-            resp = requests.get(image_url, timeout=30, allow_redirects=True)
+            resolved_ip = ipaddress.ip_address(socket.gethostbyname(parsed.hostname))
+        except (socket.gaierror, ValueError):
+            return {"error": True, "message": "image_url hostname could not be resolved"}
+        if resolved_ip.is_private or resolved_ip.is_loopback or resolved_ip.is_link_local or resolved_ip.is_reserved:
+            return {"error": True, "message": f"image_url resolves to a non-public address: {resolved_ip}"}
+
+        # Download the image (no redirects — prevent redirect-based SSRF bypass)
+        try:
+            resp = requests.get(image_url, timeout=30, allow_redirects=False)
             resp.raise_for_status()
             image_data = resp.content
-        except Exception as e:
-            return {"error": True, "message": f"Failed to download image: {e}"}
+        except requests.exceptions.HTTPError as e:
+            return {"error": True, "message": f"Failed to download image: HTTP {e.response.status_code}"}
+        except Exception:
+            return {"error": True, "message": "Failed to download image (network error)"}
 
         client = get_client()
         asset_service = client.get_service("AssetService")

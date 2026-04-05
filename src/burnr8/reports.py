@@ -148,8 +148,16 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
     filename = _generate_filename(report_name)
     csv_bytes = _rows_to_csv_bytes(rows, fieldnames)
 
+    # Prefix with user_id so dashboard can list per-user reports
+    try:
+        from burnr8.logging import cloud_user_id
+        user_id = cloud_user_id.get()
+    except (ImportError, LookupError):
+        user_id = None
+    storage_path = f"{user_id}/{filename}" if user_id else filename
+
     # Upload to Supabase Storage
-    upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{filename}"
+    upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{storage_path}"
     headers = {
         "Authorization": f"Bearer {supabase_key}",
         "Content-Type": "text/csv",
@@ -165,7 +173,7 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         return {"error": True, "message": "Supabase upload failed (network error)"}
 
     # Create signed URL (24 hour expiry)
-    sign_url = f"{supabase_url}/storage/v1/object/sign/{bucket}/{filename}"
+    sign_url = f"{supabase_url}/storage/v1/object/sign/{bucket}/{storage_path}"
     sign_headers = {
         "Authorization": f"Bearer {supabase_key}",
         "Content-Type": "application/json",
@@ -183,7 +191,7 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         signed_url = f"{supabase_url}/storage/v1{sign_resp.json()['signedURL']}"
     except Exception:
         # Upload succeeded but signing failed — fallback to public URL with warning
-        signed_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{filename}"
+        signed_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{storage_path}"
         url_warning = "Signed URL generation failed. Public URL returned — may not work if bucket is private."
 
     result = {

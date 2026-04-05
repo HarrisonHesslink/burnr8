@@ -137,18 +137,19 @@ def get_usage_stats() -> dict:
 
 
 def get_recent_errors(limit: int = 20) -> list[dict]:
-    """Read recent ERROR lines from burnr8.log. Returns parsed log entries."""
+    """Read recent ERROR lines from burnr8.log. Uses deque to avoid loading all errors into memory."""
+    from collections import deque
+
     log_path = LOG_DIR / "burnr8.log"
     if not log_path.exists():
         return []
 
-    errors = []
     try:
         with open(log_path) as f:
-            for line in f:
-                if " ERROR " in line:
-                    errors.append({"raw": line.strip()})
+            window = deque(
+                ({"raw": line.strip()} for line in f if " ERROR " in line),
+                maxlen=limit,
+            )
+        return list(window)
     except OSError:
         return []
-
-    return errors[-limit:]

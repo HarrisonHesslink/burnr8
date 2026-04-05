@@ -9,6 +9,7 @@ import csv
 import io
 import os
 import re
+import threading
 import time
 import uuid
 from datetime import UTC, datetime
@@ -83,6 +84,7 @@ def _prune_old_reports(max_age_days: int = 7) -> int:
 
 
 _last_pruned: float = 0.0
+_prune_lock = threading.Lock()
 
 
 def _maybe_prune():
@@ -90,8 +92,12 @@ def _maybe_prune():
     now = time.monotonic()
     if now - _last_pruned < 300:  # 5 minutes
         return
-    _last_pruned = now
-    _prune_old_reports(max_age_days=7)
+    with _prune_lock:
+        # Double-check after acquiring lock
+        if now - _last_pruned < 300:
+            return
+        _last_pruned = now
+        _prune_old_reports(max_age_days=7)
 
 
 def _save_to_disk(rows: list[dict], fieldnames: list[str], report_name: str, top_n: int) -> dict:
@@ -205,7 +211,7 @@ def get_storage_stats() -> dict:
         }
 
     if not REPORTS_DIR.exists():
-        return {"report_mode": "disk", "report_files": 0, "total_size_mb": 0, "oldest_file": None}
+        return {"report_mode": "disk", "report_files": 0, "total_size_mb": 0, "oldest_file": None, "reports_dir": str(REPORTS_DIR)}
 
     files = list(REPORTS_DIR.glob("*.csv"))
     if not files:

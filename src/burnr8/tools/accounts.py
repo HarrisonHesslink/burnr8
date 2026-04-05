@@ -5,7 +5,7 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql
-from burnr8.logging import get_recent_errors, get_usage_stats
+from burnr8.logging import LOG_DIR, get_recent_errors, get_usage_stats
 
 
 def register(mcp):
@@ -65,5 +65,5 @@ def register(mcp):
         return {
             "error_count": len(errors),
             "errors": errors,
-            "log_file": str(get_usage_stats().get("log_file", "~/.burnr8/logs/burnr8.log")),
+            "log_file": str(LOG_DIR / "burnr8.log"),
         }

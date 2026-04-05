@@ -1,4 +1,4 @@
-"""Tests for burnr8.logging — usage tracking and tool call logging."""
+"""Tests for burnr8.logging — usage tracking, tool call logging, correlation IDs, error viewer."""
 
 import json
 import tempfile
@@ -124,3 +124,85 @@ def test_get_usage_stats_recent_calls_limited_to_10():
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
             stats = get_usage_stats()
             assert len(stats["recent_calls"]) == 10
+
+
+# --- Correlation ID ---
+
+
+def test_new_correlation_id_returns_string():
+    from burnr8.logging import new_correlation_id
+    cid = new_correlation_id()
+    assert isinstance(cid, str)
+    assert len(cid) == 12
+
+
+def test_get_correlation_id_returns_set_value():
+    from burnr8.logging import get_correlation_id, new_correlation_id
+    cid = new_correlation_id()
+    assert get_correlation_id() == cid
+
+
+def test_correlation_id_changes_each_call():
+    from burnr8.logging import new_correlation_id
+    cid1 = new_correlation_id()
+    cid2 = new_correlation_id()
+    assert cid1 != cid2
+
+
+# --- Error viewer ---
+
+
+def test_get_recent_errors_empty_log():
+    from burnr8.logging import get_recent_errors
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.logging.LOG_DIR", Path(tmpdir)):
+        errors = get_recent_errors()
+        assert errors == []
+
+
+def test_get_recent_errors_finds_errors():
+    from burnr8.logging import get_recent_errors
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        log_file = log_dir / "burnr8.log"
+        log_file.write_text(
+            "2026-04-04 18:32:15 INFO  tool=list_campaigns status=ok\n"
+            "2026-04-04 18:32:16 ERROR tool=update_campaign status=error msg=failed\n"
+            "2026-04-04 18:32:17 INFO  tool=list_keywords status=ok\n"
+            "2026-04-04 18:32:18 ERROR tool=set_status status=error msg=denied\n"
+        )
+        with patch("burnr8.logging.LOG_DIR", log_dir):
+            errors = get_recent_errors(limit=10)
+            assert len(errors) == 2
+            assert "update_campaign" in errors[0]["raw"]
+            assert "set_status" in errors[1]["raw"]
+
+
+def test_get_recent_errors_respects_limit():
+    from burnr8.logging import get_recent_errors
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        log_file = log_dir / "burnr8.log"
+        lines = [f"2026-04-04 18:32:{i:02d} ERROR tool=tool_{i}\n" for i in range(50)]
+        log_file.write_text("".join(lines))
+        with patch("burnr8.logging.LOG_DIR", log_dir):
+            errors = get_recent_errors(limit=5)
+            assert len(errors) == 5
+            # Should be the LAST 5
+            assert "tool_45" in errors[0]["raw"]
+
+
+# --- Log level ---
+
+
+def test_log_level_default():
+    from burnr8.logging import LOG_LEVEL
+    assert LOG_LEVEL == "INFO" or LOG_LEVEL in {"DEBUG", "WARNING", "ERROR"}
+
+
+def test_usage_stats_includes_log_level():
+    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.logging.LOG_DIR", Path(tmpdir)), \
+             patch("burnr8.logging.USAGE_FILE", Path(tmpdir) / "usage.json"):
+        from burnr8.logging import get_usage_stats
+        stats = get_usage_stats()
+        assert "log_level" in stats
+        assert "log_file" in stats

@@ -6,17 +6,21 @@ from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
 from burnr8.reports import save_report
+from burnr8.session import resolve_customer_id
 
 
 def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_extensions(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
         campaign_id: Annotated[str | None, Field(description="Campaign ID to filter by. If omitted, lists all campaign-level extensions in the account.")] = None,
         field_type: Annotated[str | None, Field(description="Filter by extension type: SITELINK, CALLOUT, STRUCTURED_SNIPPET, or SQUARE_MARKETING_IMAGE")] = None,
     ) -> dict:
         """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to a campaign or account. Saves full results to CSV, returns summary + top rows."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -114,14 +118,17 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_sitelink(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to link the sitelink to")],
         link_text: Annotated[str, Field(description="Sitelink display text (max 25 characters)")],
         final_url: Annotated[str, Field(description="Landing page URL for the sitelink")],
         description1: Annotated[str | None, Field(description="First description line (max 35 characters)")] = None,
         description2: Annotated[str | None, Field(description="Second description line (max 35 characters)")] = None,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a sitelink extension asset and link it to a campaign."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -171,11 +178,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_callout(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to link the callout to")],
         callout_text: Annotated[str, Field(description="Callout text (max 25 characters, e.g. 'Free Shipping')")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a callout extension asset and link it to a campaign."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -219,12 +229,15 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_structured_snippet(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to link the structured snippet to")],
         header: Annotated[str, Field(description="Snippet header (e.g. 'Types', 'Brands', 'Styles'). Must be a predefined Google Ads header value.")],
         values: Annotated[list[str], Field(description="List of snippet values (3-10 recommended, e.g. ['Type A', 'Type B'])")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a structured snippet extension asset and link it to a campaign."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -273,12 +286,15 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_image_extension(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to link the image extension to")],
         image_url: Annotated[str, Field(description="Public URL of the image to upload (must be square 1:1 ratio, min 300x300px)")],
         asset_name: Annotated[str | None, Field(description="Optional name for the image asset")] = None,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create an image extension asset from a URL and link it to a campaign. Image must be square (1:1 ratio), minimum 300x300 pixels."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -342,11 +358,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def remove_extension(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_asset_resource_name: Annotated[str, Field(description="Full resource name of the campaign asset link to remove (e.g. 'customers/123/campaignAssets/456~789~SITELINK')")],
         confirm: Annotated[bool, Field(description="Must be true to execute the removal.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Remove an extension link from a campaign. Requires confirm=true for safety. This removes the link between the asset and campaign, not the asset itself."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if not confirm:

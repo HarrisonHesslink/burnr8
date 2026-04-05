@@ -5,6 +5,7 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id
+from burnr8.session import resolve_customer_id
 
 _CONVERSION_ACTION_QUERY = """
     SELECT
@@ -35,9 +36,12 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_conversion_actions(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> list[dict]:
         """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -64,10 +68,13 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def get_conversion_action(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         conversion_action_id: Annotated[str, Field(description="Conversion action ID")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Get detailed info for a specific conversion action by ID."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(conversion_action_id, "conversion_action_id"):
@@ -96,15 +103,18 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_conversion_action(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         name: Annotated[str, Field(description="Name for the conversion action (e.g. 'Purchase', 'Sign Up')")],
         type: Annotated[str, Field(description="Conversion type: WEBPAGE, UPLOAD_CLICKS, UPLOAD_CALLS, CLICK_TO_CALL, STORE_VISIT")] = "WEBPAGE",
         category: Annotated[str, Field(description="Conversion category: DEFAULT, PAGE_VIEW, PURCHASE, SIGNUP, LEAD, DOWNLOAD, ADD_TO_CART, BEGIN_CHECKOUT")] = "DEFAULT",
         counting_type: Annotated[str, Field(description="Counting type: ONE_PER_CLICK or MANY_PER_CLICK")] = "ONE_PER_CLICK",
         default_value: Annotated[float, Field(description="Default conversion value in dollars")] = 0.0,
         always_use_default_value: Annotated[bool, Field(description="If true, always use the default value instead of transaction-specific values")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a new conversion action for tracking sign-ups, purchases, etc. Starts ENABLED by default."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
 
@@ -179,15 +189,18 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def update_conversion_action(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         conversion_action_id: Annotated[str, Field(description="Conversion action ID to update")],
         name: Annotated[str | None, Field(description="New name for the conversion action")] = None,
         status: Annotated[str | None, Field(description="New status: ENABLED, REMOVED, or HIDDEN")] = None,
         counting_type: Annotated[str | None, Field(description="New counting type: ONE_PER_CLICK or MANY_PER_CLICK")] = None,
         default_value: Annotated[float | None, Field(description="New default conversion value in dollars")] = None,
         always_use_default_value: Annotated[bool | None, Field(description="If true, always use the default value instead of transaction-specific values")] = None,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Update a conversion action's name, value, status, or counting type."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(conversion_action_id, "conversion_action_id"):

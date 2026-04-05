@@ -5,15 +5,19 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import dollars_to_micros, run_gaql, validate_id
+from burnr8.session import resolve_customer_id
 
 
 def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_budgets(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> list[dict]:
         """List all campaign budgets with spend data."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -47,11 +51,14 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_budget(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         name: Annotated[str, Field(description="Budget name")],
         amount_dollars: Annotated[float, Field(description="Daily budget amount in dollars", gt=0)],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a new daily campaign budget."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -75,12 +82,15 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def update_budget(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         budget_id: Annotated[str, Field(description="Budget ID to update")],
         amount_dollars: Annotated[float, Field(description="New daily budget amount in dollars", gt=0)],
         confirm: Annotated[bool, Field(description="Must be true to execute. Changing budget affects ad spend.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Update a campaign budget amount. Requires confirm=true."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if not confirm:
             return {
                 "warning": f"This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
@@ -108,10 +118,13 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def remove_orphan_budgets(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         confirm: Annotated[bool, Field(description="Must be true to execute. Removes budgets not attached to any campaign.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Find and remove orphan budgets (reference_count = 0). Requires confirm=true."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()

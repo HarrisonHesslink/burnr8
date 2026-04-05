@@ -5,6 +5,7 @@ from pydantic import Field
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
+from burnr8.session import resolve_customer_id
 
 VALID_BIDDING_STRATEGIES = {
     "MANUAL_CPC", "MANUAL_CPM", "MAXIMIZE_CLICKS", "MAXIMIZE_CONVERSIONS",
@@ -101,10 +102,13 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_campaigns(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
         status: Annotated[str | None, Field(description="Filter by status: ENABLED, PAUSED, or REMOVED")] = None,
     ) -> list[dict]:
         """List all campaigns for a customer, optionally filtered by status."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -147,10 +151,13 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def get_campaign(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Get full details for a specific campaign."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -193,7 +200,6 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_campaign(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         name: Annotated[str, Field(description="Campaign name")],
         budget_id: Annotated[str, Field(description="Campaign budget ID to use")],
         channel_type: Annotated[str, Field(description="Channel type: SEARCH, DISPLAY, SHOPPING, VIDEO")] = "SEARCH",
@@ -204,8 +210,12 @@ def register(mcp):
         target_impression_share_location: Annotated[str, Field(description="Where to target impressions: ANYWHERE_ON_PAGE, TOP_OF_PAGE, ABSOLUTE_TOP_OF_PAGE (for TARGET_IMPRESSION_SHARE)")] = "TOP_OF_PAGE",
         target_impression_share_fraction: Annotated[float | None, Field(description="Target impression share as decimal 0.0-1.0, e.g. 0.5 = 50% (for TARGET_IMPRESSION_SHARE)")] = None,
         eu_political_ads: Annotated[bool, Field(description="Set to true if this campaign contains EU political advertising. Required for EU/EEA compliance.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a new campaign. Always starts PAUSED for safety. Supports all Google Ads bidding strategies."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(budget_id, "budget_id"):
@@ -264,7 +274,6 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def update_campaign(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID to update")],
         name: Annotated[str | None, Field(description="New campaign name")] = None,
         budget_id: Annotated[str | None, Field(description="New budget ID")] = None,
@@ -276,8 +285,12 @@ def register(mcp):
         target_impression_share_fraction: Annotated[float | None, Field(description="Target impression share 0.0-1.0")] = None,
         target_search_network: Annotated[bool | None, Field(description="Show ads on Google search partner sites (e.g. AOL, Ask.com)")] = None,
         target_content_network: Annotated[bool | None, Field(description="Show ads on Google Display Network (opt-out recommended for Search campaigns)")] = None,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Update a campaign's name, budget, bidding strategy, or network settings."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
@@ -329,12 +342,15 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def set_campaign_status(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         campaign_id: Annotated[str, Field(description="Campaign ID")],
         status: Annotated[str, Field(description="New status: ENABLED, PAUSED, or REMOVED")],
         confirm: Annotated[bool, Field(description="Must be true to execute. Enabling a campaign will cause it to serve ads and spend money.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Enable, pause, or remove a campaign. Requires confirm=true for safety."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:

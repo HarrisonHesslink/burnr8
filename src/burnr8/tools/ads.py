@@ -6,16 +6,20 @@ from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import run_gaql, validate_id, validate_status
 from burnr8.reports import save_report
+from burnr8.session import resolve_customer_id
 
 
 def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def list_ads(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List ads with approval status and performance metrics. Saves full results to CSV, returns summary + top rows."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -100,13 +104,16 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def create_responsive_search_ad(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID to add the ad to")],
         headlines: Annotated[list[str], Field(description="List of 3-15 headline texts (max 30 chars each)")],
         descriptions: Annotated[list[str], Field(description="List of 2-4 description texts (max 90 chars each)")],
         final_url: Annotated[str, Field(description="Landing page URL")],
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Create a responsive search ad in an ad group."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
@@ -143,13 +150,16 @@ def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
     def set_ad_status(
-        customer_id: Annotated[str, Field(description="Google Ads customer ID (no dashes)")],
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the ad")],
         ad_id: Annotated[str, Field(description="Ad ID")],
         status: Annotated[str, Field(description="New status: ENABLED, PAUSED, or REMOVED")],
         confirm: Annotated[bool, Field(description="Must be true to execute. Enabling an ad means it can serve and spend budget.")] = False,
+        customer_id: Annotated[str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")] = None,
     ) -> dict:
         """Enable, pause, or remove an ad. Requires confirm=true for safety."""
+        customer_id = resolve_customer_id(customer_id)
+        if not customer_id:
+            return {"error": True, "message": "No customer_id provided and no active account set. Call set_active_account first."}
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:

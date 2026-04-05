@@ -3,7 +3,7 @@ name: google-ads-audit
 description: Google Ads account audit using burnr8 MCP tools. 74-check framework across conversion tracking, wasted spend, account structure, keywords, ads, and settings.
 license: MIT
 metadata:
-  version: 0.6.0
+  version: 0.6.1
   author: Harrison Hesslink
   category: advertising
   updated: 2026-04-04

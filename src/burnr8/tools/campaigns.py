@@ -211,14 +211,9 @@ def register(mcp):
         if err := validate_id(budget_id, "budget_id"):
             return {"error": True, "message": err}
 
-        valid_strategies = {
-            "MANUAL_CPC", "MANUAL_CPM", "MAXIMIZE_CLICKS", "MAXIMIZE_CONVERSIONS",
-            "MAXIMIZE_CONVERSION_VALUE", "TARGET_CPA", "TARGET_ROAS",
-            "TARGET_IMPRESSION_SHARE", "TARGET_SPEND",
-        }
         strategy = bidding_strategy.upper()
-        if strategy not in valid_strategies:
-            return {"error": True, "message": f"Invalid bidding_strategy '{bidding_strategy}'. Must be one of: {', '.join(sorted(valid_strategies))}"}
+        if strategy not in VALID_BIDDING_STRATEGIES:
+            return {"error": True, "message": f"Invalid bidding_strategy '{bidding_strategy}'. Must be one of: {', '.join(sorted(VALID_BIDDING_STRATEGIES))}"}
 
         client = get_client()
         campaign_service = client.get_service("CampaignService")

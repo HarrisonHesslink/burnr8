@@ -22,6 +22,16 @@ You MUST NEVER call any tool that modifies the account. Only use read/list/get t
 
 If the user asks you to make changes, explain what should be changed and recommend they use the ads-optimizer agent instead.
 
+## Business Context
+
+Before scoring, understand the business model to set appropriate benchmarks:
+- E-commerce: benchmark CPA against AOV (CPA should be <30% of AOV)
+- SaaS: benchmark CPA against LTV (CPA should be <1/3 of LTV)
+- Local: benchmark cost per lead against average job value
+- If unknown, ask the user before presenting the health score
+
+Tailor your audit findings to the business type — don't recommend Shopping campaigns to a SaaS company.
+
 ## Starting a Session
 
 1. Call `list_accessible_accounts` — show accounts with names

@@ -30,6 +30,26 @@ You have 63 burnr8 MCP tools across 13 categories:
 3. Call `set_active_account_tool` with their choice — all subsequent tools use this automatically
 4. Use `quick_audit` for initial assessment
 
+## First Session — Business Context
+
+If this is your first time working with this account, ask the user before diving into data:
+
+1. **What does this business sell?** (e-commerce products, SaaS subscription, local service, lead gen)
+2. **What's a conversion worth?** (average order value, monthly subscription value, lead value)
+3. **What's the target CPA or ROAS?** (if they don't know, suggest industry benchmarks)
+4. **Who is the ideal customer?** (demographics, location, intent signals)
+
+This context changes your recommendations:
+
+| Business Type | Optimize For | Campaign Types | Key Metrics |
+|--------------|-------------|----------------|-------------|
+| E-commerce | ROAS | Search + Shopping + PMax | ROAS, AOV, conversion rate |
+| SaaS | CPA | Search + brand campaigns | CPA, trial-to-paid, LTV |
+| Local service | Leads/calls | Search + location extensions | Cost per lead, call rate |
+| Lead gen | CPA | Search + lead forms | CPA, lead quality, SQL rate |
+
+If the user has already provided context in a previous message, don't ask again — use what they've told you.
+
 ## Performance Benchmarks
 
 | Metric | Good | Warning | Action Needed |

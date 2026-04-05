@@ -229,20 +229,47 @@ def test_cloud_log_enqueues_when_cloud_mode_and_user_id_set():
             patch("burnr8.logging.CLOUD_MODE", True),
             patch("burnr8.logging._enqueue_cloud_log") as mock_enqueue,
         ):
-            from burnr8.logging import cloud_user_id, log_tool_call
+            from burnr8.logging import cloud_api_key_id, cloud_user_id, log_tool_call
 
             cloud_user_id.set("user-abc-123")
+            cloud_api_key_id.set("key-456")
             log_tool_call("test_tool", "123456", 0.5, "ok", "detail=test")
 
             mock_enqueue.assert_called_once()
             row = mock_enqueue.call_args[0][0]
             assert row["user_id"] == "user-abc-123"
+            assert row["api_key_id"] == "key-456"
             assert row["tool_name"] == "test_tool"
             assert row["customer_id"] == "123456"
             assert row["duration_ms"] == 500
             assert row["status"] == "ok"
-            # detail is intentionally excluded from cloud logs (PII risk)
+            # detail and correlation_id excluded — not in schema, PII risk
             assert "detail" not in row
+            assert "correlation_id" not in row
+            assert "created_at" not in row  # let Supabase default handle it
+
+            cloud_user_id.set(None)
+
+
+def test_cloud_log_normalizes_warn_status_to_error():
+    """The DB CHECK constraint only allows 'ok' and 'error' — 'warn' maps to 'error'."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        usage_file = log_dir / "usage.json"
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+            patch("burnr8.logging.CLOUD_MODE", True),
+            patch("burnr8.logging._enqueue_cloud_log") as mock_enqueue,
+        ):
+            from burnr8.logging import cloud_user_id, log_tool_call
+
+            cloud_user_id.set("user-abc-123")
+            log_tool_call("test_tool", "123456", 0.5, "warn", "confirm=false")
+
+            row = mock_enqueue.call_args[0][0]
+            assert row["status"] == "error"  # warn → error for DB CHECK constraint
 
             cloud_user_id.set(None)
 

@@ -1,6 +1,6 @@
 [project]
 name = "burnr8"
-version = "0.5.1"
+version = "0.6.0"
 description = "Google Ads MCP server — manage your ad spend from Claude Code"
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -16,9 +16,14 @@ def get_logger() -> logging.Logger:
     global _logger
     if _logger is None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = LOG_DIR / "burnr8.log"
+        # Create log file with restrictive permissions if it doesn't exist
+        if not log_path.exists():
+            fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            os.close(fd)
         _logger = logging.getLogger("burnr8")
         _logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(LOG_DIR / "burnr8.log")
+        handler = logging.FileHandler(log_path)
         handler.setFormatter(logging.Formatter(
             "%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         ))
@@ -43,7 +48,9 @@ def _save_usage(data: dict) -> None:
     """Atomic write: temp file then replace."""
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     tmp = USAGE_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2))
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with open(fd, "w") as f:
+        f.write(json.dumps(data, indent=2))
     tmp.replace(USAGE_FILE)
 
 

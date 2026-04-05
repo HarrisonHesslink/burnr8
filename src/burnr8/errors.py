@@ -35,7 +35,7 @@ def handle_google_ads_errors(fn):
             duration = time.monotonic() - start
             errors = []
             for error in ex.failure.errors:
-                err = {"message": error.message, "code": str(error.error_code)}
+                err = {"message": error.message[:200], "code": str(error.error_code)}
                 if error.location and error.location.field_path_elements:
                     err["field_path"] = [el.field_name for el in error.location.field_path_elements]
                 errors.append(err)

@@ -9,6 +9,7 @@ import csv
 import io
 import os
 import re
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -81,6 +82,18 @@ def _prune_old_reports(max_age_days: int = 7) -> int:
     return deleted
 
 
+_last_pruned: float = 0.0
+
+
+def _maybe_prune():
+    global _last_pruned
+    now = time.monotonic()
+    if now - _last_pruned < 300:  # 5 minutes
+        return
+    _last_pruned = now
+    _prune_old_reports(max_age_days=7)
+
+
 def _save_to_disk(rows: list[dict], fieldnames: list[str], report_name: str, top_n: int) -> dict:
     """Write CSV to local disk with restrictive permissions."""
     # Check symlink BEFORE creating directory
@@ -89,7 +102,7 @@ def _save_to_disk(rows: list[dict], fieldnames: list[str], report_name: str, top
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    _prune_old_reports(max_age_days=7)
+    _maybe_prune()
 
     filename = _generate_filename(report_name)
     filepath = REPORTS_DIR / filename
@@ -140,8 +153,10 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
     try:
         resp = requests.post(upload_url, headers=headers, data=csv_bytes, timeout=30)
         resp.raise_for_status()
-    except Exception as e:
-        return {"error": True, "message": f"Supabase upload failed: {e}"}
+    except requests.exceptions.HTTPError as e:
+        return {"error": True, "message": f"Supabase upload failed: HTTP {e.response.status_code}"}
+    except Exception:
+        return {"error": True, "message": "Supabase upload failed (network error)"}
 
     # Create signed URL (24 hour expiry)
     sign_url = f"{supabase_url}/storage/v1/object/sign/{bucket}/{filename}"

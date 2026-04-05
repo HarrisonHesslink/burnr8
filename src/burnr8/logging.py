@@ -22,11 +22,10 @@ _usage_cache: dict | None = None
 # Correlation ID for tracing multi-tool workflows (e.g. quick_audit → 6 GAQL queries)
 correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
 
-# Cloud context — set by the hosted server during credential resolution.
+# Cloud user ID — set by the hosted server during credential resolution.
 # IMPORTANT: Must be set in the same thread/context that executes the tool call.
 # If using a thread pool, use contextvars.copy_context().run() to propagate.
 cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
-cloud_api_key_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_api_key_id", default=None)
 
 # Bounded queue for cloud log writes — single worker thread, max 100 pending items.
 # Items beyond the limit are silently dropped (backpressure).
@@ -144,9 +143,7 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
             db_status = "error" if status in ("error", "warn") else "ok"
             row = {
                 "user_id": user_id,  # uuid — must match auth.users.id
-                "api_key_id": cloud_api_key_id.get(),
                 "tool_name": tool_name,
-                # Full customer_id for per-account cloud analytics (intentional)
                 "customer_id": customer_id,
                 "status": db_status,
                 "duration_ms": round(duration * 1000),

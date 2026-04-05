@@ -61,4 +61,4 @@ def test_prompt_count():
     """Verify expected prompt count."""
     from burnr8.server import mcp
     prompts = asyncio.run(mcp.list_prompts())
-    assert len(prompts) == 3
+    assert len(prompts) == 6

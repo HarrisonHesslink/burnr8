@@ -8,12 +8,21 @@
   "plugins": [
     {
       "name": "burnr8",
-      "description": "60-tool Google Ads MCP server with audit, optimization, and reporting",
+      "description": "Google Ads MCP server — self-hosted, 60 tools for audit, optimization, and reporting",
       "version": "0.5.0",
       "source": "./",
       "category": "productivity",
       "homepage": "https://burnrate.sh",
-      "tags": ["google-ads", "mcp", "ppc", "advertising", "sem"]
+      "tags": ["google-ads", "mcp", "ppc", "advertising", "self-hosted"]
+    },
+    {
+      "name": "burnr8-cloud",
+      "description": "Google Ads via burnrate.sh — zero setup, connects via OAuth, no Python needed",
+      "version": "0.5.0",
+      "source": "./plugins/burnr8-cloud",
+      "category": "productivity",
+      "homepage": "https://burnrate.sh",
+      "tags": ["google-ads", "mcp", "ppc", "advertising", "hosted", "oauth"]
     }
   ]
 }

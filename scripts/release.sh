@@ -62,12 +62,13 @@ else
     sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" pyproject.toml
     sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/g" .claude-plugin/marketplace.json
     sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/g" .claude-plugin/plugin.json
+    sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${VERSION}\"/g" plugins/burnr8-cloud/.claude-plugin/plugin.json
     sed -i "s/version: .*/version: ${VERSION}/" skills/google-ads-audit/SKILL.md
 
     # --- Create PR for version bump (branch protection) ---
     RELEASE_BRANCH="release-v${VERSION}"
     git checkout -b "$RELEASE_BRANCH"
-    git add pyproject.toml .claude-plugin/marketplace.json .claude-plugin/plugin.json skills/google-ads-audit/SKILL.md
+    git add pyproject.toml .claude-plugin/marketplace.json .claude-plugin/plugin.json plugins/burnr8-cloud/.claude-plugin/plugin.json skills/google-ads-audit/SKILL.md
     git commit -m "Release v${VERSION}"
     git push -u origin "$RELEASE_BRANCH"
 

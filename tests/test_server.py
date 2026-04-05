@@ -13,7 +13,7 @@ def test_tool_count():
     """Verify expected tool count."""
     from burnr8.server import mcp
     tools = asyncio.run(mcp.list_tools())
-    assert len(tools) == 63
+    assert len(tools) == 65
 
 
 def test_all_tools_have_descriptions():
@@ -36,6 +36,7 @@ def test_prompts_registered():
     assert "budget_reallocation" in names
     assert "ad_copy" in names
     assert "trends" in names
+    assert "competitors" in names
 
 
 def test_resources_registered():
@@ -64,4 +65,4 @@ def test_prompt_count():
     """Verify expected prompt count."""
     from burnr8.server import mcp
     prompts = asyncio.run(mcp.list_prompts())
-    assert len(prompts) == 6
+    assert len(prompts) == 7

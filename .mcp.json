@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "burnr8": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["-m", "burnr8.server"]
+    }
+  }
+}

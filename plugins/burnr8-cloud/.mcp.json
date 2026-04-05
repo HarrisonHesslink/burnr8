@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "burnr8": {
+    "burnr8-cloud": {
       "type": "http",
       "url": "https://mcp.burnrate.sh"
     }

@@ -214,6 +214,92 @@ def test_get_recent_errors_respects_limit():
 # --- Log level ---
 
 
+# --- Cloud logging ---
+
+
+def test_cloud_log_fires_when_cloud_mode_and_user_id_set():
+    """In cloud mode with a user_id, log_tool_call should spawn a thread to write to Supabase."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        usage_file = log_dir / "usage.json"
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+            patch("burnr8.logging.CLOUD_MODE", True),
+            patch("burnr8.logging._write_cloud_log") as mock_cloud,
+        ):
+            from burnr8.logging import cloud_user_id, log_tool_call
+
+            cloud_user_id.set("user-abc-123")
+            log_tool_call("test_tool", "123456", 0.5, "ok", "detail=test")
+
+            # _write_cloud_log should NOT be called directly — it's called via Thread
+            # But since we patched it, the Thread target is the mock
+            # Verify the thread was started by checking the mock was called
+            # (patching replaces the function the Thread targets)
+            import time
+
+            time.sleep(0.1)  # give daemon thread time to start
+            mock_cloud.assert_called_once()
+            args = mock_cloud.call_args[0]
+            assert args[0] == "user-abc-123"  # user_id
+            assert args[1] == "test_tool"  # tool_name
+            assert args[3] == 0.5  # duration
+            assert args[4] == "ok"  # status
+
+            cloud_user_id.set(None)
+
+
+def test_cloud_log_skipped_when_no_user_id():
+    """Cloud mode without user_id should not attempt cloud logging."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        usage_file = log_dir / "usage.json"
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+            patch("burnr8.logging.CLOUD_MODE", True),
+            patch("burnr8.logging._write_cloud_log") as mock_cloud,
+        ):
+            from burnr8.logging import cloud_user_id, log_tool_call
+
+            cloud_user_id.set(None)
+            log_tool_call("test_tool", "123456", 0.5, "ok")
+            import time
+
+            time.sleep(0.1)
+            mock_cloud.assert_not_called()
+
+
+def test_cloud_log_skipped_when_not_cloud_mode():
+    """Without BURNR8_CLOUD, no cloud logging should happen."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        usage_file = log_dir / "usage.json"
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+            patch("burnr8.logging.CLOUD_MODE", False),
+            patch("burnr8.logging._write_cloud_log") as mock_cloud,
+        ):
+            from burnr8.logging import log_tool_call
+
+            log_tool_call("test_tool", "123456", 0.5, "ok")
+            mock_cloud.assert_not_called()
+
+
+# --- Log level ---
+
+
 def test_log_level_default():
     from burnr8.logging import LOG_LEVEL
 

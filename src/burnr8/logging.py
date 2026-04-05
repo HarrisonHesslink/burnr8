@@ -11,6 +11,7 @@ from pathlib import Path
 LOG_DIR = Path(os.environ.get("BURNR8_LOG_DIR", os.path.expanduser("~/.burnr8/logs")))
 LOG_LEVEL = os.environ.get("BURNR8_LOG_LEVEL", "INFO").upper()
 USAGE_FILE = LOG_DIR / "usage.json"
+CLOUD_MODE = bool(os.environ.get("BURNR8_CLOUD"))
 
 _logger: logging.Logger | None = None
 _usage_lock = threading.Lock()
@@ -18,6 +19,9 @@ _usage_cache: dict | None = None
 
 # Correlation ID for tracing multi-tool workflows (e.g. quick_audit → 6 GAQL queries)
 correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
+
+# Cloud user ID — set by the hosted server during credential resolution
+cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
 
 
 def new_correlation_id() -> str:
@@ -46,12 +50,10 @@ def get_logger() -> logging.Logger:
                 _logger = logging.getLogger("burnr8")
                 _logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
                 # Rotating handler: 10MB max, 3 backups
-                handler = RotatingFileHandler(
-                    log_path, maxBytes=10_000_000, backupCount=3
+                handler = RotatingFileHandler(log_path, maxBytes=10_000_000, backupCount=3)
+                handler.setFormatter(
+                    logging.Formatter("%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
                 )
-                handler.setFormatter(logging.Formatter(
-                    "%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-                ))
                 _logger.addHandler(handler)
     return _logger
 
@@ -112,13 +114,72 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
             usage["errors"] += 1
 
         # Keep last 50 calls
-        usage["calls"] = usage.get("calls", [])[-49:] + [{
-            "time": datetime.now(UTC).strftime("%H:%M:%S"),
-            "tool": tool_name,
-            "status": status,
-            "duration": round(duration, 1),
-        }]
+        usage["calls"] = usage.get("calls", [])[-49:] + [
+            {
+                "time": datetime.now(UTC).strftime("%H:%M:%S"),
+                "tool": tool_name,
+                "status": status,
+                "duration": round(duration, 1),
+            }
+        ]
         _save_usage(usage)
+
+    # Cloud mode: async insert to Supabase usage_logs
+    if CLOUD_MODE:
+        user_id = cloud_user_id.get()
+        if user_id:
+            threading.Thread(
+                target=_write_cloud_log,
+                args=(user_id, tool_name, customer_id, duration, status, detail, cid),
+                daemon=True,
+            ).start()
+
+
+def _write_cloud_log(
+    user_id: str,
+    tool_name: str,
+    customer_id: str | None,
+    duration: float,
+    status: str,
+    detail: str,
+    correlation_id: str | None,
+) -> None:
+    """Insert a usage log row into Supabase. Runs in a daemon thread — fire-and-forget."""
+    try:
+        import requests
+    except ImportError:
+        return
+
+    supabase_url = os.environ.get("BURNR8_SUPABASE_URL")
+    supabase_key = os.environ.get("BURNR8_SUPABASE_KEY")
+    if not supabase_url or not supabase_key:
+        return
+
+    row = {
+        "user_id": user_id,
+        "tool_name": tool_name,
+        "customer_id": customer_id,
+        "duration_ms": round(duration * 1000),
+        "status": status,
+        "detail": detail[:500] if detail else None,
+        "correlation_id": correlation_id,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        requests.post(
+            f"{supabase_url}/rest/v1/usage_logs",
+            headers={
+                "Authorization": f"Bearer {supabase_key}",
+                "apikey": supabase_key,
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal",
+            },
+            json=row,
+            timeout=5,
+        )
 
 
 def get_usage_stats() -> dict:

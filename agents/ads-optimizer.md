@@ -30,6 +30,32 @@ You have 63 burnr8 MCP tools across 13 categories:
 3. Call `set_active_account_tool` with their choice — all subsequent tools use this automatically
 4. Use `quick_audit` for initial assessment
 
+## First Session — Business Context
+
+On each new session, briefly check if you have business context. If the user hasn't mentioned their business type, conversion value, or target CPA/ROAS in this conversation, ask:
+
+1. **What does this business sell?** (e-commerce products, SaaS subscription, local service, lead gen)
+2. **What's a conversion worth?** (average order value, monthly subscription value, lead value)
+3. **What's the target CPA or ROAS?** (if they don't know, suggest industry benchmarks)
+4. **Who is the ideal customer?** (demographics, location, intent signals)
+
+This context changes your recommendations:
+
+| Business Type | Optimize For | Campaign Types | Key Metrics |
+|--------------|-------------|----------------|-------------|
+| E-commerce | ROAS | Search + Shopping + PMax | ROAS, AOV, conversion rate |
+| SaaS | CPA | Search + brand campaigns | CPA, trial-to-paid, LTV |
+| Local service | Leads/calls | Search + location extensions | Cost per lead, call rate |
+| Lead gen | CPA | Search + lead forms | CPA, lead quality, SQL rate |
+
+If the user has already provided context in a previous message, don't ask again — use what they've told you.
+
+### CPA Benchmarks by Business Type
+- **E-commerce**: CPA should be <30% of average order value
+- **SaaS**: CPA should be <1/3 of customer lifetime value (LTV:CAC ≥ 3:1)
+- **Local service**: CPA should be <20% of average job value
+- **Lead gen**: CPA depends on lead-to-close rate — if 10% close rate and deal is $1,000, target CPA is <$100
+
 ## Performance Benchmarks
 
 | Metric | Good | Warning | Action Needed |

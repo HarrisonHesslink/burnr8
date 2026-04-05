@@ -220,7 +220,11 @@ def test_get_storage_stats():
 
 
 def test_get_storage_stats_empty():
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)),
+        patch("burnr8.reports.REPORT_MODE", "disk"),
+    ):
         stats = get_storage_stats()
         assert stats["report_files"] == 0
         assert stats["total_size_mb"] == 0
@@ -251,7 +255,11 @@ def test_rows_to_csv_bytes_sanitizes():
 
 def test_save_report_defaults_to_disk():
     rows = [{"a": 1}]
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)),
+        patch("burnr8.reports.REPORT_MODE", "disk"),
+    ):
         result = save_report(rows, "test_mode")
         assert "file" in result
         assert result["file"] is not None
@@ -278,8 +286,13 @@ def test_storage_stats_supabase_mode():
         stats = get_storage_stats()
         assert stats["report_mode"] == "supabase"
 
+
 def test_storage_stats_disk_mode():
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)), patch("burnr8.reports.REPORT_MODE", "disk"):
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        patch("burnr8.reports.REPORTS_DIR", Path(tmpdir)),
+        patch("burnr8.reports.REPORT_MODE", "disk"),
+    ):
         stats = get_storage_stats()
         assert stats["report_mode"] == "disk"
 
@@ -300,9 +313,18 @@ def test_save_report_supabase_success():
     mock_sign_resp.raise_for_status = MagicMock()
     mock_sign_resp.json.return_value = {"signedURL": "/object/sign/reports/test.csv?token=abc"}
 
-    with patch("burnr8.reports.REPORT_MODE", "supabase"), \
-         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123", "BURNR8_SUPABASE_BUCKET": "reports"}), \
-         patch("requests.post", side_effect=[mock_upload_resp, mock_sign_resp]):
+    with (
+        patch("burnr8.reports.REPORT_MODE", "supabase"),
+        patch.dict(
+            os.environ,
+            {
+                "BURNR8_SUPABASE_URL": "https://test.supabase.co",
+                "BURNR8_SUPABASE_KEY": "key123",
+                "BURNR8_SUPABASE_BUCKET": "reports",
+            },
+        ),
+        patch("requests.post", side_effect=[mock_upload_resp, mock_sign_resp]),
+    ):
         result = save_report(rows, "test_report")
 
         assert "url" in result
@@ -321,9 +343,18 @@ def test_save_report_supabase_sign_failure_returns_warning():
     mock_upload_resp = MagicMock()
     mock_upload_resp.raise_for_status = MagicMock()
 
-    with patch("burnr8.reports.REPORT_MODE", "supabase"), \
-         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123", "BURNR8_SUPABASE_BUCKET": "reports"}), \
-         patch("requests.post", side_effect=[mock_upload_resp, Exception("sign failed")]):
+    with (
+        patch("burnr8.reports.REPORT_MODE", "supabase"),
+        patch.dict(
+            os.environ,
+            {
+                "BURNR8_SUPABASE_URL": "https://test.supabase.co",
+                "BURNR8_SUPABASE_KEY": "key123",
+                "BURNR8_SUPABASE_BUCKET": "reports",
+            },
+        ),
+        patch("requests.post", side_effect=[mock_upload_resp, Exception("sign failed")]),
+    ):
         result = save_report(rows, "test_report")
 
         assert "url" in result
@@ -336,9 +367,11 @@ def test_save_report_supabase_upload_failure():
     """Test that upload failure returns error."""
     rows = [{"keyword": "test", "clicks": 10}]
 
-    with patch("burnr8.reports.REPORT_MODE", "supabase"), \
-         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123"}), \
-         patch("requests.post", side_effect=Exception("connection refused")):
+    with (
+        patch("burnr8.reports.REPORT_MODE", "supabase"),
+        patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123"}),
+        patch("requests.post", side_effect=Exception("connection refused")),
+    ):
         result = save_report(rows, "test_report")
 
         assert result.get("error") is True

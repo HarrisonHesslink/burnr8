@@ -29,9 +29,15 @@ def test_all_strategies_are_uppercase():
 def test_complete_strategy_list():
     """Verify the exact set of strategies."""
     expected = {
-        "MANUAL_CPC", "MANUAL_CPM", "MAXIMIZE_CLICKS", "MAXIMIZE_CONVERSIONS",
-        "MAXIMIZE_CONVERSION_VALUE", "TARGET_CPA", "TARGET_ROAS",
-        "TARGET_IMPRESSION_SHARE", "TARGET_SPEND",
+        "MANUAL_CPC",
+        "MANUAL_CPM",
+        "MAXIMIZE_CLICKS",
+        "MAXIMIZE_CONVERSIONS",
+        "MAXIMIZE_CONVERSION_VALUE",
+        "TARGET_CPA",
+        "TARGET_ROAS",
+        "TARGET_IMPRESSION_SHARE",
+        "TARGET_SPEND",
     }
     assert expected == VALID_BIDDING_STRATEGIES
 

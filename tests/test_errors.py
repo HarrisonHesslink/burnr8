@@ -75,8 +75,8 @@ def test_decorator_logs_ok_on_success():
         mock_log.assert_called_once()
         args = mock_log.call_args
         assert args[0][0] == "my_tool"  # tool name
-        assert args[0][1] == "123456"   # customer_id
-        assert args[0][3] == "ok"       # status
+        assert args[0][1] == "123456"  # customer_id
+        assert args[0][3] == "ok"  # status
 
 
 def test_decorator_logs_error_on_exception():

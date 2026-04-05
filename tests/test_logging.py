@@ -8,9 +8,13 @@ from unittest.mock import patch
 
 def test_usage_stats_default():
     """Test get_usage_stats returns correct structure."""
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.logging.LOG_DIR", Path(tmpdir)), \
-             patch("burnr8.logging.USAGE_FILE", Path(tmpdir) / "usage.json"):
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        patch("burnr8.logging.LOG_DIR", Path(tmpdir)),
+        patch("burnr8.logging.USAGE_FILE", Path(tmpdir) / "usage.json"),
+    ):
         from burnr8.logging import get_usage_stats
+
         stats = get_usage_stats()
         assert "date" in stats
         assert "ops_today" in stats
@@ -26,10 +30,13 @@ def test_log_tool_call_increments_ops():
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file), \
-             patch("burnr8.logging._logger", None):
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+        ):
             from burnr8.logging import _load_usage, log_tool_call
+
             log_tool_call("test_tool", "123456", 0.5, "ok")
             data = _load_usage()
             assert data["ops"] >= 1
@@ -40,11 +47,14 @@ def test_log_tool_call_tracks_errors():
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file), \
-             patch("burnr8.logging._logger", None):
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+        ):
             from burnr8.logging import _load_usage, log_tool_call
-            log_tool_call("fail_tool", "123456", 0.5, "error", "msg=\"test\"")
+
+            log_tool_call("fail_tool", "123456", 0.5, "error", 'msg="test"')
             data = _load_usage()
             assert data["errors"] >= 1
 
@@ -54,9 +64,9 @@ def test_usage_file_atomic_write():
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file):
+        with patch("burnr8.logging.LOG_DIR", log_dir), patch("burnr8.logging.USAGE_FILE", usage_file):
             from burnr8.logging import _save_usage
+
             _save_usage({"date": "2026-04-04", "ops": 1, "errors": 0, "calls": []})
             assert usage_file.exists()
             assert not (usage_file.with_suffix(".tmp")).exists()
@@ -70,12 +80,10 @@ def test_load_usage_returns_fresh_for_new_day():
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
         # Write stale data with yesterday's date
-        usage_file.write_text(json.dumps({
-            "date": "1999-01-01", "ops": 999, "errors": 99, "calls": []
-        }))
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file):
+        usage_file.write_text(json.dumps({"date": "1999-01-01", "ops": 999, "errors": 99, "calls": []}))
+        with patch("burnr8.logging.LOG_DIR", log_dir), patch("burnr8.logging.USAGE_FILE", usage_file):
             from burnr8.logging import _load_usage
+
             data = _load_usage()
             # Should be reset since date doesn't match today
             assert data["ops"] == 0
@@ -88,9 +96,9 @@ def test_load_usage_handles_corrupt_file():
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
         usage_file.write_text("not valid json{{{")
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file):
+        with patch("burnr8.logging.LOG_DIR", log_dir), patch("burnr8.logging.USAGE_FILE", usage_file):
             from burnr8.logging import _load_usage
+
             data = _load_usage()
             assert data["ops"] == 0
             assert data["errors"] == 0
@@ -101,10 +109,13 @@ def test_log_tool_call_keeps_last_50_calls():
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file), \
-             patch("burnr8.logging._logger", None):
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+        ):
             from burnr8.logging import _load_usage, log_tool_call
+
             for i in range(60):
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
             data = _load_usage()
@@ -116,10 +127,13 @@ def test_get_usage_stats_recent_calls_limited_to_10():
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         usage_file = log_dir / "usage.json"
-        with patch("burnr8.logging.LOG_DIR", log_dir), \
-             patch("burnr8.logging.USAGE_FILE", usage_file), \
-             patch("burnr8.logging._logger", None):
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+        ):
             from burnr8.logging import get_usage_stats, log_tool_call
+
             for i in range(20):
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
             stats = get_usage_stats()
@@ -131,6 +145,7 @@ def test_get_usage_stats_recent_calls_limited_to_10():
 
 def test_new_correlation_id_returns_string():
     from burnr8.logging import new_correlation_id
+
     cid = new_correlation_id()
     assert isinstance(cid, str)
     assert len(cid) == 12
@@ -138,12 +153,14 @@ def test_new_correlation_id_returns_string():
 
 def test_get_correlation_id_returns_set_value():
     from burnr8.logging import get_correlation_id, new_correlation_id
+
     cid = new_correlation_id()
     assert get_correlation_id() == cid
 
 
 def test_correlation_id_changes_each_call():
     from burnr8.logging import new_correlation_id
+
     cid1 = new_correlation_id()
     cid2 = new_correlation_id()
     assert cid1 != cid2
@@ -154,6 +171,7 @@ def test_correlation_id_changes_each_call():
 
 def test_get_recent_errors_empty_log():
     from burnr8.logging import get_recent_errors
+
     with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.logging.LOG_DIR", Path(tmpdir)):
         errors = get_recent_errors()
         assert errors == []
@@ -161,6 +179,7 @@ def test_get_recent_errors_empty_log():
 
 def test_get_recent_errors_finds_errors():
     from burnr8.logging import get_recent_errors
+
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         log_file = log_dir / "burnr8.log"
@@ -179,6 +198,7 @@ def test_get_recent_errors_finds_errors():
 
 def test_get_recent_errors_respects_limit():
     from burnr8.logging import get_recent_errors
+
     with tempfile.TemporaryDirectory() as tmpdir:
         log_dir = Path(tmpdir)
         log_file = log_dir / "burnr8.log"
@@ -196,13 +216,18 @@ def test_get_recent_errors_respects_limit():
 
 def test_log_level_default():
     from burnr8.logging import LOG_LEVEL
+
     assert LOG_LEVEL == "INFO" or LOG_LEVEL in {"DEBUG", "WARNING", "ERROR"}
 
 
 def test_usage_stats_includes_log_level():
-    with tempfile.TemporaryDirectory() as tmpdir, patch("burnr8.logging.LOG_DIR", Path(tmpdir)), \
-             patch("burnr8.logging.USAGE_FILE", Path(tmpdir) / "usage.json"):
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        patch("burnr8.logging.LOG_DIR", Path(tmpdir)),
+        patch("burnr8.logging.USAGE_FILE", Path(tmpdir) / "usage.json"),
+    ):
         from burnr8.logging import get_usage_stats
+
         stats = get_usage_stats()
         assert "log_level" in stats
         assert "log_file" in stats

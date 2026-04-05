@@ -1,6 +1,7 @@
 """Tests for burnr8.logging — usage tracking, tool call logging, correlation IDs, error viewer."""
 
 import json
+import logging
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -383,6 +384,28 @@ def test_log_level_default():
     from burnr8.logging import LOG_LEVEL
 
     assert LOG_LEVEL == "INFO" or LOG_LEVEL in {"DEBUG", "WARNING", "ERROR"}
+
+
+def test_json_formatter_in_cloud_mode():
+    """Cloud mode should produce JSON log lines."""
+    import json
+
+    from burnr8.logging import _JsonFormatter
+
+    formatter = _JsonFormatter()
+    record = logging.LogRecord(
+        name="burnr8",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="tool=test status=ok",
+        args=(),
+        exc_info=None,
+    )
+    output = formatter.format(record)
+    parsed = json.loads(output)
+    assert parsed["level"] == "INFO"
+    assert "tool=test" in parsed["msg"]
 
 
 def test_usage_stats_includes_log_level():

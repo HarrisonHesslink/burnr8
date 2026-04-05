@@ -46,6 +46,20 @@ def get_correlation_id() -> str | None:
     return correlation_id.get()
 
 
+class _JsonFormatter(logging.Formatter):
+    """JSON log format for cloud deployments — machine-parseable by CloudWatch, Datadog, etc."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        import json as _json
+
+        entry = {
+            "ts": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "msg": record.getMessage(),
+        }
+        return _json.dumps(entry)
+
+
 def get_logger() -> logging.Logger:
     global _logger
     if _logger is None:
@@ -61,9 +75,12 @@ def get_logger() -> logging.Logger:
                 _logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
                 # Rotating handler: 10MB max, 3 backups
                 handler = RotatingFileHandler(log_path, maxBytes=10_000_000, backupCount=3)
-                handler.setFormatter(
-                    logging.Formatter("%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-                )
+                if CLOUD_MODE:
+                    handler.setFormatter(_JsonFormatter())
+                else:
+                    handler.setFormatter(
+                        logging.Formatter("%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+                    )
                 _logger.addHandler(handler)
     return _logger
 

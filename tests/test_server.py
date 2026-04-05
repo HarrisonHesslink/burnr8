@@ -33,6 +33,9 @@ def test_prompts_registered():
     assert "audit" in names
     assert "optimize" in names
     assert "new_campaign" in names
+    assert "budget_reallocation" in names
+    assert "ad_copy" in names
+    assert "trends" in names
 
 
 def test_resources_registered():

@@ -467,8 +467,7 @@ def trends(customer_id: str = "") -> str:
 
 ## Step 1: Compare this week vs last week
 Call get_campaign_performance with LAST_7_DAYS.
-Call get_campaign_performance with LAST_14_DAYS and subtract this week's data to get last week's numbers.
-Or use run_gaql_query with explicit date ranges for precision.
+Call get_campaign_performance with LAST_14_DAYS and subtract this week's data to get last week's numbers. Note: this gives approximate results. For exact 7-day comparison, use run_gaql_query with explicit date ranges (e.g. segments.date BETWEEN '2026-03-28' AND '2026-04-03').
 
 ## Step 2: Calculate week-over-week changes
 For each campaign, calculate % change in:

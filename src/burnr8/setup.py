@@ -40,7 +40,7 @@ def _load_existing() -> dict[str, str]:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
-                creds[key.strip()] = value.strip()
+                creds[key.strip()] = value.strip().strip("\"'")
     return creds
 
 
@@ -94,6 +94,7 @@ def _run_oauth(client_id: str, client_secret: str) -> str:
 
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    conn = None
     try:
         sock.bind((REDIRECT_HOST, REDIRECT_PORT))
         sock.listen(1)
@@ -103,26 +104,24 @@ def _run_oauth(client_id: str, client_secret: str) -> str:
         match = re.search(r"GET\s(/[^\s]*)\s", data)
         if not match:
             print("  Error: Could not parse callback request")
-            conn.close()
             sys.exit(1)
 
         params = parse_qs(urlparse(match.group(1)).query)
 
         if params.get("state", [None])[0] != state:
             print("  Error: State mismatch — possible CSRF. Aborting.")
-            conn.close()
             sys.exit(1)
 
         code = params.get("code", [None])[0]
         if not code:
             print("  Error: No authorization code in callback")
-            conn.close()
             sys.exit(1)
 
         response = "HTTP/1.1 200 OK\r\n\r\n<b>Success!</b> You can close this tab."
         conn.sendall(response.encode())
-        conn.close()
     finally:
+        if conn:
+            conn.close()
         sock.close()
 
     flow.fetch_token(code=code)

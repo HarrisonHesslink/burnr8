@@ -5,9 +5,8 @@ A FastMCP server with 65 tools for managing Google Ads via Claude Code.
 ## Setup
 
 ```bash
-source .venv/bin/activate
-cp .env.example .env  # Fill in credentials
-python setup_oauth.py  # If you need a refresh token
+pip install burnr8
+burnr8-setup          # Interactive wizard — prompts for credentials, runs OAuth, saves to ~/.burnr8/.env
 ```
 
 ## Running

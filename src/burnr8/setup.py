@@ -44,6 +44,19 @@ def _load_existing() -> dict[str, str]:
     return creds
 
 
+def _check_port() -> None:
+    """Pre-flight check that the OAuth callback port is available."""
+    sock = socket.socket()
+    try:
+        sock.bind((REDIRECT_HOST, REDIRECT_PORT))
+    except OSError:
+        print(f"\n  Error: Port {REDIRECT_PORT} is already in use.")
+        print("  Free it up or paste your refresh token manually instead.")
+        raise
+    finally:
+        sock.close()
+
+
 def _run_oauth(client_id: str, client_secret: str) -> str:
     """Run the OAuth2 flow and return the refresh token."""
     try:
@@ -52,6 +65,8 @@ def _run_oauth(client_id: str, client_secret: str) -> str:
         print("\n  google-auth-oauthlib is required for OAuth setup.")
         print("  Install it with: pip install google-auth-oauthlib")
         sys.exit(1)
+
+    _check_port()
 
     client_config = {
         "installed": {
@@ -138,7 +153,7 @@ def _save_env(creds: dict[str, str]) -> None:
     print(f"  Permissions: {oct(stat.S_IMODE(os.stat(ENV_FILE).st_mode))}")
 
 
-def main():
+def _main():
     print("\n  burnr8 setup")
     print("  " + "-" * 40)
 
@@ -179,23 +194,37 @@ def main():
         else:
             creds["GOOGLE_ADS_REFRESH_TOKEN"] = _prompt("Refresh token")
 
-    # Optional: login customer ID
+    # Optional: login customer ID (validate numeric)
     login_id = _prompt(
         "Login customer ID (MCC, optional)",
         existing.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID"),
         required=False,
     )
     if login_id:
-        creds["GOOGLE_ADS_LOGIN_CUSTOMER_ID"] = login_id.replace("-", "")
+        cleaned = login_id.replace("-", "")
+        if cleaned and not cleaned.isdigit():
+            print(f"  Warning: '{cleaned}' contains non-numeric characters. Customer IDs are 10 digits.")
+        creds["GOOGLE_ADS_LOGIN_CUSTOMER_ID"] = cleaned
 
     # Save
     _save_env(creds)
 
-    # Register MCP server
     print("\n  Next steps:")
     print("    1. Restart Claude Code")
     print("    2. Try: list_accessible_accounts")
     print()
+
+
+def main():
+    try:
+        _main()
+    except KeyboardInterrupt:
+        print("\n\n  Setup cancelled. No credentials were saved.")
+        sys.exit(0)
+    except OSError as e:
+        # Port binding or file system errors
+        print(f"\n  Error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

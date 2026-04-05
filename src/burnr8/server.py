@@ -2,12 +2,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load credentials: check ~/.burnr8/.env first (stable location for all install methods),
-# then fall back to .env in current directory (clone-and-install workflow).
+# Load credentials: ~/.burnr8/.env is the canonical location (written by burnr8-setup).
+# override=True so credentials saved by the wizard always win over stale shell exports.
+# CWD .env is the fallback for clone-and-install workflow (no override — lowest priority).
 _burnr8_env = Path.home() / ".burnr8" / ".env"
 if _burnr8_env.exists():
-    load_dotenv(_burnr8_env)
-load_dotenv()  # CWD .env — won't override vars already set by ~/.burnr8/.env
+    load_dotenv(_burnr8_env, override=True)
+load_dotenv()  # CWD .env — won't override anything already set
 
 from fastmcp import FastMCP  # noqa: E402
 

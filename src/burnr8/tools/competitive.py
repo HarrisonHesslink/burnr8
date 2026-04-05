@@ -176,8 +176,6 @@ def register(mcp):
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
-        from google.ads.googleads.errors import GoogleAdsException
-
         client = get_client()
         query = f"""
             SELECT
@@ -198,7 +196,11 @@ def register(mcp):
 
         try:
             rows = run_gaql(client, customer_id, query)
-        except GoogleAdsException as e:
+        except Exception as e:
+            from google.ads.googleads.errors import GoogleAdsException
+
+            if not isinstance(e, GoogleAdsException):
+                raise
             error_codes = [str(err.error_code) for err in e.failure.errors]
             if any(
                 "NOT_PERMITTED" in code or "AUTHORIZATION_ERROR" in code or "UNRECOGNIZED_FIELD" in code

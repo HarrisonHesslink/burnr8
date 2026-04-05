@@ -156,8 +156,8 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
                 "duration": round(duration, 1),
             }
         ]
-        # Copy data for writing outside the lock
-        snapshot = dict(usage)
+        # Explicit list copy — prevents races if calls list handling changes to in-place append
+        snapshot = {**usage, "calls": list(usage.get("calls", []))}
 
     _save_usage(snapshot)
 

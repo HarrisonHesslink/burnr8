@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import os
 import threading
+from typing import TYPE_CHECKING
 
-from google.ads.googleads.client import GoogleAdsClient
+if TYPE_CHECKING:
+    from google.ads.googleads.client import GoogleAdsClient
 
 _client: GoogleAdsClient | None = None
 _client_lock = threading.Lock()
@@ -20,6 +24,8 @@ def get_client() -> GoogleAdsClient:
     if _client is None:
         with _client_lock:
             if _client is None:
+                from google.ads.googleads.client import GoogleAdsClient
+
                 missing = [v for v in _REQUIRED_VARS if not os.environ.get(v)]
                 if missing:
                     raise OSError(

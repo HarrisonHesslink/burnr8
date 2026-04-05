@@ -1,13 +1,25 @@
-import re
+from __future__ import annotations
 
-from google.ads.googleads.client import GoogleAdsClient
-from google.protobuf.json_format import MessageToDict
+import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from google.ads.googleads.client import GoogleAdsClient
 
 VALID_STATUSES = {"ENABLED", "PAUSED", "REMOVED"}
 VALID_DATE_RANGES = {
-    "TODAY", "YESTERDAY", "LAST_7_DAYS", "LAST_14_DAYS", "LAST_30_DAYS",
-    "THIS_WEEK_MON_TODAY", "THIS_WEEK_SUN_TODAY", "LAST_WEEK_MON_SUN",
-    "LAST_WEEK_SUN_SAT", "THIS_MONTH", "LAST_MONTH", "LAST_BUSINESS_WEEK",
+    "TODAY",
+    "YESTERDAY",
+    "LAST_7_DAYS",
+    "LAST_14_DAYS",
+    "LAST_30_DAYS",
+    "THIS_WEEK_MON_TODAY",
+    "THIS_WEEK_SUN_TODAY",
+    "LAST_WEEK_MON_SUN",
+    "LAST_WEEK_SUN_SAT",
+    "THIS_MONTH",
+    "LAST_MONTH",
+    "LAST_BUSINESS_WEEK",
 }
 _NUMERIC_RE = re.compile(r"^\d+$")
 
@@ -55,4 +67,6 @@ def run_gaql(client: GoogleAdsClient, customer_id: str, query: str, limit: int =
 
 def proto_to_dict(msg) -> dict:
     """Convert a protobuf message to a plain dict."""
+    from google.protobuf.json_format import MessageToDict
+
     return MessageToDict(type(msg).pb(msg), preserving_proto_field_name=True)

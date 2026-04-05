@@ -41,12 +41,13 @@ def print_dashboard():
     # Storage stats
     from burnr8.logging import LOG_DIR
     from burnr8.reports import get_storage_stats
+
     storage = get_storage_stats()
     log_size = 0
     log_file = LOG_DIR / "burnr8.log"
     if log_file.exists():
         log_size = log_file.stat().st_size / 1_048_576
-    print(f"  Reports:          {storage['report_files']} files ({storage['total_size_mb']} MB)")
+    print(f"  Reports:          {storage.get('report_files', 0)} files ({storage.get('total_size_mb', 0.0)} MB)")
     print(f"  Logs:             {log_size:.1f} MB")
     print()
 
@@ -69,26 +70,38 @@ def print_dashboard():
     try:
         client = get_client()
         # Get today's spend
-        rows_today = run_gaql(client, _get_customer_id(), """
+        rows_today = run_gaql(
+            client,
+            _get_customer_id(),
+            """
             SELECT campaign.id, campaign.name, campaign.status,
                    metrics.cost_micros, metrics.clicks, metrics.conversions
             FROM campaign
             WHERE campaign.status = 'ENABLED'
               AND segments.date DURING TODAY
-        """)
-        rows_mtd = run_gaql(client, _get_customer_id(), """
+        """,
+        )
+        rows_mtd = run_gaql(
+            client,
+            _get_customer_id(),
+            """
             SELECT campaign.id, campaign.name, campaign.status,
                    metrics.cost_micros, metrics.clicks, metrics.conversions
             FROM campaign
             WHERE campaign.status = 'ENABLED'
               AND segments.date DURING THIS_MONTH
-        """)
+        """,
+        )
         # Get budget
-        budgets = run_gaql(client, _get_customer_id(), """
+        budgets = run_gaql(
+            client,
+            _get_customer_id(),
+            """
             SELECT campaign_budget.amount_micros, campaign_budget.status, campaign.name, campaign.status
             FROM campaign_budget
             WHERE campaign.status = 'ENABLED'
-        """)
+        """,
+        )
 
         print()
         print("  Campaign Spend:")
@@ -130,6 +143,7 @@ def _get_customer_id() -> str:
     import os
 
     from burnr8.client import get_client
+
     client = get_client()
     svc = client.get_service("CustomerService")
     resp = svc.list_accessible_customers()

@@ -23,6 +23,8 @@ VALID_DATE_RANGES = {
 }
 _NUMERIC_RE = re.compile(r"^\d+$")
 
+__all__ = ["run_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range"]
+
 
 def validate_id(value: str, name: str) -> str | None:
     """Return error message if value is not a numeric ID, else None."""

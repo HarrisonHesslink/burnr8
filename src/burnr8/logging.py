@@ -27,6 +27,8 @@ correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cor
 # If using a thread pool, use contextvars.copy_context().run() to propagate.
 cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
 
+__all__ = ["log_tool_call", "get_usage_stats", "get_recent_errors", "new_correlation_id", "get_correlation_id", "cloud_user_id"]
+
 # Bounded queue for cloud log writes — single worker thread, max 100 pending items.
 # Items beyond the limit are silently dropped (backpressure).
 _cloud_queue: queue.Queue | None = None

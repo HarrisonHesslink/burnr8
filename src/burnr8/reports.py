@@ -30,6 +30,8 @@ _CONTROL_CHARS = str.maketrans("", "", "\t\r\n")
 # Only allow safe characters in report names
 _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
+__all__ = ["save_report", "get_storage_stats"]
+
 
 def _sanitize_cell(value: object) -> object:
     """Prevent CSV formula injection — strips control chars and prefixes dangerous cells."""

@@ -3,9 +3,11 @@ import logging
 import os
 import threading
 from datetime import UTC, datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 LOG_DIR = Path(os.environ.get("BURNR8_LOG_DIR", os.path.expanduser("~/.burnr8/logs")))
+LOG_LEVEL = os.environ.get("BURNR8_LOG_LEVEL", "INFO").upper()
 USAGE_FILE = LOG_DIR / "usage.json"
 
 _logger: logging.Logger | None = None
@@ -25,8 +27,11 @@ def get_logger() -> logging.Logger:
                     fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
                     os.close(fd)
                 _logger = logging.getLogger("burnr8")
-                _logger.setLevel(logging.INFO)
-                handler = logging.FileHandler(log_path)
+                _logger.setLevel(getattr(logging, LOG_LEVEL, logging.INFO))
+                # Rotating handler: 10MB max, 3 backups
+                handler = RotatingFileHandler(
+                    log_path, maxBytes=10_000_000, backupCount=3
+                )
                 handler.setFormatter(logging.Formatter(
                     "%(asctime)s %(levelname)-5s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
                 ))
@@ -106,4 +111,24 @@ def get_usage_stats() -> dict:
         "ops_pct": round(data["ops"] / 15_000 * 100, 1),
         "errors_today": data["errors"],
         "recent_calls": data.get("calls", [])[-10:],
+        "log_file": str(LOG_DIR / "burnr8.log"),
+        "log_level": LOG_LEVEL,
     }
+
+
+def get_recent_errors(limit: int = 20) -> list[dict]:
+    """Read recent ERROR lines from burnr8.log. Returns parsed log entries."""
+    log_path = LOG_DIR / "burnr8.log"
+    if not log_path.exists():
+        return []
+
+    errors = []
+    try:
+        with open(log_path) as f:
+            for line in f:
+                if " ERROR " in line:
+                    errors.append({"raw": line.strip()})
+    except OSError:
+        return []
+
+    return errors[-limit:]

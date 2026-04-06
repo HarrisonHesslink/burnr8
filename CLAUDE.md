@@ -53,7 +53,7 @@ src/burnr8/
 | Negative Keywords | 4 | list/add (campaign + ad group level)/remove |
 | Budgets | 4 | list/create/update + remove_orphan_budgets |
 | Reporting | 5 | campaign/ad group/keyword perf, search terms, raw GAQL (all save CSV to ~/.burnr8/reports/) |
-| Extensions | 6 | sitelinks, callouts, snippets, images |
+| Extensions | 6 | sitelinks, callouts, snippets, images (campaign + ad group level) |
 | Conversions | 4 | list/get/create/update conversion actions |
 | Compound | 3 | quick_audit, launch_campaign, cleanup_wasted_spend |
 | Adjustments | 11 | device bids, ad schedules, location targets, geo presence |

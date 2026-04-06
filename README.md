@@ -53,7 +53,7 @@ Claude: Done. Estimated savings: ~$55/month.
 | **Negative Keywords** | 4 | List, add (campaign + ad group level), remove negatives |
 | **Budgets** | 4 | List, create, update, delete campaign budgets |
 | **Reporting** | 5 | Campaign/ad group/keyword performance, search terms, raw GAQL — all save full results to CSV |
-| **Extensions** | 6 | List, create sitelinks/callouts/snippets/images, remove |
+| **Extensions** | 6 | List, create sitelinks/callouts/snippets/images, remove (campaign + ad group level) |
 | **Conversions** | 4 | List, get, create, update conversion actions |
 | **Compound** | 3 | `quick_audit`, `launch_campaign`, `cleanup_wasted_spend` — multi-step operations in one call |
 | **Adjustments** | 11 | Pause keywords, device bids, ad schedules, location targeting, geo presence settings |

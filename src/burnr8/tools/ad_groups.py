@@ -31,7 +31,7 @@ def register(mcp: FastMCP) -> None:
             }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = """
@@ -48,7 +48,7 @@ def register(mcp: FastMCP) -> None:
                 metrics.cost_micros
             FROM ad_group
         """
-        if campaign_id:
+        if campaign_id is not None:
             query += f" WHERE campaign.id = {campaign_id}"
         query += " ORDER BY ad_group.name"
         rows = run_gaql(client, customer_id, query)

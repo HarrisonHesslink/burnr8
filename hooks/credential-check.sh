@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -uo pipefail
 # PreToolUse hook: check if burnr8 credentials are configured before any tool call.
 # If ~/.burnr8/.env doesn't exist and env vars aren't set, block with setup instructions.
 # Requires jq for JSON parsing.
@@ -12,8 +13,8 @@ if [[ -z "$TOOL_NAME" ]]; then
     exit 0
 fi
 
-# Only check for burnr8 MCP tools
-if [[ "$TOOL_NAME" != mcp__burnr8__* ]] && [[ "$TOOL_NAME" != mcp__claude_ai_BurnR8__* ]]; then
+# Only check for burnr8 MCP tools (self-hosted uses mcp__burnr8__)
+if [[ "$TOOL_NAME" != mcp__burnr8__* ]]; then
     exit 0
 fi
 
@@ -22,10 +23,10 @@ if [[ -f "$HOME/.burnr8/.env" ]]; then
     exit 0
 fi
 
-if [[ -n "$GOOGLE_ADS_DEVELOPER_TOKEN" ]] && [[ -n "$GOOGLE_ADS_REFRESH_TOKEN" ]]; then
+if [[ -n "${GOOGLE_ADS_DEVELOPER_TOKEN:-}" ]] && [[ -n "${GOOGLE_ADS_REFRESH_TOKEN:-}" ]]; then
     exit 0
 fi
 
-# No credentials found — block and suggest setup
-echo "burnr8 credentials not configured. Run: ! burnr8-setup"
+# No credentials found — block and suggest setup (stderr for Claude Code)
+echo "burnr8 credentials not configured. Run: ! burnr8-setup" >&2
 exit 2

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_id, validate_status
 from burnr8.session import resolve_customer_id
 
 
@@ -63,12 +63,12 @@ def register(mcp: FastMCP) -> None:
                     "name": ag.get("name"),
                     "status": ag.get("status"),
                     "type": ag.get("type"),
-                    "cpc_bid_dollars": int(ag.get("cpc_bid_micros", 0)) / 1_000_000,
+                    "cpc_bid_dollars": micros_to_dollars(int(ag.get("cpc_bid_micros", 0))),
                     "campaign_id": c.get("id"),
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                 }
             )
         return results

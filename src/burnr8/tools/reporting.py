@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_date_range, validate_id
+from burnr8.helpers import micros_to_dollars, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
 from burnr8.session import resolve_customer_id
 
@@ -89,7 +89,7 @@ def register(mcp: FastMCP) -> None:
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            cost = int(m.get("cost_micros", 0)) / 1_000_000
+            cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
             total_spend += cost
             total_conversions += conv
@@ -101,11 +101,11 @@ def register(mcp: FastMCP) -> None:
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
                     "cost_dollars": round(cost, 2),
                     "conversions": round(conv, 1),
                     "conversions_value": round(float(m.get("conversions_value", 0)), 2),
-                    "cost_per_conversion": round(int(m.get("cost_per_conversion", 0)) / 1_000_000, 2),
+                    "cost_per_conversion": round(micros_to_dollars(int(m.get("cost_per_conversion", 0))), 2),
                 }
             )
 
@@ -168,7 +168,7 @@ def register(mcp: FastMCP) -> None:
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            cost = round(int(m.get("cost_micros", 0)) / 1_000_000, 2)
+            cost = round(micros_to_dollars(int(m.get("cost_micros", 0))), 2)
             total_spend += cost
             results.append(
                 {
@@ -180,7 +180,7 @@ def register(mcp: FastMCP) -> None:
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
                     "cost_dollars": cost,
                     "conversions": round(float(m.get("conversions", 0)), 1),
                 }
@@ -264,8 +264,8 @@ def register(mcp: FastMCP) -> None:
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
-                    "cost_dollars": round(int(m.get("cost_micros", 0)) / 1_000_000, 2),
+                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
+                    "cost_dollars": round(micros_to_dollars(int(m.get("cost_micros", 0))), 2),
                     "conversions": round(float(m.get("conversions", 0)), 1),
                 }
             )
@@ -332,7 +332,7 @@ def register(mcp: FastMCP) -> None:
             c = row.get("campaign", {})
             ag = row.get("ad_group", {})
             m = row.get("metrics", {})
-            cost = int(m.get("cost_micros", 0)) / 1_000_000
+            cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
             total_spend += cost
             if conv == 0 and cost > 0:

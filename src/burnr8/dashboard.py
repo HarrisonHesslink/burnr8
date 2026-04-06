@@ -22,7 +22,7 @@ def print_dashboard():
 
     from burnr8 import __version__
     from burnr8.client import get_client
-    from burnr8.helpers import run_gaql
+    from burnr8.helpers import micros_to_dollars, run_gaql
     from burnr8.logging import get_usage_stats
 
     stats = get_usage_stats()
@@ -110,7 +110,7 @@ def print_dashboard():
             c = row.get("campaign", {})
             m = row.get("metrics", {})
             name = c.get("name", "Unknown")
-            cost_today = int(m.get("cost_micros", 0)) / 1_000_000
+            cost_today = micros_to_dollars(int(m.get("cost_micros", 0)))
             clicks = int(m.get("clicks", 0))
             conv = float(m.get("conversions", 0))
 
@@ -118,13 +118,13 @@ def print_dashboard():
             budget_daily = 0
             b = budget_map.get(name)
             if b:
-                budget_daily = int(b.get("campaign_budget", {}).get("amount_micros", 0)) / 1_000_000
+                budget_daily = micros_to_dollars(int(b.get("campaign_budget", {}).get("amount_micros", 0)))
 
             # Find MTD
             cost_mtd = 0
             mr = mtd_map.get(name)
             if mr:
-                cost_mtd = int(mr.get("metrics", {}).get("cost_micros", 0)) / 1_000_000
+                cost_mtd = micros_to_dollars(int(mr.get("metrics", {}).get("cost_micros", 0)))
 
             budget_str = f" / {format_dollars(budget_daily)} budget" if budget_daily else ""
             print(f"    {name}:")

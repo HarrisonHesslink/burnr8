@@ -30,7 +30,12 @@ def usage_resource() -> str:
 
     from burnr8.logging import get_usage_stats
 
-    return json.dumps(get_usage_stats(), indent=2)
+    try:
+        stats = get_usage_stats()
+        return json.dumps(stats, indent=2)
+    except Exception as e:
+        msg = str(e)[:200] if str(e) else "Unknown error"
+        return json.dumps({"error": msg})
 
 
 @mcp.resource("burnr8://accounts")
@@ -60,7 +65,7 @@ def account_performance(customer_id: str) -> str:
     import json
 
     from burnr8.client import get_client
-    from burnr8.helpers import run_gaql
+    from burnr8.helpers import micros_to_dollars, run_gaql
 
     try:
         client = get_client()
@@ -84,7 +89,7 @@ def account_performance(customer_id: str) -> str:
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            cost = int(m.get("cost_micros", 0)) / 1_000_000
+            cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
             total_spend += cost
             total_conversions += conv
@@ -120,7 +125,7 @@ def account_keywords(customer_id: str) -> str:
     import json
 
     from burnr8.client import get_client
-    from burnr8.helpers import run_gaql
+    from burnr8.helpers import micros_to_dollars, run_gaql
 
     try:
         client = get_client()
@@ -158,7 +163,7 @@ def account_keywords(customer_id: str) -> str:
                     "quality_score": qs,
                     "status": cr.get("status"),
                     "campaign": c.get("name"),
-                    "spend": round(int(m.get("cost_micros", 0)) / 1_000_000, 2),
+                    "spend": round(micros_to_dollars(int(m.get("cost_micros", 0))), 2),
                     "clicks": int(m.get("clicks", 0)),
                     "conversions": float(m.get("conversions", 0)),
                 }
@@ -187,7 +192,7 @@ def account_structure(customer_id: str) -> str:
     import json
 
     from burnr8.client import get_client
-    from burnr8.helpers import run_gaql
+    from burnr8.helpers import micros_to_dollars, run_gaql
 
     try:
         client = get_client()
@@ -229,7 +234,7 @@ def account_structure(customer_id: str) -> str:
                     "status": c.get("status"),
                     "channel_type": c.get("advertising_channel_type"),
                     "bidding_strategy": c.get("bidding_strategy_type"),
-                    "daily_budget": round(int(b.get("amount_micros", 0)) / 1_000_000, 2),
+                    "daily_budget": round(micros_to_dollars(int(b.get("amount_micros", 0))), 2),
                     "ad_group_count": ag_count,
                 }
             )

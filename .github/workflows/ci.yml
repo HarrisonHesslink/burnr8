@@ -17,16 +17,16 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install ruff mypy
+      - run: pip install ruff mypy types-requests
       - run: ruff check src/ tests/
       - name: Type check (fail if errors increase beyond baseline)
         run: |
           output=$(mypy src/burnr8/ --ignore-missing-imports 2>&1) || true
           echo "$output"
           errors=$(echo "$output" | tail -1 | grep -oP '\d+(?= error)' || echo 0)
-          echo "mypy found $errors errors (baseline: 47)"
-          if [ "$errors" -gt 47 ]; then
-            echo "::error::mypy regression: $errors errors (baseline: 47)"
+          echo "mypy found $errors errors (baseline: 25)"
+          if [ "$errors" -gt 25 ]; then
+            echo "::error::mypy regression: $errors errors (baseline: 25)"
             exit 1
           fi
 

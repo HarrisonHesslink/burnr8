@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_id, validate_status
 from burnr8.session import resolve_customer_id
 
 VALID_BIDDING_STRATEGIES = {
@@ -171,7 +171,7 @@ def register(mcp: FastMCP) -> None:
                     "budget": c.get("campaign_budget"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                 }
             )
         return results
@@ -224,7 +224,7 @@ def register(mcp: FastMCP) -> None:
             m = row.get("metrics", {})
             c["impressions"] = int(m.get("impressions", 0))
             c["clicks"] = int(m.get("clicks", 0))
-            c["cost_dollars"] = int(m.get("cost_micros", 0)) / 1_000_000
+            c["cost_dollars"] = micros_to_dollars(int(m.get("cost_micros", 0)))
             c["conversions"] = float(m.get("conversions", 0))
             c["conversions_value"] = float(m.get("conversions_value", 0))
             return c

@@ -363,3 +363,72 @@ class TestLinkAssetHelper:
         fn(asset_resource_name="customers/1234567890/campaignAssets/222~800~SITELINK", confirm=True)
         svc = mock_ads_client["client"].get_service("CampaignAssetService")
         svc.mutate_campaign_assets.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Review fixes: additional edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestListExtensionsEdgeCases:
+    def test_campaign_filter_does_not_run_ad_group_query(self, mock_ads_client):
+        """When campaign_id is specified, ad group query should NOT run."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"]({
+            "FROM campaign_asset": [_campaign_asset_row()],
+            "FROM ad_group_asset": [_ad_group_asset_row()],
+        })
+        fn = _register_tool("list_extensions")
+        result = fn(campaign_id="222")
+        assert result["summary"]["total_extensions"] == 1
+        assert all(r["level"] == "campaign" for r in result["top"])
+
+    def test_ad_group_filter_does_not_run_campaign_query(self, mock_ads_client):
+        """When ad_group_id is specified, campaign query should NOT run."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"]({
+            "FROM campaign_asset": [_campaign_asset_row()],
+            "FROM ad_group_asset": [_ad_group_asset_row()],
+        })
+        fn = _register_tool("list_extensions")
+        result = fn(ad_group_id="333")
+        assert result["summary"]["total_extensions"] == 1
+        assert all(r["level"] == "ad_group" for r in result["top"])
+
+    def test_empty_results(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"]({})
+        fn = _register_tool("list_extensions")
+        result = fn()
+        assert result["summary"]["total_extensions"] == 0
+        assert result["summary"]["count_by_field_type"] == {}
+
+    def test_field_type_filter_on_ad_group(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"]({"FROM ad_group_asset": [_ad_group_asset_row(field_type="CALLOUT")]})
+        fn = _register_tool("list_extensions")
+        result = fn(ad_group_id="333", field_type="CALLOUT")
+        assert result["summary"]["total_extensions"] == 1
+
+
+class TestRemoveExtensionEdgeCases:
+    def test_malformed_resource_name_returns_error(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("remove_extension")
+        result = fn(asset_resource_name="customers/123/unknownType/456", confirm=True)
+        assert result["error"] is True
+        assert "Unrecognized" in result["message"]
+
+
+class TestCreateToolValidation:
+    def test_invalid_ad_group_id_on_create_sitelink(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_sitelink")
+        result = fn(link_text="X", final_url="https://x.com", ad_group_id="not-numeric")
+        assert result["error"] is True
+
+    def test_ad_group_sitelink_resource_name_value(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_sitelink")
+        result = fn(link_text="Shop", final_url="https://shop.com", ad_group_id="333")
+        assert result["asset_link_resource_name"] == "customers/1234567890/adGroupAssets/333~800"

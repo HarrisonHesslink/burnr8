@@ -17,15 +17,17 @@ from burnr8.session import resolve_customer_id
 def register(mcp: FastMCP) -> None:
     def _validate_link_target(campaign_id, ad_group_id):
         """Validate exactly one of campaign_id/ad_group_id is provided."""
-        if campaign_id and ad_group_id:
+        if campaign_id is not None and ad_group_id is not None:
             return "Provide either campaign_id or ad_group_id, not both."
-        if not campaign_id and not ad_group_id:
+        if campaign_id is None and ad_group_id is None:
             return "Either campaign_id or ad_group_id is required."
         return None
 
     def _link_asset(client, customer_id, asset_resource_name, field_type_enum, campaign_id=None, ad_group_id=None):
         """Link an asset to a campaign or ad group. Returns the resource name."""
-        if campaign_id:
+        if campaign_id is None and ad_group_id is None:
+            raise ValueError("_link_asset requires either campaign_id or ad_group_id")
+        if campaign_id is not None:
             op = client.get_type("CampaignAssetOperation")
             link = op.create
             link.campaign = client.get_service("CampaignService").campaign_path(customer_id, campaign_id)
@@ -92,8 +94,9 @@ def register(mcp: FastMCP) -> None:
         client = get_client()
 
         # Determine which queries to run based on parameters
-        run_campaign_query = campaign_id is not None or ad_group_id is None
-        run_ad_group_query = ad_group_id is not None or campaign_id is None
+        no_filter = campaign_id is None and ad_group_id is None
+        run_campaign_query = campaign_id is not None or no_filter
+        run_ad_group_query = ad_group_id is not None or no_filter
 
         results = []
 
@@ -299,10 +302,10 @@ def register(mcp: FastMCP) -> None:
             "link_text": link_text,
             "final_url": final_url,
         }
-        if campaign_id:
+        if campaign_id is not None:
             result["campaign_id"] = campaign_id
             result["campaign_asset_resource_name"] = link_resource_name
-        if ad_group_id:
+        if ad_group_id is not None:
             result["ad_group_id"] = ad_group_id
         return result
 
@@ -362,10 +365,10 @@ def register(mcp: FastMCP) -> None:
             "asset_link_resource_name": link_resource_name,
             "callout_text": callout_text,
         }
-        if campaign_id:
+        if campaign_id is not None:
             result["campaign_id"] = campaign_id
             result["campaign_asset_resource_name"] = link_resource_name
-        if ad_group_id:
+        if ad_group_id is not None:
             result["ad_group_id"] = ad_group_id
         return result
 
@@ -438,10 +441,10 @@ def register(mcp: FastMCP) -> None:
             "header": header,
             "values": values,
         }
-        if campaign_id:
+        if campaign_id is not None:
             result["campaign_id"] = campaign_id
             result["campaign_asset_resource_name"] = link_resource_name
-        if ad_group_id:
+        if ad_group_id is not None:
             result["ad_group_id"] = ad_group_id
         return result
 
@@ -574,10 +577,10 @@ def register(mcp: FastMCP) -> None:
             "asset_link_resource_name": link_resource_name,
             "image_size_bytes": len(image_data),
         }
-        if campaign_id:
+        if campaign_id is not None:
             result["campaign_id"] = campaign_id
             result["campaign_asset_resource_name"] = link_resource_name
-        if ad_group_id:
+        if ad_group_id is not None:
             result["ad_group_id"] = ad_group_id
         return result
 
@@ -620,12 +623,17 @@ def register(mcp: FastMCP) -> None:
             operation.remove = asset_resource_name
             svc = client.get_service("AdGroupAssetService")
             response = svc.mutate_ad_group_assets(customer_id=customer_id, operations=[operation])
-        else:
-            # Default to campaign asset (handles both campaignAssets and legacy resource names)
+        elif "campaignAssets" in asset_resource_name:
             operation = client.get_type("CampaignAssetOperation")
             operation.remove = asset_resource_name
             svc = client.get_service("CampaignAssetService")
             response = svc.mutate_campaign_assets(customer_id=customer_id, operations=[operation])
+        else:
+            return {
+                "error": True,
+                "message": f"Unrecognized asset link resource name: '{asset_resource_name}'. "
+                "Expected format: 'customers/{{id}}/campaignAssets/...' or 'customers/{{id}}/adGroupAssets/...'",
+            }
 
         return {
             "removed_resource_name": response.results[0].resource_name,

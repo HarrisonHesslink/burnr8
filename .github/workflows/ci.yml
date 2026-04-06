@@ -19,9 +19,8 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff mypy
       - run: ruff check src/ tests/
-      - name: Type check (informational)
-        run: mypy src/burnr8/ --ignore-missing-imports
-        continue-on-error: true
+      - name: Type check (47 known errors — tighten as they're fixed)
+        run: mypy src/burnr8/ --ignore-missing-imports || echo "::warning::mypy found errors — see above"
 
   security:
     runs-on: ubuntu-latest
@@ -57,7 +56,7 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
       - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v --tb=short --cov=burnr8 --cov-report=term-missing
+      - run: pytest tests/ --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"
 
   build:

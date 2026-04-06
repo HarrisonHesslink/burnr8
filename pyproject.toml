@@ -68,7 +68,7 @@ known-first-party = ["burnr8"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 strict_markers = true
-addopts = "-v --tb=short"
+addopts = "--tb=short"
 
 [tool.mypy]
 python_version = "3.11"

@@ -432,3 +432,11 @@ class TestCreateToolValidation:
         fn = _register_tool("create_sitelink")
         result = fn(link_text="Shop", final_url="https://shop.com", ad_group_id="333")
         assert result["asset_link_resource_name"] == "customers/1234567890/adGroupAssets/333~800"
+
+    def test_falsy_campaign_id_not_treated_as_missing(self, mock_ads_client):
+        """campaign_id='0' is falsy but valid — must not trigger 'required' error."""
+        set_active_account("1234567890")
+        fn = _register_tool("create_sitelink")
+        result = fn(link_text="X", final_url="https://x.com", campaign_id="0")
+        # Should NOT get "Either campaign_id or ad_group_id is required"
+        assert result.get("message", "") != "Either campaign_id or ad_group_id is required."

@@ -251,6 +251,12 @@ class TestUpdateAdGroup:
         result = fn(ad_group_id="333", status="paused")
         assert "status" in result["updated_fields"]
 
+    def test_update_status_removed(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("update_ad_group")
+        result = fn(ad_group_id="333", status="REMOVED")
+        assert "status" in result["updated_fields"]
+
     def test_uses_field_mask(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("update_ad_group")

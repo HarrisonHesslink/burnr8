@@ -105,3 +105,11 @@ create_campaign and update_campaign support all 9 strategies: MANUAL_CPC, MANUAL
 - `GOOGLE_ADS_CLIENT_SECRET`
 - `GOOGLE_ADS_REFRESH_TOKEN`
 - `GOOGLE_ADS_LOGIN_CUSTOMER_ID` (optional, for manager accounts — dashes auto-stripped)
+
+## Workflow Rules
+
+- **Never create git tags or GitHub releases.** Prepare everything (version bump PR, changelog, docs) but stop before `git tag` or `gh release create`. Mark as "user action required."
+- **Never auto-merge PRs.** After creating a PR, report the URL and stop. Do not run `gh pr merge` unless the user explicitly asks.
+- **Review code after significant changes.** After writing tests or modifying tool modules, spawn a code review agent before committing. Fix findings before pushing.
+- **Security review before any release.** Before version bumps, spawn parallel security + production readiness audit agents. Fix all CRITICAL/HIGH findings before proceeding.
+- **Use worktrees for parallel code-writing agents.** Spawn with `isolation: "worktree"` for independent implementation tasks. Research/review agents don't need worktrees. Merge worktree diffs after completion.

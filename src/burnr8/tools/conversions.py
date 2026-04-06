@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -42,14 +47,14 @@ VALID_COUNTING_TYPES = {"ONE_PER_CLICK", "MANY_PER_CLICK"}
 VALID_CONVERSION_STATUSES = {"ENABLED", "REMOVED", "HIDDEN"}
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_conversion_actions(
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
@@ -156,7 +161,7 @@ def register(mcp):
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}
 
-        type_upper = type.upper()
+        type_upper = type.upper()  # noqa: A001 — shadows builtin but is the MCP API parameter name
         if type_upper not in VALID_CONVERSION_TYPES:
             return {
                 "error": True,

@@ -1,3 +1,4 @@
+from collections import Counter
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -46,7 +47,8 @@ def accounts_resource() -> str:
         accounts = [{"customer_id": r.split("/")[-1]} for r in resp.resource_names]
         return json.dumps(accounts, indent=2)
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        msg = str(e)[:200] if str(e) else "Unknown error"
+        return json.dumps({"error": msg})
 
 
 # ── Resource Templates ─────────────────────────────────────────────────────────
@@ -108,7 +110,8 @@ def account_performance(customer_id: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        msg = str(e)[:200] if str(e) else "Unknown error"
+        return json.dumps({"error": msg})
 
 
 @mcp.resource("burnr8://accounts/{customer_id}/keywords")
@@ -174,7 +177,8 @@ def account_keywords(customer_id: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        msg = str(e)[:200] if str(e) else "Unknown error"
+        return json.dumps({"error": msg})
 
 
 @mcp.resource("burnr8://accounts/{customer_id}/structure")
@@ -211,12 +215,13 @@ def account_structure(customer_id: str) -> str:
             WHERE ad_group.status != 'REMOVED'
         """,
         )
+        ag_counts = Counter(ag.get("campaign", {}).get("id") for ag in ad_groups)
         structure = []
         for row in campaigns:
             c = row.get("campaign", {})
             b = row.get("campaign_budget", {})
             cid = c.get("id")
-            ag_count = sum(1 for ag in ad_groups if ag.get("campaign", {}).get("id") == cid)
+            ag_count = ag_counts.get(cid, 0)
             structure.append(
                 {
                     "campaign_id": cid,
@@ -237,7 +242,8 @@ def account_structure(customer_id: str) -> str:
             indent=2,
         )
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        msg = str(e)[:200] if str(e) else "Unknown error"
+        return json.dumps({"error": msg})
 
 
 # ── Prompts ────────────────────────────────────────────────────────────────────

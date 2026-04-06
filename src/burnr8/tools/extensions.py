@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -9,7 +14,7 @@ from burnr8.reports import save_report
 from burnr8.session import resolve_customer_id
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_extensions(
@@ -338,27 +343,58 @@ def register(mcp):
 
         import requests
 
+        MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
+
         # Validate image_url to prevent SSRF
         parsed = urlparse(image_url)
         if parsed.scheme not in ("http", "https"):
             return {"error": True, "message": f"image_url must use http or https, got: {parsed.scheme!r}"}
-        if not parsed.hostname:
+        hostname = parsed.hostname
+        if not hostname:
             return {"error": True, "message": "image_url has no hostname"}
         try:
-            resolved_ip = ipaddress.ip_address(socket.gethostbyname(parsed.hostname))
+            resolved_ip = socket.gethostbyname(hostname)
         except (socket.gaierror, ValueError):
             return {"error": True, "message": "image_url hostname could not be resolved"}
-        if resolved_ip.is_private or resolved_ip.is_loopback or resolved_ip.is_link_local or resolved_ip.is_reserved:
-            return {"error": True, "message": f"image_url resolves to a non-public address: {resolved_ip}"}
+        if ipaddress.ip_address(resolved_ip).is_private:
+            return {"error": True, "message": f"URL resolves to private IP ({resolved_ip})"}
 
         # Download the image (no redirects — prevent redirect-based SSRF bypass)
+        # Note: DNS rebinding TOCTOU window is narrow and mitigated by allow_redirects=False.
+        # We don't replace the hostname with the IP because that breaks HTTPS (TLS/SNI mismatch).
         try:
-            resp = requests.get(image_url, timeout=30, allow_redirects=False)
+            resp = requests.get(image_url, timeout=30, allow_redirects=False, stream=True)
             resp.raise_for_status()
-            image_data = resp.content
+
+            # Check Content-Length header first
+            content_length = resp.headers.get("Content-Length")
+            try:
+                cl = int(content_length) if content_length else 0
+            except ValueError:
+                cl = 0  # Malformed header; stream cap will enforce limit
+            if cl > MAX_IMAGE_SIZE:
+                resp.close()
+                return {
+                    "error": True,
+                    "message": f"Image too large ({cl} bytes, max {MAX_IMAGE_SIZE})",
+                }
+
+            # Stream with hard cap
+            chunks = []
+            downloaded = 0
+            for chunk in resp.iter_content(chunk_size=8192):
+                downloaded += len(chunk)
+                if downloaded > MAX_IMAGE_SIZE:
+                    resp.close()
+                    return {
+                        "error": True,
+                        "message": f"Image too large (>{MAX_IMAGE_SIZE // 1024 // 1024} MB)",
+                    }
+                chunks.append(chunk)
+            image_data = b"".join(chunks)
         except requests.exceptions.HTTPError as e:
             return {"error": True, "message": f"Failed to download image: HTTP {e.response.status_code}"}
-        except Exception:
+        except (requests.RequestException, OSError, socket.error):
             return {"error": True, "message": "Failed to download image (network error)"}
 
         client = get_client()
@@ -427,7 +463,8 @@ def register(mcp):
             return {"error": True, "message": err}
         if not confirm:
             return {
-                "warning": f"This will remove the extension link '{campaign_asset_resource_name}' from the campaign. "
+                "warning": True,
+                "message": f"This will remove the extension link '{campaign_asset_resource_name}' from the campaign. "
                 "The underlying asset will not be deleted. "
                 "Set confirm=true to execute."
             }

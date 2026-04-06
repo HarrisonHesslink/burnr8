@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -40,14 +45,14 @@ VALID_ORIGINS = {
 }
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_conversion_goals(
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List all customer conversion goals showing which are biddable (used by Smart Bidding)."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
@@ -233,7 +238,7 @@ def register(mcp):
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List existing custom conversion goals."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:

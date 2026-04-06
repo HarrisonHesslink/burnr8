@@ -180,7 +180,7 @@ def _main():
                 creds["GOOGLE_ADS_CLIENT_ID"],
                 creds["GOOGLE_ADS_CLIENT_SECRET"],
             )
-            print(f"  Got refresh token: {creds['GOOGLE_ADS_REFRESH_TOKEN'][:8]}...")
+            print("  Got refresh token: ****")
         else:
             creds["GOOGLE_ADS_REFRESH_TOKEN"] = _prompt("Refresh token")
 

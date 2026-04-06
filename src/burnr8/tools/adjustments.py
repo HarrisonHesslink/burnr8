@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -20,7 +25,7 @@ VALID_DAYS_OF_WEEK = {
 }
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def pause_keyword(
@@ -155,7 +160,7 @@ def register(mcp):
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List current device bid adjustments for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
@@ -277,7 +282,7 @@ def register(mcp):
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List current ad schedules (dayparting) for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
@@ -346,8 +351,9 @@ def register(mcp):
             }
         if not confirm:
             return {
-                "warning": f"This will remove ad schedule criterion {criterion_id} from campaign {campaign_id}. "
-                "Set confirm=true to execute."
+                "warning": True,
+                "message": f"This will remove ad schedule criterion {criterion_id} from campaign {campaign_id}. "
+                "Set confirm=true to execute.",
             }
 
         if err := validate_id(customer_id, "customer_id"):
@@ -374,7 +380,7 @@ def register(mcp):
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List location targets (geo targets) for a campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:
@@ -491,8 +497,9 @@ def register(mcp):
             }
         if not confirm:
             return {
-                "warning": f"This will remove location criterion {criterion_id} from campaign {campaign_id}. "
-                "Set confirm=true to execute."
+                "warning": True,
+                "message": f"This will remove location criterion {criterion_id} from campaign {campaign_id}. "
+                "Set confirm=true to execute.",
             }
         if err := validate_id(customer_id, "customer_id"):
             return {"error": True, "message": err}

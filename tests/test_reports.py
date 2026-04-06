@@ -353,7 +353,7 @@ def test_save_report_supabase_sign_failure_returns_warning():
                 "BURNR8_SUPABASE_BUCKET": "reports",
             },
         ),
-        patch("requests.post", side_effect=[mock_upload_resp, Exception("sign failed")]),
+        patch("requests.post", side_effect=[mock_upload_resp, OSError("sign failed")]),
     ):
         result = save_report(rows, "test_report")
 
@@ -370,7 +370,7 @@ def test_save_report_supabase_upload_failure():
     with (
         patch("burnr8.reports.REPORT_MODE", "supabase"),
         patch.dict(os.environ, {"BURNR8_SUPABASE_URL": "https://test.supabase.co", "BURNR8_SUPABASE_KEY": "key123"}),
-        patch("requests.post", side_effect=Exception("connection refused")),
+        patch("requests.post", side_effect=OSError("connection refused")),
     ):
         result = save_report(rows, "test_report")
 

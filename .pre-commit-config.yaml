@@ -1,9 +1,9 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.8
+    rev: v0.15.9
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--fix, --no-unsafe-fixes]
       - id: ruff-format
 
   - repo: local
@@ -14,4 +14,4 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-        stages: [pre-commit]
+        stages: [pre-push]

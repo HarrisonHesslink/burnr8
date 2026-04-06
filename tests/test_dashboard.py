@@ -88,7 +88,7 @@ class TestPrintDashboard:
             patch("burnr8.logging.get_usage_stats", return_value=mock_stats),
             patch("burnr8.reports.get_storage_stats", return_value=mock_storage),
             patch("burnr8.logging.LOG_DIR", mock_log_dir),
-            patch("burnr8.client.get_client", side_effect=Exception("No creds")),
+            patch("burnr8.client.get_client", side_effect=OSError("Missing required credentials")),
         ):
             print_dashboard()
 

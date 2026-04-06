@@ -37,17 +37,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install pip-audit
-      - name: CVE scan (dependencies only)
-        run: pip-audit -r requirements.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
-      - name: Install project for dependency verification
-        run: pip install "."
-      - name: Verify direct dependencies
+      - run: pip install pip-audit pip-tools
+      - name: Verify lockfile is up-to-date
         run: |
-          pip show google-ads | grep -qi "google" || exit 1
-          pip show fastmcp | grep -qi "fastmcp\|prefect" || exit 1
-          pip show python-dotenv | grep -qi "dotenv" || exit 1
-          echo "Direct dependency verification passed"
+          pip-compile pyproject.toml --generate-hashes --output-file=requirements.lock --strip-extras --allow-unsafe --quiet
+          git diff --exit-code requirements.lock || { echo "::error::requirements.lock is stale — run: pip-compile pyproject.toml --generate-hashes --output-file=requirements.lock --strip-extras --allow-unsafe"; exit 1; }
+      - name: CVE scan (hash-pinned lockfile)
+        run: pip-audit -r requirements.lock --require-hashes --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
 
   test:
     runs-on: ubuntu-latest
@@ -62,8 +58,8 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
-      - run: pip install -e ".[dev]"
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements-dev.lock') }}
+      - run: pip install -r requirements-dev.lock && pip install -e . --no-deps
       - run: pytest tests/ --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"
 

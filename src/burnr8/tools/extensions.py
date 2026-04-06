@@ -394,7 +394,7 @@ def register(mcp: FastMCP) -> None:
             image_data = b"".join(chunks)
         except requests.exceptions.HTTPError as e:
             return {"error": True, "message": f"Failed to download image: HTTP {e.response.status_code}"}
-        except (requests.RequestException, OSError, socket.error):
+        except (requests.RequestException, OSError):
             return {"error": True, "message": "Failed to download image (network error)"}
 
         client = get_client()

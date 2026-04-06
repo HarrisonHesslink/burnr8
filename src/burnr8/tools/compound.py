@@ -569,7 +569,7 @@ def register(mcp: FastMCP) -> None:
 
 
 def _execute_launch(
-    client: "GoogleAdsClient",
+    client: GoogleAdsClient,
     customer_id: str,
     campaign_name: str,
     daily_budget_dollars: float,

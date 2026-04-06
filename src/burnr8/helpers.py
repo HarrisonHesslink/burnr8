@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import proto
-
     from google.ads.googleads.client import GoogleAdsClient
 
 VALID_STATUSES = {"ENABLED", "PAUSED", "REMOVED"}
@@ -86,7 +85,7 @@ def run_gaql(client: GoogleAdsClient, customer_id: str, query: str, limit: int =
     return list(stream_gaql(client, customer_id, query, limit))
 
 
-def proto_to_dict(msg: "proto.Message") -> dict:
+def proto_to_dict(msg: proto.Message) -> dict:
     """Convert a protobuf message to a plain dict."""
     from google.protobuf.json_format import MessageToDict
 

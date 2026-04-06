@@ -28,8 +28,8 @@ VALID_BIDDING_STRATEGIES = {
 
 
 def _apply_bidding_strategy(
-    client: "GoogleAdsClient",
-    campaign: "ProtoMessage",
+    client: GoogleAdsClient,
+    campaign: ProtoMessage,
     strategy: str,
     target_cpa_dollars: float | None = None,
     target_roas: float | None = None,

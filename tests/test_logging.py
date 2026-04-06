@@ -35,10 +35,12 @@ def test_log_tool_call_increments_ops():
             patch("burnr8.logging.LOG_DIR", log_dir),
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
+            patch("burnr8.logging._usage_cache", None),
         ):
-            from burnr8.logging import _load_usage, log_tool_call
+            from burnr8.logging import _flush_usage, _load_usage, log_tool_call
 
             log_tool_call("test_tool", "123456", 0.5, "ok")
+            _flush_usage()
             data = _load_usage()
             assert data["ops"] >= 1
 

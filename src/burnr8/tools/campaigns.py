@@ -1,6 +1,13 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+    from google.ads.googleads.client import GoogleAdsClient
+    from proto import Message as ProtoMessage
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -21,15 +28,15 @@ VALID_BIDDING_STRATEGIES = {
 
 
 def _apply_bidding_strategy(
-    client,
-    campaign,
-    strategy,
-    target_cpa_dollars=None,
-    target_roas=None,
-    max_cpc_bid_ceiling_dollars=None,
-    target_impression_share_location="TOP_OF_PAGE",
-    target_impression_share_fraction=None,
-):
+    client: GoogleAdsClient,
+    campaign: ProtoMessage,
+    strategy: str,
+    target_cpa_dollars: float | None = None,
+    target_roas: float | None = None,
+    max_cpc_bid_ceiling_dollars: float | None = None,
+    target_impression_share_location: str = "TOP_OF_PAGE",
+    target_impression_share_fraction: float | None = None,
+) -> list[str]:
     """Apply a bidding strategy to a campaign proto. Returns list of field mask paths."""
     paths = []
     if strategy == "MANUAL_CPC":
@@ -112,7 +119,7 @@ def _apply_bidding_strategy(
     return paths
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_campaigns(
@@ -120,7 +127,7 @@ def register(mcp):
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
         status: Annotated[str | None, Field(description="Filter by status: ENABLED, PAUSED, or REMOVED")] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List all campaigns for a customer, optionally filtered by status."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:

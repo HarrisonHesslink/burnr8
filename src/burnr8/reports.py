@@ -52,12 +52,15 @@ def _sanitize_row(row: dict) -> dict:
 
 def _rows_to_csv_bytes(rows: list[dict], fieldnames: list[str]) -> bytes:
     """Render sanitized rows as CSV bytes (UTF-8). Shared by both handlers."""
-    buf = io.StringIO()
-    writer = csv.DictWriter(buf, fieldnames=fieldnames)
+    buf = io.BytesIO()
+    wrapper = io.TextIOWrapper(buf, encoding="utf-8", newline="")
+    writer = csv.DictWriter(wrapper, fieldnames=fieldnames)
     writer.writeheader()
     for row in rows:
         writer.writerow(_sanitize_row(row))
-    return buf.getvalue().encode("utf-8")
+    wrapper.flush()
+    wrapper.detach()
+    return buf.getvalue()
 
 
 def _generate_filename(report_name: str) -> str:
@@ -162,6 +165,9 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         user_id = None
     storage_path = f"{user_id}/{filename}" if user_id else filename
 
+    if not supabase_url.startswith("https://"):
+        return {"error": True, "message": "Supabase URL must use HTTPS"}
+
     # Upload to Supabase Storage
     upload_url = f"{supabase_url}/storage/v1/object/{bucket}/{storage_path}"
     headers = {
@@ -175,7 +181,7 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         resp.raise_for_status()
     except requests.exceptions.HTTPError as e:
         return {"error": True, "message": f"Supabase upload failed: HTTP {e.response.status_code}"}
-    except Exception:
+    except (requests.RequestException, OSError):
         return {"error": True, "message": "Supabase upload failed (network error)"}
 
     # Create signed URL (24 hour expiry)
@@ -195,7 +201,7 @@ def _save_to_supabase(rows: list[dict], fieldnames: list[str], report_name: str,
         )
         sign_resp.raise_for_status()
         signed_url = f"{supabase_url}/storage/v1{sign_resp.json()['signedURL']}"
-    except Exception:
+    except (requests.RequestException, OSError, KeyError):
         # Upload succeeded but signing failed — fallback to public URL with warning
         signed_url = f"{supabase_url}/storage/v1/object/public/{bucket}/{storage_path}"
         url_warning = "Signed URL generation failed. Public URL returned — may not work if bucket is private."

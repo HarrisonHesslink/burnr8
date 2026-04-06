@@ -149,9 +149,9 @@ class TestUpdateBudget:
             customer_id="1234567890",
         )
 
-        assert "warning" in result
-        assert "501" in result["warning"]
-        assert "$75.00" in result["warning"]
+        assert result.get("warning") is True
+        assert "501" in result["message"]
+        assert "$75.00" in result["message"]
 
     def test_updates_with_confirm(self, mock_ads_client):
         set_active_account("1234567890")
@@ -202,8 +202,8 @@ class TestRemoveOrphanBudgets:
         tool = _register_tool("remove_orphan_budgets")
         result = tool(customer_id="1234567890")
 
-        assert "warning" in result
-        assert "2 orphan" in result["warning"]
+        assert result.get("warning") is True
+        assert "2 orphan" in result["message"]
         assert len(result["orphan_budgets"]) == 2
         assert result["orphan_budgets"][0]["id"] == "601"
         assert result["orphan_budgets"][1]["id"] == "602"

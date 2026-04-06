@@ -1,6 +1,14 @@
-from typing import Annotated
+from __future__ import annotations
+
+import re
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+    from google.ads.googleads.client import GoogleAdsClient
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -41,9 +49,10 @@ _INFORMATIONAL_SIGNALS = [
     "review",
     "reviews",
 ]
+_SIGNAL_RE = re.compile(r'\b(?:' + '|'.join(re.escape(s) for s in _INFORMATIONAL_SIGNALS) + r')\b')
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def quick_audit(
@@ -88,8 +97,100 @@ def register(mcp):
             WHERE segments.date DURING {date_range_upper}
             ORDER BY metrics.cost_micros DESC
         """
-        campaign_rows = run_gaql(client, customer_id, campaign_query)
+        # 2. Keyword performance with quality scores
+        keyword_query = f"""
+            SELECT
+                ad_group_criterion.criterion_id,
+                ad_group_criterion.keyword.text,
+                ad_group_criterion.keyword.match_type,
+                ad_group_criterion.status,
+                ad_group_criterion.quality_info.quality_score,
+                ad_group.name,
+                campaign.name,
+                metrics.impressions,
+                metrics.clicks,
+                metrics.cost_micros,
+                metrics.conversions
+            FROM keyword_view
+            WHERE segments.date DURING {date_range_upper}
+            ORDER BY metrics.cost_micros DESC
+        """
 
+        # 3. Ad data with ad_strength
+        ad_query = f"""
+            SELECT
+                ad_group_ad.ad.id,
+                ad_group_ad.ad.type,
+                ad_group_ad.ad.final_urls,
+                ad_group_ad.ad.responsive_search_ad.headlines,
+                ad_group_ad.ad.responsive_search_ad.descriptions,
+                ad_group_ad.ad_strength,
+                ad_group_ad.status,
+                ad_group_ad.policy_summary.approval_status,
+                ad_group.name,
+                campaign.name,
+                metrics.impressions,
+                metrics.clicks,
+                metrics.cost_micros,
+                metrics.conversions
+            FROM ad_group_ad
+            WHERE ad_group_ad.status != 'REMOVED'
+                AND segments.date DURING {date_range_upper}
+        """
+
+        # 4. Negative keyword count
+        negative_query = """
+            SELECT
+                campaign_criterion.criterion_id
+            FROM campaign_criterion
+            WHERE campaign_criterion.type = 'KEYWORD'
+                AND campaign_criterion.negative = true
+        """
+
+        # 5. Conversion actions (no tag_snippets — not selectable)
+        conversion_query = """
+            SELECT
+                conversion_action.id,
+                conversion_action.name,
+                conversion_action.status,
+                conversion_action.type,
+                conversion_action.category,
+                conversion_action.counting_type
+            FROM conversion_action
+            ORDER BY conversion_action.name
+        """
+
+        # 6. Budget data
+        budget_query = """
+            SELECT
+                campaign_budget.id,
+                campaign_budget.name,
+                campaign_budget.amount_micros,
+                campaign_budget.status,
+                campaign_budget.delivery_method,
+                campaign_budget.explicitly_shared,
+                campaign_budget.reference_count
+            FROM campaign_budget
+            ORDER BY campaign_budget.name
+        """
+
+        # Run all 6 queries in parallel
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            future_campaigns = executor.submit(run_gaql, client, customer_id, campaign_query)
+            future_keywords = executor.submit(run_gaql, client, customer_id, keyword_query)
+            future_ads = executor.submit(run_gaql, client, customer_id, ad_query)
+            future_negatives = executor.submit(run_gaql, client, customer_id, negative_query)
+            future_conversions = executor.submit(run_gaql, client, customer_id, conversion_query)
+            future_budgets = executor.submit(run_gaql, client, customer_id, budget_query)
+
+        campaign_rows = future_campaigns.result()
+        keyword_rows = future_keywords.result()
+        ad_rows = future_ads.result()
+        negative_rows = future_negatives.result()
+        conversion_rows = future_conversions.result()
+        budget_rows = future_budgets.result()
+
+        # Process campaign rows
         campaigns = []
         total_spend_micros = 0
         total_conversions = 0.0
@@ -117,26 +218,7 @@ def register(mcp):
                 }
             )
 
-        # 2. Keyword performance with quality scores
-        keyword_query = f"""
-            SELECT
-                ad_group_criterion.criterion_id,
-                ad_group_criterion.keyword.text,
-                ad_group_criterion.keyword.match_type,
-                ad_group_criterion.status,
-                ad_group_criterion.quality_info.quality_score,
-                ad_group.name,
-                campaign.name,
-                metrics.impressions,
-                metrics.clicks,
-                metrics.cost_micros,
-                metrics.conversions
-            FROM keyword_view
-            WHERE segments.date DURING {date_range_upper}
-            ORDER BY metrics.cost_micros DESC
-        """
-        keyword_rows = run_gaql(client, customer_id, keyword_query)
-
+        # Process keyword rows
         top_keywords = []
         low_quality_keywords = []
         quality_scores = []
@@ -168,29 +250,7 @@ def register(mcp):
                 if int(qs) < 5:
                     low_quality_keywords.append(entry)
 
-        # 3. Ad data with ad_strength
-        ad_query = f"""
-            SELECT
-                ad_group_ad.ad.id,
-                ad_group_ad.ad.type,
-                ad_group_ad.ad.final_urls,
-                ad_group_ad.ad.responsive_search_ad.headlines,
-                ad_group_ad.ad.responsive_search_ad.descriptions,
-                ad_group_ad.ad_strength,
-                ad_group_ad.status,
-                ad_group_ad.policy_summary.approval_status,
-                ad_group.name,
-                campaign.name,
-                metrics.impressions,
-                metrics.clicks,
-                metrics.cost_micros,
-                metrics.conversions
-            FROM ad_group_ad
-            WHERE ad_group_ad.status != 'REMOVED'
-                AND segments.date DURING {date_range_upper}
-        """
-        ad_rows = run_gaql(client, customer_id, ad_query)
-
+        # Process ad rows
         ads = []
         for row in ad_rows:
             ad = row.get("ad_group_ad", {}).get("ad", {})
@@ -222,31 +282,10 @@ def register(mcp):
                 }
             )
 
-        # 4. Negative keyword count
-        negative_query = """
-            SELECT
-                campaign_criterion.criterion_id
-            FROM campaign_criterion
-            WHERE campaign_criterion.type = 'KEYWORD'
-                AND campaign_criterion.negative = true
-        """
-        negative_rows = run_gaql(client, customer_id, negative_query)
+        # Process negative keyword rows
         negative_keyword_count = len(negative_rows)
 
-        # 5. Conversion actions (no tag_snippets — not selectable)
-        conversion_query = """
-            SELECT
-                conversion_action.id,
-                conversion_action.name,
-                conversion_action.status,
-                conversion_action.type,
-                conversion_action.category,
-                conversion_action.counting_type
-            FROM conversion_action
-            ORDER BY conversion_action.name
-        """
-        conversion_rows = run_gaql(client, customer_id, conversion_query)
-
+        # Process conversion rows
         conversion_actions = []
         for row in conversion_rows:
             ca = row.get("conversion_action", {})
@@ -261,21 +300,7 @@ def register(mcp):
                 }
             )
 
-        # 6. Budget data
-        budget_query = """
-            SELECT
-                campaign_budget.id,
-                campaign_budget.name,
-                campaign_budget.amount_micros,
-                campaign_budget.status,
-                campaign_budget.delivery_method,
-                campaign_budget.explicitly_shared,
-                campaign_budget.reference_count
-            FROM campaign_budget
-            ORDER BY campaign_budget.name
-        """
-        budget_rows = run_gaql(client, customer_id, budget_query)
-
+        # Process budget rows
         budgets = []
         for row in budget_rows:
             b = row.get("campaign_budget", {})
@@ -514,16 +539,15 @@ def register(mcp):
             wasted_keywords.append(entry)
 
             keyword_lower = keyword_text.lower()
-            for signal in _INFORMATIONAL_SIGNALS:
-                if signal in keyword_lower:
-                    suggested_negatives.append(
-                        {
-                            "keyword": keyword_text,
-                            "reason": f"Contains '{signal}' — likely informational/non-commercial intent",
-                            "spend_dollars": round(cost_dollars, 2),
-                        }
-                    )
-                    break
+            match = _SIGNAL_RE.search(keyword_lower)
+            if match:
+                suggested_negatives.append(
+                    {
+                        "keyword": keyword_text,
+                        "reason": f"Contains '{match.group()}' — likely informational/non-commercial intent",
+                        "spend_dollars": round(cost_dollars, 2),
+                    }
+                )
 
         total_wasted_dollars = round(total_wasted_micros / 1_000_000, 2)
 
@@ -545,19 +569,19 @@ def register(mcp):
 
 
 def _execute_launch(
-    client,
-    customer_id,
-    campaign_name,
-    daily_budget_dollars,
-    keywords,
-    headlines,
-    descriptions,
-    final_url,
-    cpc_bid,
-    ad_group_name,
-    eu_political_ads,
-    created,
-):
+    client: GoogleAdsClient,
+    customer_id: str,
+    campaign_name: str,
+    daily_budget_dollars: float,
+    keywords: list[str],
+    headlines: list[str],
+    descriptions: list[str],
+    final_url: str,
+    cpc_bid: float,
+    ad_group_name: str,
+    eu_political_ads: bool,
+    created: dict,
+) -> dict:
     # 1. Create budget
     budget_service = client.get_service("CampaignBudgetService")
     budget_op = client.get_type("CampaignBudgetOperation")

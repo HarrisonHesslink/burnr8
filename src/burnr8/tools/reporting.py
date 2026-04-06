@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -9,7 +14,7 @@ from burnr8.reports import save_report
 from burnr8.session import resolve_customer_id
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def run_gaql_query(

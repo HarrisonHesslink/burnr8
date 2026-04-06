@@ -1,3 +1,10 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.tools.accounts import register as register_accounts
 from burnr8.tools.ad_groups import register as register_ad_groups
 from burnr8.tools.adjustments import register as register_adjustments
@@ -14,7 +21,7 @@ from burnr8.tools.negative_keywords import register as register_negative_keyword
 from burnr8.tools.reporting import register as register_reporting
 
 
-def register_all_tools(mcp):
+def register_all_tools(mcp: FastMCP) -> None:
     register_accounts(mcp)
     register_campaigns(mcp)
     register_ad_groups(mcp)

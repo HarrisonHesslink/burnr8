@@ -1,6 +1,12 @@
-from typing import Annotated
+from __future__ import annotations
+
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -10,41 +16,39 @@ from burnr8.session import get_active_account, resolve_customer_id
 from burnr8.session import set_active_account as _set_active
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
-    def list_accessible_accounts() -> list[dict]:
+    def list_accessible_accounts() -> list[dict] | dict:
         """List all Google Ads customer accounts accessible via the manager account. Shows account names and IDs for easy selection."""
         client = get_client()
         customer_service = client.get_service("CustomerService")
         response = customer_service.list_accessible_customers()
-        accounts = []
-        for resource_name in response.resource_names:
-            cid = resource_name.split("/")[-1]
-            # Fetch account name
+        customer_ids = [rn.split("/")[-1] for rn in response.resource_names]
+        query = """
+            SELECT customer.id, customer.descriptive_name, customer.manager, customer.status
+            FROM customer LIMIT 1
+        """
+
+        def _fetch_account(cid):
             try:
-                rows = run_gaql(
-                    client,
-                    cid,
-                    """
-                    SELECT customer.id, customer.descriptive_name, customer.manager, customer.status
-                    FROM customer LIMIT 1
-                """,
-                )
+                rows = run_gaql(client, cid, query)
                 if rows:
                     c = rows[0].get("customer", {})
-                    accounts.append(
-                        {
-                            "customer_id": cid,
-                            "name": c.get("descriptive_name", "Unknown"),
-                            "is_manager": c.get("manager", False),
-                            "status": c.get("status"),
-                        }
-                    )
-                else:
-                    accounts.append({"customer_id": cid, "name": "Unknown"})
-            except Exception:
-                accounts.append({"customer_id": cid, "name": "Unknown"})
+                    return {
+                        "customer_id": cid,
+                        "name": c.get("descriptive_name", "Unknown"),
+                        "is_manager": c.get("manager", False),
+                        "status": c.get("status"),
+                    }
+                return {"customer_id": cid, "name": "Unknown"}
+            except Exception:  # Enrichment step — run_gaql may raise GoogleAdsException or RPC errors
+                return {"customer_id": cid, "name": "Unknown"}
+
+        accounts = []
+        if customer_ids:
+            with ThreadPoolExecutor(max_workers=min(len(customer_ids), 10)) as executor:
+                accounts = list(executor.map(_fetch_account, customer_ids))
 
         active = get_active_account()
         return {
@@ -74,7 +78,7 @@ def register(mcp):
             """,
             )
             name = rows[0].get("customer", {}).get("descriptive_name", "Unknown") if rows else "Unknown"
-        except Exception:
+        except Exception:  # Enrichment step — run_gaql may raise GoogleAdsException or RPC errors
             name = "Unknown"
         return {
             "active_account": customer_id,

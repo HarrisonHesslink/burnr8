@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -14,7 +19,7 @@ class NegativeKeyword(BaseModel):
     match_type: str = Field(default="BROAD", description="Match type: EXACT, PHRASE, or BROAD")
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_negative_keywords(
@@ -118,31 +123,9 @@ def register(mcp):
         # Combine into flat list with normalized schema (all rows get all 8 keys)
         all_negatives = []
         for item in campaign_negatives:
-            all_negatives.append(
-                {
-                    "criterion_id": item["criterion_id"],
-                    "text": item["text"],
-                    "match_type": item["match_type"],
-                    "campaign_id": item["campaign_id"],
-                    "campaign_name": item["campaign_name"],
-                    "ad_group_id": None,
-                    "ad_group_name": None,
-                    "level": item["level"],
-                }
-            )
+            all_negatives.append({**item, "ad_group_id": None, "ad_group_name": None})
         for item in ad_group_negatives:
-            all_negatives.append(
-                {
-                    "criterion_id": item["criterion_id"],
-                    "text": item["text"],
-                    "match_type": item["match_type"],
-                    "campaign_id": item.get("campaign_id"),
-                    "campaign_name": item.get("campaign_name"),
-                    "ad_group_id": item.get("ad_group_id"),
-                    "ad_group_name": item.get("ad_group_name"),
-                    "level": item["level"],
-                }
-            )
+            all_negatives.append(item)
         report = save_report(all_negatives, "negative_keywords")
         if report.get("error"):
             return report
@@ -194,6 +177,12 @@ def register(mcp):
         campaign_criterion_service = client.get_service("CampaignCriterionService")
         campaign_service = client.get_service("CampaignService")
 
+        match_map = {
+            "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
+            "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
+            "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
+        }
+
         operations = []
         for kw in keywords:
             operation = client.get_type("CampaignCriterionOperation")
@@ -201,11 +190,6 @@ def register(mcp):
             criterion.campaign = campaign_service.campaign_path(customer_id, campaign_id)
             criterion.negative = True
 
-            match_map = {
-                "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
-                "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
-                "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
-            }
             criterion.keyword.text = kw.text
             criterion.keyword.match_type = match_map.get(
                 kw.match_type.upper(),
@@ -247,6 +231,12 @@ def register(mcp):
         ad_group_criterion_service = client.get_service("AdGroupCriterionService")
         ad_group_service = client.get_service("AdGroupService")
 
+        match_map = {
+            "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
+            "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
+            "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
+        }
+
         operations = []
         for kw in keywords:
             operation = client.get_type("AdGroupCriterionOperation")
@@ -254,11 +244,6 @@ def register(mcp):
             criterion.ad_group = ad_group_service.ad_group_path(customer_id, ad_group_id)
             criterion.negative = True
 
-            match_map = {
-                "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
-                "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
-                "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
-            }
             criterion.keyword.text = kw.text
             criterion.keyword.match_type = match_map.get(
                 kw.match_type.upper(),

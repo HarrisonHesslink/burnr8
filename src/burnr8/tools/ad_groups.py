@@ -1,6 +1,11 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
@@ -8,7 +13,7 @@ from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_st
 from burnr8.session import resolve_customer_id
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_ad_groups(
@@ -16,7 +21,7 @@ def register(mcp):
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List ad groups, optionally filtered by campaign."""
         customer_id = resolve_customer_id(customer_id)
         if not customer_id:

@@ -1,3 +1,4 @@
+import atexit
 import contextlib
 import contextvars
 import json
@@ -5,7 +6,9 @@ import logging
 import os
 import queue
 import threading
+import time
 import uuid
+from collections import deque
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -18,6 +21,9 @@ CLOUD_MODE = bool(os.environ.get("BURNR8_CLOUD"))
 _logger: logging.Logger | None = None
 _usage_lock = threading.Lock()
 _usage_cache: dict | None = None
+_usage_dirty: bool = False
+_last_save: float = 0.0
+_SAVE_INTERVAL: float = 1.0  # seconds — coalesce writes to at most once per second
 
 # Correlation ID for tracing multi-tool workflows (e.g. quick_audit → 6 GAQL queries)
 correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("correlation_id", default=None)
@@ -94,25 +100,21 @@ def _load_usage() -> dict:
         try:
             data = json.loads(USAGE_FILE.read_text())
             if data.get("date") == today:
+                data["calls"] = deque(data.get("calls", []), maxlen=50)
                 return data
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, OSError, KeyError):
             pass
-    return {"date": today, "ops": 0, "errors": 0, "calls": []}
+    return {"date": today, "ops": 0, "errors": 0, "calls": deque(maxlen=50)}
 
 
 def _save_usage(data: dict) -> None:
-    """Atomic write: temp file then replace."""
-    global _usage_cache
-    try:
-        LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-        tmp = USAGE_FILE.with_suffix(".tmp")
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with open(fd, "w") as f:
-            f.write(json.dumps(data, indent=2))
-        tmp.replace(USAGE_FILE)
-    except OSError:
-        _usage_cache = None
-        raise
+    """Atomic write: temp file then replace. Raises OSError on failure."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    tmp = USAGE_FILE.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with open(fd, "w") as f:
+        f.write(json.dumps(data, indent=2))
+    tmp.replace(USAGE_FILE)
 
 
 def _get_usage() -> dict:
@@ -121,6 +123,25 @@ def _get_usage() -> dict:
     if _usage_cache is None or _usage_cache.get("date") != today:
         _usage_cache = _load_usage()
     return _usage_cache
+
+
+def _flush_usage() -> None:
+    """Flush any pending dirty usage data to disk. Called by atexit to prevent data loss."""
+    with _usage_lock:
+        global _usage_dirty, _last_save
+        if not _usage_dirty or _usage_cache is None:
+            return
+        calls = _usage_cache.get("calls", deque(maxlen=50))
+        snapshot = {**_usage_cache, "calls": list(calls)}
+        try:
+            _save_usage(snapshot)
+        except OSError:
+            return  # Best-effort; process is exiting
+        _usage_dirty = False
+        _last_save = time.monotonic()
+
+
+atexit.register(_flush_usage)
 
 
 def log_tool_call(tool_name: str, customer_id: str | None, duration: float, status: str, detail: str = "") -> None:
@@ -142,24 +163,40 @@ def log_tool_call(tool_name: str, customer_id: str | None, duration: float, stat
         logger.info(msg)
 
     with _usage_lock:
+        global _usage_dirty, _last_save
         usage = _get_usage()
         usage["ops"] += 1
         if status == "error":
             usage["errors"] += 1
 
-        # Keep last 50 calls
-        usage["calls"] = usage.get("calls", [])[-49:] + [
+        # Keep last 50 calls (deque with maxlen auto-evicts oldest)
+        calls = usage.get("calls")
+        if calls is None:
+            calls = deque(maxlen=50)
+            usage["calls"] = calls
+        elif not isinstance(calls, deque):
+            calls = deque(calls, maxlen=50)
+            usage["calls"] = calls
+        calls.append(
             {
                 "time": datetime.now(UTC).strftime("%H:%M:%S"),
                 "tool": tool_name,
                 "status": status,
                 "duration": round(duration, 1),
             }
-        ]
-        # Explicit list copy — prevents races if calls list handling changes to in-place append
-        snapshot = {**usage, "calls": list(usage.get("calls", []))}
-
-    _save_usage(snapshot)
+        )
+        _usage_dirty = True
+        # Coalesce writes: flush to disk at most once per second
+        now = time.monotonic()
+        if now - _last_save >= _SAVE_INTERVAL:
+            snapshot = {**usage, "calls": list(calls)}
+            try:
+                _save_usage(snapshot)
+            except OSError:
+                pass  # Telemetry write failed; don't crash the tool
+            else:
+                _usage_dirty = False
+                _last_save = now
 
     # Cloud mode: enqueue async insert to Supabase usage_logs.
     # Reads ContextVars here (calling thread), not in the worker.
@@ -194,12 +231,13 @@ def _enqueue_cloud_log(row: dict) -> None:
 
 def _cloud_log_worker() -> None:
     """Single background thread that drains the cloud log queue."""
+    assert _cloud_queue is not None
     while True:
-        row = _cloud_queue.get()  # type: ignore[union-attr]
+        row = _cloud_queue.get()
         if row is None:
             break
         _write_cloud_log(row)
-        _cloud_queue.task_done()  # type: ignore[union-attr]
+        _cloud_queue.task_done()
 
 
 def _write_cloud_log(row: dict) -> None:
@@ -216,7 +254,7 @@ def _write_cloud_log(row: dict) -> None:
     if not supabase_url.startswith("https://"):
         return
 
-    with contextlib.suppress(Exception):
+    with contextlib.suppress(requests.RequestException, OSError, ValueError, TypeError):
         requests.post(
             f"{supabase_url}/rest/v1/usage_logs",
             headers={
@@ -240,7 +278,7 @@ def get_usage_stats() -> dict:
         "ops_limit": 15_000,
         "ops_pct": round(data["ops"] / 15_000 * 100, 1),
         "errors_today": data["errors"],
-        "recent_calls": data.get("calls", [])[-10:],
+        "recent_calls": list(data.get("calls", []))[-10:],
         "log_file": str(LOG_DIR / "burnr8.log"),
         "log_level": LOG_LEVEL,
     }
@@ -248,8 +286,6 @@ def get_usage_stats() -> dict:
 
 def get_recent_errors(limit: int = 20) -> list[dict]:
     """Read recent ERROR lines from burnr8.log. Uses deque to avoid loading all errors into memory."""
-    from collections import deque
-
     log_path = LOG_DIR / "burnr8.log"
     if not log_path.exists():
         return []

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import proto
     from google.ads.googleads.client import GoogleAdsClient
 
 VALID_STATUSES = {"ENABLED", "PAUSED", "REMOVED"}
@@ -23,7 +25,7 @@ VALID_DATE_RANGES = {
 }
 _NUMERIC_RE = re.compile(r"^\d+$")
 
-__all__ = ["run_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range"]
+__all__ = ["run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range"]
 
 
 def validate_id(value: str, name: str) -> str | None:
@@ -53,21 +55,37 @@ def dollars_to_micros(dollars: float) -> int:
     return round(dollars * 1_000_000)
 
 
-def run_gaql(client: GoogleAdsClient, customer_id: str, query: str, limit: int = 0) -> list[dict]:
-    """Execute a GAQL query via search_stream and return results as dicts.
-    If limit > 0, appends LIMIT clause to GAQL rather than truncating client-side."""
+def stream_gaql(client: GoogleAdsClient, customer_id: str, query: str, limit: int = 0) -> Iterator[dict]:
+    """Yield dicts one-at-a-time from a GAQL search_stream.
+
+    Use this instead of ``run_gaql`` when you want to process rows without
+    materializing the entire result set in memory (e.g. large search-term or
+    keyword-performance queries).
+
+    If *limit* > 0, appends a LIMIT clause to the GAQL string.
+    """
     if limit and "LIMIT" not in query.upper():
         query = query.rstrip().rstrip(";") + f" LIMIT {limit}"
     ga_service = client.get_service("GoogleAdsService")
     stream = ga_service.search_stream(customer_id=customer_id, query=query)
-    results = []
     for batch in stream:
         for row in batch.results:
-            results.append(proto_to_dict(row))
-    return results
+            yield proto_to_dict(row)
 
 
-def proto_to_dict(msg) -> dict:
+def run_gaql(client: GoogleAdsClient, customer_id: str, query: str, limit: int = 0) -> list[dict]:
+    """Execute a GAQL query via search_stream and return results as dicts.
+
+    This is the eager wrapper around :func:`stream_gaql` — it materializes all
+    rows into a list so existing callers keep working unchanged.
+
+    If *limit* > 0, appends LIMIT clause to GAQL rather than truncating
+    client-side.
+    """
+    return list(stream_gaql(client, customer_id, query, limit))
+
+
+def proto_to_dict(msg: proto.Message) -> dict:
     """Convert a protobuf message to a plain dict."""
     from google.protobuf.json_format import MessageToDict
 

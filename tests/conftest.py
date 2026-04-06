@@ -224,6 +224,10 @@ def _build_service(name: str) -> MagicMock:
             "mutate_campaign_assets",
             ["customers/1234567890/campaignAssets/222~800"],
         ),
+        "AdGroupAssetService": (
+            "mutate_ad_group_assets",
+            ["customers/1234567890/adGroupAssets/333~800"],
+        ),
         "CustomerConversionGoalService": (
             "mutate_customer_conversion_goals",
             ["customers/1234567890/customerConversionGoals/700"],

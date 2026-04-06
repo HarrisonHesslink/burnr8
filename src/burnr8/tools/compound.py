@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_date_range, validate_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
 from burnr8.session import resolve_customer_id
 
@@ -210,11 +210,11 @@ def register(mcp: FastMCP) -> None:
                     "bidding_strategy": c.get("bidding_strategy_type"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": cost_micros / 1_000_000,
+                    "cost_dollars": micros_to_dollars(cost_micros),
                     "conversions": convs,
                     "conversions_value": float(m.get("conversions_value", 0)),
                     "ctr": float(m.get("ctr", 0)),
-                    "avg_cpc_dollars": int(m.get("average_cpc", 0)) / 1_000_000,
+                    "avg_cpc_dollars": micros_to_dollars(int(m.get("average_cpc", 0))),
                 }
             )
 
@@ -240,7 +240,7 @@ def register(mcp: FastMCP) -> None:
                 "campaign": c.get("name"),
                 "impressions": int(m.get("impressions", 0)),
                 "clicks": int(m.get("clicks", 0)),
-                "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                 "conversions": float(m.get("conversions", 0)),
             }
             top_keywords.append(entry)
@@ -277,7 +277,7 @@ def register(mcp: FastMCP) -> None:
                     "campaign": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                     "conversions": float(m.get("conversions", 0)),
                 }
             )
@@ -308,7 +308,7 @@ def register(mcp: FastMCP) -> None:
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
+                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
                     "status": b.get("status"),
                     "delivery_method": b.get("delivery_method"),
                     "shared": b.get("explicitly_shared"),
@@ -317,7 +317,7 @@ def register(mcp: FastMCP) -> None:
             )
 
         # Build summary
-        total_spend_dollars = total_spend_micros / 1_000_000
+        total_spend_dollars = micros_to_dollars(total_spend_micros)
         avg_cpa = (total_spend_dollars / total_conversions) if total_conversions > 0 else None
         avg_qs = (sum(quality_scores) / len(quality_scores)) if quality_scores else None
 
@@ -444,11 +444,31 @@ def register(mcp: FastMCP) -> None:
                 created,
             )
         except Exception as ex:
+            # Lazy import to avoid loading SDK at module level
+            from google.ads.googleads.errors import GoogleAdsException
+
+            created_before = {k: v for k, v in created.items() if v is not None}
+            if isinstance(ex, GoogleAdsException):
+                errors = []
+                for error in ex.failure.errors:
+                    err = {"message": error.message[:200], "code": str(error.error_code)}
+                    if error.location and error.location.field_path_elements:
+                        err["field_path"] = [el.field_name for el in error.location.field_path_elements]
+                    errors.append(err)
+                return {
+                    "error": True,
+                    "partial_failure": True,
+                    "message": errors[0]["message"] if errors else "Unknown Google Ads API error",
+                    "request_id": ex.request_id,
+                    "status": ex.error.code().name,
+                    "errors": errors,
+                    "created_before_failure": created_before,
+                }
             return {
                 "error": True,
                 "partial_failure": True,
-                "message": str(ex)[:300],
-                "created_before_failure": {k: v for k, v in created.items() if v is not None},
+                "message": str(ex)[:200],
+                "created_before_failure": created_before,
             }
 
     @mcp.tool
@@ -520,7 +540,7 @@ def register(mcp: FastMCP) -> None:
                 continue
 
             keyword_text = kw.get("text", "")
-            cost_dollars = cost_micros / 1_000_000
+            cost_dollars = micros_to_dollars(cost_micros)
             total_wasted_micros += cost_micros
 
             entry = {
@@ -549,7 +569,7 @@ def register(mcp: FastMCP) -> None:
                     }
                 )
 
-        total_wasted_dollars = round(total_wasted_micros / 1_000_000, 2)
+        total_wasted_dollars = round(micros_to_dollars(total_wasted_micros), 2)
 
         # Save full wasted keywords list to CSV
         wasted_report = save_report(wasted_keywords, "wasted-keywords", top_n=10)

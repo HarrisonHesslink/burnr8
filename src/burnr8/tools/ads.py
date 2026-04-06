@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id, validate_status
+from burnr8.helpers import micros_to_dollars, run_gaql, validate_id, validate_status
 from burnr8.reports import save_report
 from burnr8.session import resolve_customer_id
 
@@ -89,7 +89,7 @@ def register(mcp: FastMCP) -> None:
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                     "conversions": float(m.get("conversions", 0)),
                 }
             )

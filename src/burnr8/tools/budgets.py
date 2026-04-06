@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_id
 from burnr8.session import resolve_customer_id
 
 
@@ -51,7 +51,7 @@ def register(mcp: FastMCP) -> None:
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
+                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
                     "status": b.get("status"),
                     "delivery_method": b.get("delivery_method"),
                     "shared": b.get("explicitly_shared"),
@@ -176,7 +176,7 @@ def register(mcp: FastMCP) -> None:
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
+                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
                 }
             )
 

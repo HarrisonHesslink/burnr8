@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import micros_to_dollars, run_gaql, validate_id
 from burnr8.reports import save_report
 from burnr8.session import resolve_customer_id
 
@@ -80,7 +80,7 @@ def register(mcp: FastMCP) -> None:
                     "text": kw.get("text"),
                     "match_type": kw.get("match_type"),
                     "status": cr.get("status"),
-                    "cpc_bid_dollars": int(cr.get("cpc_bid_micros", 0)) / 1_000_000,
+                    "cpc_bid_dollars": micros_to_dollars(int(cr.get("cpc_bid_micros", 0))),
                     "quality_score": qi.get("quality_score"),
                     "ad_group_id": ag.get("id"),
                     "ad_group_name": ag.get("name"),
@@ -88,7 +88,7 @@ def register(mcp: FastMCP) -> None:
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                     "conversions": float(m.get("conversions", 0)),
                 }
             )
@@ -254,10 +254,10 @@ def register(mcp: FastMCP) -> None:
                     "keyword": idea.text,
                     "avg_monthly_searches": metrics.avg_monthly_searches if metrics else 0,
                     "competition": metrics.competition.name if metrics else "UNKNOWN",
-                    "low_top_of_page_bid_dollars": (metrics.low_top_of_page_bid_micros or 0) / 1_000_000
+                    "low_top_of_page_bid_dollars": micros_to_dollars(metrics.low_top_of_page_bid_micros or 0)
                     if metrics
                     else 0,
-                    "high_top_of_page_bid_dollars": (metrics.high_top_of_page_bid_micros or 0) / 1_000_000
+                    "high_top_of_page_bid_dollars": micros_to_dollars(metrics.high_top_of_page_bid_micros or 0)
                     if metrics
                     else 0,
                 }

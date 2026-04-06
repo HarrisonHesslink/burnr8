@@ -131,8 +131,13 @@ def print_dashboard():
             print(f"      Today:  {format_dollars(cost_today)}{budget_str}  |  {clicks} clicks  |  {conv:.0f} conv")
             print(f"      MTD:    {format_dollars(cost_mtd)}")
 
-    except Exception as e:
+    except OSError as e:
         print(f"  Could not load campaign data: {e}")
+    except Exception as e:
+        from burnr8.logging import get_logger
+
+        get_logger().exception("Dashboard campaign data error: %s", e)
+        print(f"  Could not load campaign data: {e} (see ~/.burnr8/logs/burnr8.log)")
 
     print()
 

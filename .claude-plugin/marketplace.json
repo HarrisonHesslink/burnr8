@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "burnr8",
-      "description": "Google Ads MCP server — self-hosted, 60 tools for audit, optimization, and reporting",
+      "description": "Google Ads MCP server — self-hosted, 65 tools for audit, optimization, and reporting",
       "version": "0.6.1",
       "source": "./",
       "category": "productivity",

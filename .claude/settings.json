@@ -1,4 +1,17 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__burnr8__*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/credential-check.sh"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "ask": [
       "mcp__burnr8__set_campaign_status",

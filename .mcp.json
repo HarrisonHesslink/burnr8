@@ -2,8 +2,8 @@
   "mcpServers": {
     "burnr8": {
       "type": "stdio",
-      "command": "python3",
-      "args": ["-m", "burnr8.server"]
+      "command": "bash",
+      "args": ["-c", "source ~/.burnr8/venv/bin/activate && python -m burnr8.server"]
     }
   }
 }

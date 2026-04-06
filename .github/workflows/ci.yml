@@ -17,8 +17,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install ruff
+      - run: pip install ruff mypy
       - run: ruff check src/ tests/
+      - name: Type check (informational)
+        run: mypy src/burnr8/ --ignore-missing-imports
+        continue-on-error: true
 
   security:
     runs-on: ubuntu-latest
@@ -54,7 +57,7 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
       - run: pip install -e ".[dev]"
-      - run: pytest tests/ -v --tb=short
+      - run: pytest tests/ -v --tb=short --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"
 
   build:

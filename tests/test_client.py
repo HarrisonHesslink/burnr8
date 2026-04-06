@@ -2,6 +2,7 @@
 
 import importlib
 import threading
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -152,7 +153,12 @@ class TestSingleton:
         }
         mock_gac = MagicMock()
         fake_client = MagicMock(name="ThreadSafeClient")
-        mock_gac.load_from_dict.return_value = fake_client
+
+        def slow_load(*args, **kwargs):
+            time.sleep(0.01)  # widen race window past GIL quantum
+            return fake_client
+
+        mock_gac.load_from_dict.side_effect = slow_load
 
         results = []
         barrier = threading.Barrier(4)

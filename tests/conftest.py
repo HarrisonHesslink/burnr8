@@ -347,7 +347,11 @@ def mock_ads_client():
 
 @pytest.fixture(autouse=True)
 def _reset_session():
-    """Reset active account between tests to prevent state leakage."""
+    """Reset active account and client singleton between tests to prevent state leakage."""
+    import burnr8.client as _client_mod
+
     _session._active_account = None
+    _client_mod._client = None
     yield
     _session._active_account = None
+    _client_mod._client = None

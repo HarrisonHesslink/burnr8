@@ -67,7 +67,7 @@ def stream_gaql(client: GoogleAdsClient, customer_id: str, query: str, limit: in
     if limit and "LIMIT" not in query.upper():
         query = query.rstrip().rstrip(";") + f" LIMIT {limit}"
     ga_service = client.get_service("GoogleAdsService")
-    stream = ga_service.search_stream(customer_id=customer_id, query=query)
+    stream = ga_service.search_stream(customer_id=customer_id, query=query, timeout=120)
     for batch in stream:
         for row in batch.results:
             yield proto_to_dict(row)

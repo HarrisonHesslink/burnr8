@@ -215,6 +215,10 @@ def main():
         # Port binding or file system errors
         print(f"\n  Error: {e}")
         sys.exit(1)
+    except Exception as e:
+        print(f"\n  Setup failed: {e}")
+        print("  You can re-run burnr8-setup or set credentials manually in ~/.burnr8/.env")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

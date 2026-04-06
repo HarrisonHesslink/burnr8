@@ -30,7 +30,12 @@ def usage_resource() -> str:
 
     from burnr8.logging import get_usage_stats
 
-    return json.dumps(get_usage_stats(), indent=2)
+    try:
+        stats = get_usage_stats()
+        return json.dumps(stats, indent=2)
+    except Exception as e:
+        msg = str(e)[:200] if str(e) else "Unknown error"
+        return json.dumps({"error": msg})
 
 
 @mcp.resource("burnr8://accounts")

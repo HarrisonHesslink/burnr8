@@ -371,7 +371,13 @@ class TestLaunchCampaign:
     def test_partial_failure_reports_created_resources(self, mock_ads_client):
         set_active_account("1234567890")
         client = mock_ads_client["client"]
-        client.get_service("AdGroupService").mutate_ad_groups.side_effect = RuntimeError("API quota exceeded")
+        # Use a realistic gRPC error (not RuntimeError, which would be a programming bug)
+        import grpc
+
+        rpc_error = grpc.RpcError()
+        rpc_error.code = lambda: grpc.StatusCode.RESOURCE_EXHAUSTED
+        rpc_error.details = lambda: "API quota exceeded"
+        client.get_service("AdGroupService").mutate_ad_groups.side_effect = rpc_error
 
         tool = _register_tool("launch_campaign")
         result = tool(

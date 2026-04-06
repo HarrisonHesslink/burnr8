@@ -444,7 +444,8 @@ def register(mcp: FastMCP) -> None:
                 created,
             )
         except Exception as ex:
-            # Lazy import to avoid loading SDK at module level
+            # Lazy imports to avoid loading SDK at module level
+            import grpc
             from google.ads.googleads.errors import GoogleAdsException
 
             created_before = {k: v for k, v in created.items() if v is not None}
@@ -464,12 +465,15 @@ def register(mcp: FastMCP) -> None:
                     "errors": errors,
                     "created_before_failure": created_before,
                 }
-            return {
-                "error": True,
-                "partial_failure": True,
-                "message": str(ex)[:200],
-                "created_before_failure": created_before,
-            }
+            if isinstance(ex, grpc.RpcError):
+                return {
+                    "error": True,
+                    "partial_failure": True,
+                    "message": f"RPC error: {ex.code().name}"[:200],
+                    "created_before_failure": created_before,
+                }
+            # Programming errors should crash, not be silenced as "partial failures"
+            raise
 
     @mcp.tool
     @handle_google_ads_errors

@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
 # PreToolUse hook: check if burnr8 credentials are configured before any tool call.
 # If ~/.burnr8/.env doesn't exist and env vars aren't set, block with setup instructions.
+# Requires jq for JSON parsing.
+
+# Read hook input from stdin (Claude Code passes JSON)
+INPUT=$(cat)
+TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+
+# If jq is not available or tool_name is empty, allow (don't break things)
+if [[ -z "$TOOL_NAME" ]]; then
+    exit 0
+fi
 
 # Only check for burnr8 MCP tools
-TOOL_NAME="${MCP_TOOL_NAME:-}"
 if [[ "$TOOL_NAME" != mcp__burnr8__* ]] && [[ "$TOOL_NAME" != mcp__claude_ai_BurnR8__* ]]; then
     exit 0
 fi

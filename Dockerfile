@@ -7,7 +7,7 @@ LABEL org.opencontainers.image.source="https://github.com/HarrisonHesslink/burnr
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-ARG BURNR8_VERSION=0.6.0
+ARG BURNR8_VERSION=0.6.1
 RUN pip install --no-cache-dir burnr8==${BURNR8_VERSION}
 
 RUN useradd --create-home burnr8

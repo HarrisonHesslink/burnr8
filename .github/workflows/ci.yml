@@ -24,9 +24,9 @@ jobs:
           output=$(mypy src/burnr8/ --ignore-missing-imports 2>&1) || true
           echo "$output"
           errors=$(echo "$output" | tail -1 | grep -oP '\d+(?= error)' || echo 0)
-          echo "mypy found $errors errors (baseline: 47)"
-          if [ "$errors" -gt 47 ]; then
-            echo "::error::mypy regression: $errors errors (baseline: 47)"
+          echo "mypy found $errors errors (baseline: 20)"
+          if [ "$errors" -gt 20 ]; then
+            echo "::error::mypy regression: $errors errors (baseline: 20)"
             exit 1
           fi
 

@@ -43,7 +43,7 @@ def register(mcp: FastMCP) -> None:
             return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
 
         client = get_client()

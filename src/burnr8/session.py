@@ -23,6 +23,6 @@ def get_active_account() -> str | None:
 
 def resolve_customer_id(customer_id: str | None) -> str | None:
     """Resolve customer_id: use the provided value, or fall back to active account."""
-    if customer_id:
+    if customer_id:  # None and "" both mean "not provided"
         return customer_id
     return get_active_account()

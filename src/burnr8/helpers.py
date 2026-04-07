@@ -46,7 +46,7 @@ def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
     from burnr8.session import resolve_customer_id
 
     customer_id = resolve_customer_id(customer_id)
-    if not customer_id:
+    if customer_id is None:
         return "", {
             "error": True,
             "message": "No customer_id provided and no active account set. Call set_active_account first.",

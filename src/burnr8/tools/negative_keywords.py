@@ -34,9 +34,9 @@ def register(mcp: FastMCP) -> None:
         customer_id, err = require_customer_id(customer_id)
         if err:
             return err
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
-        if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
+        if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
 
         client = get_client()

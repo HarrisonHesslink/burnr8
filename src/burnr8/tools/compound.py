@@ -12,9 +12,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_date_range, validate_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_date_range
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 # Keywords that suggest informational/free intent (for cleanup_wasted_spend)
 _INFORMATIONAL_SIGNALS = [
@@ -64,14 +63,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Pull all account data and return a formatted audit report in one call. Covers campaigns, keywords, ads, negatives, conversions, and budgets."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
 
@@ -408,14 +402,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a complete campaign setup in one call: budget, campaign (PAUSED, SEARCH, MANUAL_CPC), ad group, keywords (Broad match), and a responsive search ad."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
 
         # Validate inputs
         if len(headlines) < 3 or len(headlines) > 15:
@@ -487,14 +476,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Analyze keywords with spend but zero conversions and return actionable recommendations for reducing wasted ad spend."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
 

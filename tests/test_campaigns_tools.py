@@ -668,11 +668,8 @@ class TestInvalidCustomerId:
         set_active_account("1234567890")
 
         tool = _register_tool("set_campaign_status")
-        # set_campaign_status does not validate customer_id format
-        # (unlike other tools), so an invalid ID still proceeds to mutate.
-        # We verify it at least does not crash and returns a resource_name.
+        # require_customer_id now validates customer_id format for all tools
         result = tool(campaign_id="100", status="PAUSED", confirm=True, customer_id="abc-def")
 
-        # The mock mutate succeeds regardless of customer_id format
-        assert "resource_name" in result
-        assert result["new_status"] == "PAUSED"
+        assert result["error"] is True
+        assert "customer_id" in result["message"]

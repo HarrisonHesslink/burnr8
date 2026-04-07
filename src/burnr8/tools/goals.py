@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 
 VALID_CATEGORIES = {
     "DEFAULT",
@@ -54,14 +53,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List all customer conversion goals showing which are biddable (used by Smart Bidding)."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT
@@ -94,14 +88,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Toggle a customer conversion goal as biddable or non-biddable. Controls what Smart Bidding optimizes toward."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         cat = category.upper()
         if cat not in VALID_CATEGORIES:
             return {
@@ -142,14 +131,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Check if a campaign uses account-level or campaign-level conversion goals."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -182,14 +166,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set a campaign to use campaign-level goals with a custom conversion goal targeting specific conversion actions."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         for action_id in conversion_action_ids:
@@ -240,14 +219,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List existing custom conversion goals."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT

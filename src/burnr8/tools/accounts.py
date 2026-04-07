@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 from burnr8.logging import LOG_DIR, get_recent_errors, get_usage_stats
-from burnr8.session import get_active_account, resolve_customer_id
+from burnr8.session import get_active_account
 from burnr8.session import set_active_account as _set_active
 
 
@@ -102,12 +102,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get account details including name, currency, timezone, and status."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT

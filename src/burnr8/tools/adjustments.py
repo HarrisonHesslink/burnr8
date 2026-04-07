@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 
 VALID_DEVICE_TYPES = {"MOBILE", "DESKTOP", "TABLET"}
 VALID_PRESENCE_TYPES = {"PRESENCE", "PRESENCE_OR_INTEREST", "SEARCH_INTEREST"}
@@ -36,14 +35,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Pause a specific keyword by criterion ID."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -79,14 +73,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set a bid adjustment for a device type on a campaign. Creates the device criterion if it doesn't exist (common with Smart Bidding strategies)."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if device_type.upper() not in VALID_DEVICE_TYPES:
@@ -162,14 +151,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List current device bid adjustments for a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -219,14 +203,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set an ad schedule (dayparting) for a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if day_of_week.upper() not in VALID_DAYS_OF_WEEK:
@@ -284,14 +263,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List current ad schedules (dayparting) for a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -343,21 +317,15 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove an ad schedule criterion from a campaign. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
                 "message": f"This will remove ad schedule criterion {criterion_id} from campaign {campaign_id}. "
                 "Set confirm=true to execute.",
             }
-
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -382,14 +350,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List location targets (geo targets) for a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -445,14 +408,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add a location target (or exclusion) to a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(geo_target_id, "geo_target_id"):
@@ -489,20 +447,15 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove a location target from a campaign. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
                 "message": f"This will remove location criterion {criterion_id} from campaign {campaign_id}. "
                 "Set confirm=true to execute.",
             }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -526,14 +479,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get the location targeting presence setting for a campaign (Presence vs Presence or Interest)."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -577,14 +525,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set the location targeting presence mode for a campaign. PRESENCE is recommended — it targets people physically in your locations, not just searching about them."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if positive_type.upper() not in VALID_PRESENCE_TYPES:

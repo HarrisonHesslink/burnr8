@@ -9,9 +9,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import micros_to_dollars, run_gaql, validate_id, validate_status
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_id, validate_status
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 def register(mcp: FastMCP) -> None:
@@ -24,15 +23,10 @@ def register(mcp: FastMCP) -> None:
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List ads with approval status and performance metrics. Saves full results to CSV, returns summary + top rows."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
-        if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+        if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = """
@@ -125,14 +119,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a responsive search ad in an ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -180,12 +169,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Enable, pause, or remove an ad. Requires confirm=true for safety."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:

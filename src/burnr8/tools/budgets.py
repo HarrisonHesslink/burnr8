@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_id
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_id
 
 
 def register(mcp: FastMCP) -> None:
@@ -22,14 +21,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List all campaign budgets with spend data."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT
@@ -70,14 +64,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new daily campaign budget."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         budget_service = client.get_service("CampaignBudgetService")
 
@@ -107,21 +96,15 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update a campaign budget amount. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
                 "message": f"This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
                 "Set confirm=true to execute.",
             }
-
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(budget_id, "budget_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -147,14 +130,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Find and remove orphan budgets (reference_count = 0). Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT

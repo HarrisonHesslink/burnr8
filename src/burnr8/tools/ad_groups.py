@@ -9,8 +9,14 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, run_gaql, validate_id, validate_status
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_id,
+    validate_status,
+)
 
 
 def register(mcp: FastMCP) -> None:
@@ -23,14 +29,9 @@ def register(mcp: FastMCP) -> None:
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
     ) -> list[dict] | dict:
         """List ad groups, optionally filtered by campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
@@ -84,14 +85,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new ad group in a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -124,14 +120,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update an ad group's name, bid, or status."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()

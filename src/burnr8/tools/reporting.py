@@ -114,6 +114,7 @@ def register(mcp: FastMCP) -> None:
                 "cost_per_conversion": round(micros_to_dollars(int(m.get("cost_per_conversion", 0))), 2),
                 "cost_per_conversion_computed": round(cost / conv, 2) if conv > 0 else None,
                 "conversion_rate": round(conv / clicks * 100, 2) if clicks > 0 else None,
+                "roas": round(float(m.get("conversions_value", 0)) / cost, 2) if cost > 0 else None,
             }
             if segment_by_device:
                 entry["device"] = s.get("device")
@@ -410,6 +411,7 @@ def register(mcp: FastMCP) -> None:
                     "conversions_value": conv_value,
                     "cost_per_conversion": round(cost / conv, 2) if conv > 0 else None,
                     "conversion_rate": round(conv / clicks * 100, 2) if clicks > 0 else None,
+                    "roas": round(conv_value / cost, 2) if cost > 0 else None,
                 }
             )
 

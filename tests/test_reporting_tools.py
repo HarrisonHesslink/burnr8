@@ -374,6 +374,8 @@ class TestComputedMetrics:
         assert row["cost_per_conversion_computed"] == 5.0
         # conversions / clicks * 100 = 5.0 / 50 * 100 = 10.0
         assert row["conversion_rate"] == 10.0
+        # conversions_value = 100.0, cost = 25.0 -> roas = 4.0
+        assert row["roas"] == 4.0
 
     def test_campaign_computed_metrics_none_when_zero(self, mock_ads_client):
         set_active_account("1234567890")
@@ -462,6 +464,8 @@ class TestComputedMetrics:
         assert row["cost_per_conversion"] == 5.0
         # conv / clicks * 100 = 2.0 / 20 * 100 = 10.0
         assert row["conversion_rate"] == 10.0
+        # conversions_value = 40.0, cost = 10.0 -> roas = 4.0
+        assert row["roas"] == 4.0
 
 
 # ---------------------------------------------------------------------------

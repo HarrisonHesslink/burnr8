@@ -42,6 +42,9 @@ def register(mcp: FastMCP) -> None:
                 ad_group.status,
                 ad_group.type,
                 ad_group.cpc_bid_micros,
+                ad_group.tracking_url_template,
+                ad_group.final_url_suffix,
+                ad_group.url_custom_parameters,
                 campaign.id,
                 campaign.name,
                 metrics.impressions,
@@ -65,6 +68,11 @@ def register(mcp: FastMCP) -> None:
                     "status": ag.get("status"),
                     "type": ag.get("type"),
                     "cpc_bid_dollars": micros_to_dollars(int(ag.get("cpc_bid_micros", 0))),
+                    "tracking_url_template": ag.get("tracking_url_template"),
+                    "final_url_suffix": ag.get("final_url_suffix"),
+                    "url_custom_parameters": {
+                        p["key"]: p["value"] for p in ag.get("url_custom_parameters", []) if "key" in p
+                    } or None,
                     "campaign_id": c.get("id"),
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
@@ -80,6 +88,18 @@ def register(mcp: FastMCP) -> None:
         campaign_id: Annotated[str, Field(description="Campaign ID to add the ad group to")],
         name: Annotated[str, Field(description="Ad group name")],
         cpc_bid: Annotated[float, Field(description="CPC bid in dollars")] = 1.0,
+        tracking_url_template: Annotated[
+            str | None,
+            Field(description="URL template for tracking, e.g. '{lpurl}?utm_source=google&utm_campaign={campaignid}'"),
+        ] = None,
+        final_url_suffix: Annotated[
+            str | None,
+            Field(description="Suffix appended to final URLs, e.g. 'utm_source=google&utm_medium=cpc'"),
+        ] = None,
+        url_custom_parameters: Annotated[
+            dict[str, str] | None,
+            Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
+        ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -103,10 +123,28 @@ def register(mcp: FastMCP) -> None:
         ad_group.type_ = client.enums.AdGroupTypeEnum.SEARCH_STANDARD
         ad_group.cpc_bid_micros = dollars_to_micros(cpc_bid)
 
+        if tracking_url_template is not None:
+            ad_group.tracking_url_template = tracking_url_template
+        if final_url_suffix is not None:
+            ad_group.final_url_suffix = final_url_suffix
+        if url_custom_parameters is not None:
+            for key, value in url_custom_parameters.items():
+                param = client.get_type("CustomParameter")
+                param.key = key
+                param.value = value
+                ad_group.url_custom_parameters.append(param)
+
         response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
-        return {"id": new_id, "resource_name": resource_name, "name": name}
+        result = {"id": new_id, "resource_name": resource_name, "name": name}
+        if tracking_url_template is not None:
+            result["tracking_url_template"] = tracking_url_template
+        if final_url_suffix is not None:
+            result["final_url_suffix"] = final_url_suffix
+        if url_custom_parameters is not None:
+            result["url_custom_parameters"] = url_custom_parameters
+        return result
 
     @mcp.tool
     @handle_google_ads_errors
@@ -115,11 +153,23 @@ def register(mcp: FastMCP) -> None:
         name: Annotated[str | None, Field(description="New ad group name")] = None,
         cpc_bid: Annotated[float | None, Field(description="New CPC bid in dollars")] = None,
         status: Annotated[str | None, Field(description="New status: ENABLED, PAUSED, or REMOVED")] = None,
+        tracking_url_template: Annotated[
+            str | None,
+            Field(description="URL template for tracking. Pass empty string '' to clear."),
+        ] = None,
+        final_url_suffix: Annotated[
+            str | None,
+            Field(description="Suffix appended to final URLs. Pass empty string '' to clear."),
+        ] = None,
+        url_custom_parameters: Annotated[
+            dict[str, str] | None,
+            Field(description="Custom parameters for tracking URL substitution. Pass empty dict {} to clear all."),
+        ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> dict:
-        """Update an ad group's name, bid, or status."""
+        """Update an ad group's name, bid, status, or tracking URLs."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -149,6 +199,19 @@ def register(mcp: FastMCP) -> None:
             }
             ad_group.status = status_map[status.upper()]
             field_mask.append("status")
+        if tracking_url_template is not None:
+            ad_group.tracking_url_template = tracking_url_template
+            field_mask.append("tracking_url_template")
+        if final_url_suffix is not None:
+            ad_group.final_url_suffix = final_url_suffix
+            field_mask.append("final_url_suffix")
+        if url_custom_parameters is not None:
+            for key, value in url_custom_parameters.items():
+                param = client.get_type("CustomParameter")
+                param.key = key
+                param.value = value
+                ad_group.url_custom_parameters.append(param)
+            field_mask.append("url_custom_parameters")
 
         if not field_mask:
             return {"error": True, "message": "No fields to update"}

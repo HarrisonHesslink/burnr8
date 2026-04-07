@@ -301,6 +301,8 @@ Call quick_audit first — it fetches campaigns, keywords, ads, negatives, conve
 - Call get_geo_target_type_setting — should be PRESENCE not PRESENCE_OR_INTEREST
 - Call list_device_bid_adjustments — are mobile/tablet adjusted?
 - Is the budget being fully spent? (underspend = missed opportunity)
+- Check quick_audit summary for campaigns_without_tracking — ENABLED campaigns should have tracking_url_template set
+- Call get_account_info to check account-level tracking_url_template and final_url_suffix defaults
 
 ## Step 3: Present findings
 Format as a health score report with:

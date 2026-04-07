@@ -147,6 +147,9 @@ def register(mcp: FastMCP) -> None:
                 campaign.advertising_channel_type,
                 campaign.bidding_strategy_type,
                 campaign.campaign_budget,
+                campaign.tracking_url_template,
+                campaign.final_url_suffix,
+                campaign.url_custom_parameters,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros
@@ -170,6 +173,11 @@ def register(mcp: FastMCP) -> None:
                     "channel_type": c.get("advertising_channel_type"),
                     "bidding_strategy_type": c.get("bidding_strategy_type"),
                     "budget": c.get("campaign_budget"),
+                    "tracking_url_template": c.get("tracking_url_template"),
+                    "final_url_suffix": c.get("final_url_suffix"),
+                    "url_custom_parameters": {
+                        p["key"]: p["value"] for p in c.get("url_custom_parameters", []) if "key" in p
+                    } or None,
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
@@ -205,6 +213,9 @@ def register(mcp: FastMCP) -> None:
                 campaign.network_settings.target_google_search,
                 campaign.network_settings.target_search_network,
                 campaign.network_settings.target_content_network,
+                campaign.tracking_url_template,
+                campaign.final_url_suffix,
+                campaign.url_custom_parameters,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
@@ -267,6 +278,18 @@ def register(mcp: FastMCP) -> None:
                 description="Set to true if this campaign contains EU political advertising. Required for EU/EEA compliance."
             ),
         ] = False,
+        tracking_url_template: Annotated[
+            str | None,
+            Field(description="URL template for tracking, e.g. '{lpurl}?utm_source=google&utm_campaign={campaignid}'"),
+        ] = None,
+        final_url_suffix: Annotated[
+            str | None,
+            Field(description="Suffix appended to final URLs, e.g. 'utm_source=google&utm_medium=cpc'"),
+        ] = None,
+        url_custom_parameters: Annotated[
+            dict[str, str] | None,
+            Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
+        ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -331,10 +354,28 @@ def register(mcp: FastMCP) -> None:
                 client.enums.EuPoliticalAdvertisingStatusEnum.DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING
             )
 
+        if tracking_url_template is not None:
+            campaign.tracking_url_template = tracking_url_template
+        if final_url_suffix is not None:
+            campaign.final_url_suffix = final_url_suffix
+        if url_custom_parameters is not None:
+            for key, value in url_custom_parameters.items():
+                param = client.get_type("CustomParameter")
+                param.key = key
+                param.value = value
+                campaign.url_custom_parameters.append(param)
+
         response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
-        return {"id": new_id, "resource_name": resource_name, "status": "PAUSED", "name": name}
+        result = {"id": new_id, "resource_name": resource_name, "status": "PAUSED", "name": name}
+        if tracking_url_template is not None:
+            result["tracking_url_template"] = tracking_url_template
+        if final_url_suffix is not None:
+            result["final_url_suffix"] = final_url_suffix
+        if url_custom_parameters is not None:
+            result["url_custom_parameters"] = url_custom_parameters
+        return result
 
     @mcp.tool
     @handle_google_ads_errors
@@ -371,11 +412,23 @@ def register(mcp: FastMCP) -> None:
             bool | None,
             Field(description="Show ads on Google Display Network (opt-out recommended for Search campaigns)"),
         ] = None,
+        tracking_url_template: Annotated[
+            str | None,
+            Field(description="URL template for tracking. Pass empty string '' to clear."),
+        ] = None,
+        final_url_suffix: Annotated[
+            str | None,
+            Field(description="Suffix appended to final URLs. Pass empty string '' to clear."),
+        ] = None,
+        url_custom_parameters: Annotated[
+            dict[str, str] | None,
+            Field(description="Custom parameters for tracking URL substitution. Pass empty dict {} to clear all."),
+        ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> dict:
-        """Update a campaign's name, budget, bidding strategy, or network settings."""
+        """Update a campaign's name, budget, bidding strategy, network settings, or tracking URLs."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -422,11 +475,24 @@ def register(mcp: FastMCP) -> None:
         if target_content_network is not None:
             campaign.network_settings.target_content_network = target_content_network
             field_mask.append("network_settings.target_content_network")
+        if tracking_url_template is not None:
+            campaign.tracking_url_template = tracking_url_template
+            field_mask.append("tracking_url_template")
+        if final_url_suffix is not None:
+            campaign.final_url_suffix = final_url_suffix
+            field_mask.append("final_url_suffix")
+        if url_custom_parameters is not None:
+            for key, value in url_custom_parameters.items():
+                param = client.get_type("CustomParameter")
+                param.key = key
+                param.value = value
+                campaign.url_custom_parameters.append(param)
+            field_mask.append("url_custom_parameters")
 
         if not field_mask:
             return {
                 "error": True,
-                "message": "No fields to update. Provide name, budget_id, bidding_strategy, or network settings.",
+                "message": "No fields to update. Provide name, budget_id, bidding_strategy, network settings, tracking_url_template, final_url_suffix, or url_custom_parameters.",
             }
 
         operation.update_mask.paths.extend(field_mask)

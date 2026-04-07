@@ -34,6 +34,9 @@ def register(mcp: FastMCP) -> None:
                 ad_group_ad.ad.id,
                 ad_group_ad.ad.type,
                 ad_group_ad.ad.final_urls,
+                ad_group_ad.ad.tracking_url_template,
+                ad_group_ad.ad.final_url_suffix,
+                ad_group_ad.ad.url_custom_parameters,
                 ad_group_ad.ad.responsive_search_ad.headlines,
                 ad_group_ad.ad.responsive_search_ad.descriptions,
                 ad_group_ad.ad_strength,
@@ -72,6 +75,11 @@ def register(mcp: FastMCP) -> None:
                     "ad_id": ad.get("id"),
                     "type": ad.get("type"),
                     "final_urls": "|".join(ad.get("final_urls", [])),
+                    "tracking_url_template": ad.get("tracking_url_template"),
+                    "final_url_suffix": ad.get("final_url_suffix"),
+                    "url_custom_parameters": {
+                        p["key"]: p["value"] for p in ad.get("url_custom_parameters", []) if "key" in p
+                    } or None,
                     "headlines": "|".join(headlines),
                     "descriptions": "|".join(descriptions),
                     "ad_strength": aga.get("ad_strength"),
@@ -114,6 +122,18 @@ def register(mcp: FastMCP) -> None:
         headlines: Annotated[list[str], Field(description="List of 3-15 headline texts (max 30 chars each)")],
         descriptions: Annotated[list[str], Field(description="List of 2-4 description texts (max 90 chars each)")],
         final_url: Annotated[str, Field(description="Landing page URL")],
+        tracking_url_template: Annotated[
+            str | None,
+            Field(description="URL template for tracking, e.g. '{lpurl}?utm_source=google&utm_campaign={campaignid}'"),
+        ] = None,
+        final_url_suffix: Annotated[
+            str | None,
+            Field(description="Suffix appended to final URLs, e.g. 'utm_source=google&utm_medium=cpc'"),
+        ] = None,
+        url_custom_parameters: Annotated[
+            dict[str, str] | None,
+            Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
+        ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -137,6 +157,17 @@ def register(mcp: FastMCP) -> None:
         ad = ad_group_ad.ad
         ad.final_urls.append(final_url)
 
+        if tracking_url_template is not None:
+            ad.tracking_url_template = tracking_url_template
+        if final_url_suffix is not None:
+            ad.final_url_suffix = final_url_suffix
+        if url_custom_parameters is not None:
+            for key, value in url_custom_parameters.items():
+                param = client.get_type("CustomParameter")
+                param.key = key
+                param.value = value
+                ad.url_custom_parameters.append(param)
+
         for headline_text in headlines:
             headline = client.get_type("AdTextAsset")
             headline.text = headline_text
@@ -149,11 +180,18 @@ def register(mcp: FastMCP) -> None:
 
         response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
-        return {
+        result = {
             "resource_name": resource_name,
             "headlines_count": len(headlines),
             "descriptions_count": len(descriptions),
         }
+        if tracking_url_template is not None:
+            result["tracking_url_template"] = tracking_url_template
+        if final_url_suffix is not None:
+            result["final_url_suffix"] = final_url_suffix
+        if url_custom_parameters is not None:
+            result["url_custom_parameters"] = url_custom_parameters
+        return result
 
     @mcp.tool
     @handle_google_ads_errors

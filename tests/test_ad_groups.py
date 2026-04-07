@@ -136,6 +136,19 @@ class TestListAdGroups:
         assert result[0]["clicks"] == 0
         assert result[0]["cost_dollars"] == 0.0
 
+    def test_tracking_url_fields_returned(self, mock_ads_client):
+        set_active_account("1234567890")
+        row = _ad_group_row()
+        row["ad_group"]["tracking_url_template"] = "{lpurl}?src=google"
+        row["ad_group"]["final_url_suffix"] = "utm_source=google"
+        row["ad_group"]["url_custom_parameters"] = [{"key": "season", "value": "winter"}]
+        mock_ads_client["set_gaql"]({"FROM ad_group": [row]})
+        fn = _register_tool("list_ad_groups")
+        result = fn()
+        assert result[0]["tracking_url_template"] == "{lpurl}?src=google"
+        assert result[0]["final_url_suffix"] == "utm_source=google"
+        assert result[0]["url_custom_parameters"] == {"season": "winter"}
+
 
 # ---------------------------------------------------------------------------
 # create_ad_group
@@ -182,6 +195,18 @@ class TestCreateAdGroup:
         result = fn(campaign_id="222", name="Test")
         # Mock returns "customers/1234567890/adGroups/333"
         assert result["id"] == "333"
+
+    def test_create_with_tracking_url_template(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_ad_group")
+        result = fn(
+            campaign_id="222",
+            name="Tracked Group",
+            tracking_url_template="{lpurl}?utm_source=google",
+            final_url_suffix="utm_medium=cpc",
+        )
+        assert "error" not in result
+        assert result["name"] == "Tracked Group"
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +281,30 @@ class TestUpdateAdGroup:
         fn = _register_tool("update_ad_group")
         result = fn(ad_group_id="333", status="REMOVED")
         assert "status" in result["updated_fields"]
+
+    def test_update_tracking_url_template(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("update_ad_group")
+        result = fn(ad_group_id="333", tracking_url_template="{lpurl}?src=google")
+        assert "tracking_url_template" in result["updated_fields"]
+
+    def test_update_final_url_suffix(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("update_ad_group")
+        result = fn(ad_group_id="333", final_url_suffix="utm_source=google")
+        assert "final_url_suffix" in result["updated_fields"]
+
+    def test_clear_tracking_url_template(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("update_ad_group")
+        result = fn(ad_group_id="333", tracking_url_template="")
+        assert "tracking_url_template" in result["updated_fields"]
+
+    def test_update_url_custom_parameters(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("update_ad_group")
+        result = fn(ad_group_id="333", url_custom_parameters={"season": "winter"})
+        assert "url_custom_parameters" in result["updated_fields"]
 
     def test_uses_field_mask(self, mock_ads_client):
         set_active_account("1234567890")

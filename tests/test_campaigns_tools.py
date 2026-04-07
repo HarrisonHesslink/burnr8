@@ -180,6 +180,21 @@ class TestListCampaigns:
         assert len(result) == 1
         assert result[0]["status"] == "PAUSED"
 
+    def test_tracking_url_fields_returned(self, mock_ads_client):
+        set_active_account("1234567890")
+        row = _campaign_row()
+        row["campaign"]["tracking_url_template"] = "{lpurl}?src=google"
+        row["campaign"]["final_url_suffix"] = "utm_source=google"
+        row["campaign"]["url_custom_parameters"] = [{"key": "season", "value": "winter"}]
+        mock_ads_client["set_gaql"]({"FROM campaign": [row]})
+
+        tool = _register_tool("list_campaigns")
+        result = tool(customer_id="1234567890")
+
+        assert result[0]["tracking_url_template"] == "{lpurl}?src=google"
+        assert result[0]["final_url_suffix"] == "utm_source=google"
+        assert result[0]["url_custom_parameters"] == {"season": "winter"}
+
     def test_invalid_status_returns_error(self, mock_ads_client):
         set_active_account("1234567890")
         tool = _register_tool("list_campaigns")
@@ -207,6 +222,9 @@ class TestListCampaigns:
             "channel_type",
             "bidding_strategy_type",
             "budget",
+            "tracking_url_template",
+            "final_url_suffix",
+            "url_custom_parameters",
             "impressions",
             "clicks",
             "cost_dollars",
@@ -387,6 +405,21 @@ class TestCreateCampaign:
         assert "error" not in result
         assert result["id"] == "222"
 
+    def test_create_with_tracking_url_template(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("create_campaign")
+        result = tool(
+            name="Tracked Campaign",
+            budget_id="501",
+            tracking_url_template="{lpurl}?utm_source=google",
+            final_url_suffix="utm_medium=cpc",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert result["id"] == "222"
+
     def test_invalid_budget_id(self, mock_ads_client):
         set_active_account("1234567890")
 
@@ -487,6 +520,58 @@ class TestUpdateCampaign:
 
         assert result["error"] is True
         assert "Invalid bidding_strategy" in result["message"]
+
+    def test_update_tracking_url_template(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("update_campaign")
+        result = tool(
+            campaign_id="100",
+            tracking_url_template="{lpurl}?utm_source=google",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert "tracking_url_template" in result["updated_fields"]
+
+    def test_update_final_url_suffix(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("update_campaign")
+        result = tool(
+            campaign_id="100",
+            final_url_suffix="utm_source=google&utm_medium=cpc",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert "final_url_suffix" in result["updated_fields"]
+
+    def test_clear_tracking_url_template(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("update_campaign")
+        result = tool(
+            campaign_id="100",
+            tracking_url_template="",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert "tracking_url_template" in result["updated_fields"]
+
+    def test_update_url_custom_parameters(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("update_campaign")
+        result = tool(
+            campaign_id="100",
+            url_custom_parameters={"season": "winter", "promo": "sale"},
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert "url_custom_parameters" in result["updated_fields"]
 
     def test_update_invalid_campaign_id(self, mock_ads_client):
         set_active_account("1234567890")

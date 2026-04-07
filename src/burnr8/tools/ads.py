@@ -12,6 +12,10 @@ from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_id, validate_status
 from burnr8.reports import save_report
 
+# Maps pin position integers to ServedAssetFieldTypeEnum names
+_HEADLINE_PIN_MAP = {1: "HEADLINE_1", 2: "HEADLINE_2", 3: "HEADLINE_3"}
+_DESCRIPTION_PIN_MAP = {1: "DESCRIPTION_1", 2: "DESCRIPTION_2"}
+
 
 def register(mcp: FastMCP) -> None:
     @mcp.tool
@@ -22,7 +26,7 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
-        """List ads with approval status and performance metrics. Saves full results to CSV, returns summary + top rows."""
+        """List ads with approval status, pinning, display paths, policy topics, and performance metrics. Saves full results to CSV, returns summary + top rows."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -39,9 +43,12 @@ def register(mcp: FastMCP) -> None:
                 ad_group_ad.ad.url_custom_parameters,
                 ad_group_ad.ad.responsive_search_ad.headlines,
                 ad_group_ad.ad.responsive_search_ad.descriptions,
+                ad_group_ad.ad.responsive_search_ad.path1,
+                ad_group_ad.ad.responsive_search_ad.path2,
                 ad_group_ad.ad_strength,
                 ad_group_ad.status,
                 ad_group_ad.policy_summary.approval_status,
+                ad_group_ad.policy_summary.policy_topic_entries,
                 ad_group.id,
                 ad_group.name,
                 campaign.id,
@@ -67,8 +74,22 @@ def register(mcp: FastMCP) -> None:
             m = row.get("metrics", {})
 
             rsa = ad.get("responsive_search_ad", {})
-            headlines = [h.get("text", "") for h in rsa.get("headlines", [])] if rsa else []
-            descriptions = [d.get("text", "") for d in rsa.get("descriptions", [])] if rsa else []
+            structured_headlines = (
+                [{"text": h.get("text", ""), "pinned": h.get("pinned_field")} for h in rsa.get("headlines", [])]
+                if rsa
+                else []
+            )
+            structured_descriptions = (
+                [{"text": d.get("text", ""), "pinned": d.get("pinned_field")} for d in rsa.get("descriptions", [])]
+                if rsa
+                else []
+            )
+
+            # Policy topic entries
+            policy_topics = [
+                {"topic": e.get("topic"), "type": e.get("type")}
+                for e in aga.get("policy_summary", {}).get("policy_topic_entries", [])
+            ]
 
             results.append(
                 {
@@ -80,11 +101,14 @@ def register(mcp: FastMCP) -> None:
                     "url_custom_parameters": {
                         p["key"]: p["value"] for p in ad.get("url_custom_parameters", []) if "key" in p
                     } or None,
-                    "headlines": "|".join(headlines),
-                    "descriptions": "|".join(descriptions),
+                    "headlines": structured_headlines,
+                    "descriptions": structured_descriptions,
+                    "path1": rsa.get("path1") if rsa else None,
+                    "path2": rsa.get("path2") if rsa else None,
                     "ad_strength": aga.get("ad_strength"),
                     "status": aga.get("status"),
                     "approval_status": aga.get("policy_summary", {}).get("approval_status"),
+                    "policy_topics": policy_topics,
                     "ad_group_id": ag.get("id"),
                     "ad_group_name": ag.get("name"),
                     "campaign_id": c.get("id"),
@@ -105,9 +129,22 @@ def register(mcp: FastMCP) -> None:
             approval = r.get("approval_status") or "UNKNOWN"
             approval_counts[approval] = approval_counts.get(approval, 0) + 1
 
-        report = save_report(results, "ads")
+        # Flatten structured fields for CSV export (pipe-joined text for backwards compat)
+        csv_rows = []
+        for r in results:
+            csv_row = dict(r)
+            csv_row["headlines"] = "|".join(h["text"] for h in r["headlines"])
+            csv_row["descriptions"] = "|".join(d["text"] for d in r["descriptions"])
+            csv_row["policy_topics"] = "|".join(
+                f"{pt['topic']}:{pt['type']}" for pt in r.get("policy_topics", []) if pt.get("topic")
+            )
+            csv_rows.append(csv_row)
+
+        report = save_report(csv_rows, "ads")
         if report.get("error"):
             return report
+        # Replace flattened CSV top rows with structured data for API response
+        report["top"] = results[: len(report.get("top", []))]
         report["summary"] = {
             "total_ads": len(results),
             "ad_strength_distribution": strength_counts,
@@ -137,13 +174,60 @@ def register(mcp: FastMCP) -> None:
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        pinned_headlines: Annotated[
+            list[int | None] | None,
+            Field(description="Pin positions for headlines (1-3), parallel to headlines list. None means unpinned."),
+        ] = None,
+        pinned_descriptions: Annotated[
+            list[int | None] | None,
+            Field(description="Pin positions for descriptions (1-2), parallel to descriptions list. None means unpinned."),
+        ] = None,
+        path1: Annotated[str | None, Field(description="First display path segment (max 15 chars)")] = None,
+        path2: Annotated[str | None, Field(description="Second display path segment (max 15 chars)")] = None,
     ) -> dict:
-        """Create a responsive search ad in an ad group."""
+        """Create a responsive search ad in an ad group. Supports optional headline/description pinning and display paths."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
+
+        # Validate pinned_headlines length and values
+        if pinned_headlines is not None:
+            if len(pinned_headlines) != len(headlines):
+                return {
+                    "error": True,
+                    "message": f"pinned_headlines length ({len(pinned_headlines)}) must match headlines length ({len(headlines)}).",
+                }
+            for i, pin in enumerate(pinned_headlines):
+                if pin is not None and pin not in _HEADLINE_PIN_MAP:
+                    return {
+                        "error": True,
+                        "message": f"pinned_headlines[{i}] = {pin} is invalid. Must be 1, 2, 3, or null.",
+                    }
+
+        # Validate pinned_descriptions length and values
+        if pinned_descriptions is not None:
+            if len(pinned_descriptions) != len(descriptions):
+                return {
+                    "error": True,
+                    "message": f"pinned_descriptions length ({len(pinned_descriptions)}) must match descriptions length ({len(descriptions)}).",
+                }
+            for i, pin in enumerate(pinned_descriptions):
+                if pin is not None and pin not in _DESCRIPTION_PIN_MAP:
+                    return {
+                        "error": True,
+                        "message": f"pinned_descriptions[{i}] = {pin} is invalid. Must be 1, 2, or null.",
+                    }
+
+        # Validate display paths
+        if path2 is not None and path1 is None:
+            return {"error": True, "message": "path2 requires path1 to also be set."}
+        if path1 is not None and len(path1) > 15:
+            return {"error": True, "message": f"path1 exceeds 15 characters ({len(path1)})."}
+        if path2 is not None and len(path2) > 15:
+            return {"error": True, "message": f"path2 exceeds 15 characters ({len(path2)})."}
+
         client = get_client()
         ad_group_ad_service = client.get_service("AdGroupAdService")
         ad_group_service = client.get_service("AdGroupService")
@@ -168,15 +252,27 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 ad.url_custom_parameters.append(param)
 
-        for headline_text in headlines:
+        for i, headline_text in enumerate(headlines):
             headline = client.get_type("AdTextAsset")
             headline.text = headline_text
+            if pinned_headlines is not None and pinned_headlines[i] is not None:
+                enum_name = _HEADLINE_PIN_MAP[pinned_headlines[i]]
+                headline.pinned_field = getattr(client.enums.ServedAssetFieldTypeEnum, enum_name)
             ad.responsive_search_ad.headlines.append(headline)
 
-        for desc_text in descriptions:
+        for i, desc_text in enumerate(descriptions):
             desc = client.get_type("AdTextAsset")
             desc.text = desc_text
+            if pinned_descriptions is not None and pinned_descriptions[i] is not None:
+                enum_name = _DESCRIPTION_PIN_MAP[pinned_descriptions[i]]
+                desc.pinned_field = getattr(client.enums.ServedAssetFieldTypeEnum, enum_name)
             ad.responsive_search_ad.descriptions.append(desc)
+
+        # Set display paths
+        if path1 is not None:
+            ad.responsive_search_ad.path1 = path1
+        if path2 is not None:
+            ad.responsive_search_ad.path2 = path2
 
         response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation])
         resource_name = response.results[0].resource_name
@@ -191,6 +287,14 @@ def register(mcp: FastMCP) -> None:
             result["final_url_suffix"] = final_url_suffix
         if url_custom_parameters is not None:
             result["url_custom_parameters"] = url_custom_parameters
+        if pinned_headlines is not None:
+            result["pinned_headlines"] = pinned_headlines
+        if pinned_descriptions is not None:
+            result["pinned_descriptions"] = pinned_descriptions
+        if path1 is not None:
+            result["path1"] = path1
+        if path2 is not None:
+            result["path2"] = path2
         return result
 
     @mcp.tool

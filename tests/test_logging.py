@@ -408,6 +408,76 @@ def test_json_formatter_in_cloud_mode():
     assert "tool=test" in parsed["msg"]
 
 
+def test_flush_is_idempotent():
+    """flush() should be safe to call multiple times without error."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        usage_file = log_dir / "usage.json"
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._logger", None),
+            patch("burnr8.logging._usage_cache", None),
+        ):
+            from burnr8.logging import flush, log_tool_call
+
+            log_tool_call("test_tool", "123456", 0.5, "ok")
+            flush()
+            flush()  # second call should be a no-op, not raise
+
+
+def test_flush_drains_cloud_queue():
+    """flush() should send sentinel and join the cloud worker thread."""
+    import queue
+    import threading
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log_dir = Path(tmpdir)
+        usage_file = log_dir / "usage.json"
+
+        # Test with a live worker that reads the sentinel
+        sentinel_received = threading.Event()
+        q = queue.Queue(maxsize=100)
+
+        def mock_worker():
+            item = q.get()
+            if item is None:
+                sentinel_received.set()
+
+        w = threading.Thread(target=mock_worker, daemon=True)
+        w.start()
+
+        with (
+            patch("burnr8.logging.LOG_DIR", log_dir),
+            patch("burnr8.logging.USAGE_FILE", usage_file),
+            patch("burnr8.logging._cloud_queue", q),
+            patch("burnr8.logging._cloud_worker", w),
+        ):
+            import burnr8.logging as _logging_mod
+
+            _logging_mod.flush()
+
+        assert sentinel_received.is_set()
+
+
+def test_flush_noop_when_no_cloud_queue():
+    """flush() should be a no-op when cloud queue was never initialized."""
+    with (
+        patch("burnr8.logging._cloud_queue", None),
+        patch("burnr8.logging._cloud_worker", None),
+    ):
+        from burnr8.logging import flush
+
+        flush()  # should not raise
+
+
+def test_flush_exported_in_all():
+    """flush must be in __all__ so it's part of the public API."""
+    from burnr8.logging import __all__
+
+    assert "flush" in __all__
+
+
 def test_usage_stats_includes_log_level():
     with (
         tempfile.TemporaryDirectory() as tmpdir,

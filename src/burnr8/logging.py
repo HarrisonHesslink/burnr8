@@ -27,7 +27,7 @@ correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cor
 # If using a thread pool, use contextvars.copy_context().run() to propagate.
 cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
 
-__all__ = ["log_tool_call", "get_usage_stats", "get_recent_errors", "new_correlation_id", "get_correlation_id", "cloud_user_id"]
+__all__ = ["log_tool_call", "get_usage_stats", "get_recent_errors", "new_correlation_id", "get_correlation_id", "cloud_user_id", "flush"]
 
 # Bounded queue for cloud log writes — single worker thread, max 100 pending items.
 # Items beyond the limit are silently dropped (backpressure).
@@ -121,6 +121,23 @@ def _get_usage() -> dict:
     if _usage_cache is None or _usage_cache.get("date") != today:
         _usage_cache = _load_usage()
     return _usage_cache
+
+
+def flush() -> None:
+    """Flush all pending log data before shutdown.
+
+    Drains and stops the cloud log worker thread (if running).
+    Disk usage is already written synchronously, so no disk flush is needed.
+    Safe to call multiple times.
+    """
+    global _cloud_queue, _cloud_worker
+    q = _cloud_queue
+    w = _cloud_worker
+    if q is not None and w is not None and w.is_alive():
+        q.put(None)  # sentinel — tells worker to exit
+        w.join(timeout=5)
+        _cloud_queue = None
+        _cloud_worker = None
 
 
 def log_tool_call(tool_name: str, customer_id: str | None, duration: float, status: str, detail: str = "") -> None:

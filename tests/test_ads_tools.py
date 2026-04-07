@@ -25,6 +25,16 @@ def _register_tool(name):
     return captured["func"]
 
 
+def _get_ad_operation(mock_ads_client):
+    """Extract the AdGroupAdOperation from the mock mutate call_args."""
+    svc = mock_ads_client["client"].get_service("AdGroupAdService")
+    call_args = svc.mutate_ad_group_ads.call_args
+    operations = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+    if operations and not isinstance(operations, list):
+        operations = [operations]
+    return operations[0]
+
+
 def _ad_row(
     ad_id="555",
     ad_type="RESPONSIVE_SEARCH_AD",
@@ -36,6 +46,9 @@ def _ad_row(
     status="ENABLED",
     approval_status="APPROVED",
     policy_topic_entries=None,
+    tracking_url_template=None,
+    final_url_suffix=None,
+    url_custom_parameters=None,
     ad_group_id="333",
     ad_group_name="My Ad Group",
     campaign_id="222",
@@ -65,14 +78,22 @@ def _ad_row(
     if policy_topic_entries:
         policy_summary["policy_topic_entries"] = policy_topic_entries
 
+    ad = {
+        "id": ad_id,
+        "type": ad_type,
+        "final_urls": ["https://example.com"],
+        "responsive_search_ad": rsa,
+    }
+    if tracking_url_template is not None:
+        ad["tracking_url_template"] = tracking_url_template
+    if final_url_suffix is not None:
+        ad["final_url_suffix"] = final_url_suffix
+    if url_custom_parameters is not None:
+        ad["url_custom_parameters"] = url_custom_parameters
+
     return {
         "ad_group_ad": {
-            "ad": {
-                "id": ad_id,
-                "type": ad_type,
-                "final_urls": ["https://example.com"],
-                "responsive_search_ad": rsa,
-            },
+            "ad": ad,
             "ad_strength": ad_strength,
             "status": status,
             "policy_summary": policy_summary,
@@ -243,6 +264,28 @@ class TestListAds:
         assert ad["path1"] is None
         assert ad["path2"] is None
 
+    def test_returns_tracking_url_fields(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM ad_group_ad": [
+                    _ad_row(
+                        tracking_url_template="{lpurl}?src=google",
+                        final_url_suffix="utm_source=google",
+                        url_custom_parameters=[{"key": "season", "value": "winter"}],
+                    ),
+                ],
+            }
+        )
+
+        tool = _register_tool("list_ads")
+        result = tool(customer_id="1234567890")
+
+        ad = result["top"][0]
+        assert ad["tracking_url_template"] == "{lpurl}?src=google"
+        assert ad["final_url_suffix"] == "utm_source=google"
+        assert ad["url_custom_parameters"] == {"season": "winter"}
+
 
 # ---------------------------------------------------------------------------
 # create_responsive_search_ad
@@ -269,6 +312,13 @@ class TestCreateResponsiveSearchAd:
         # No pinning or paths in basic creation
         assert "pinned_headlines" not in result
         assert "path1" not in result
+        # Verify proto assignments
+        op = _get_ad_operation(mock_ads_client)
+        assert len(op.create.ad.responsive_search_ad.headlines) == 3
+        assert op.create.ad.responsive_search_ad.headlines[0].text == "H1"
+        assert len(op.create.ad.responsive_search_ad.descriptions) == 2
+        assert op.create.ad.responsive_search_ad.descriptions[0].text == "D1"
+        assert op.create.ad.final_urls == ["https://example.com"]
 
     def test_creation_with_pinning(self, mock_ads_client):
         set_active_account("1234567890")
@@ -287,6 +337,13 @@ class TestCreateResponsiveSearchAd:
         assert "error" not in result
         assert result["pinned_headlines"] == [1, None, 3]
         assert result["pinned_descriptions"] == [1, None]
+        # Verify proto assignments
+        op = _get_ad_operation(mock_ads_client)
+        headlines = op.create.ad.responsive_search_ad.headlines
+        assert headlines[0].pinned_field == "HEADLINE_1"
+        assert headlines[2].pinned_field == "HEADLINE_3"
+        descs = op.create.ad.responsive_search_ad.descriptions
+        assert descs[0].pinned_field == "DESCRIPTION_1"
 
     def test_creation_with_paths(self, mock_ads_client):
         set_active_account("1234567890")
@@ -305,6 +362,10 @@ class TestCreateResponsiveSearchAd:
         assert "error" not in result
         assert result["path1"] == "shoes"
         assert result["path2"] == "running"
+        # Verify proto assignments
+        op = _get_ad_operation(mock_ads_client)
+        assert op.create.ad.responsive_search_ad.path1 == "shoes"
+        assert op.create.ad.responsive_search_ad.path2 == "running"
 
     def test_creation_with_all_options(self, mock_ads_client):
         set_active_account("1234567890")

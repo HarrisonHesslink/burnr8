@@ -142,6 +142,13 @@ def _build_enums() -> MagicMock:
     enums.AdGroupAdStatusEnum.PAUSED = "PAUSED"
     enums.AdGroupAdStatusEnum.REMOVED = "REMOVED"
 
+    # RSA pinning — ServedAssetFieldTypeEnum
+    enums.ServedAssetFieldTypeEnum.HEADLINE_1 = "HEADLINE_1"
+    enums.ServedAssetFieldTypeEnum.HEADLINE_2 = "HEADLINE_2"
+    enums.ServedAssetFieldTypeEnum.HEADLINE_3 = "HEADLINE_3"
+    enums.ServedAssetFieldTypeEnum.DESCRIPTION_1 = "DESCRIPTION_1"
+    enums.ServedAssetFieldTypeEnum.DESCRIPTION_2 = "DESCRIPTION_2"
+
     # EU political advertising
     enums.EuPoliticalAdvertisingStatusEnum.DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING = (
         "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"

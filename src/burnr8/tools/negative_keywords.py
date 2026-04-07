@@ -30,7 +30,10 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Include ad-group-level negatives for this ad group ID")
         ] = None,
     ) -> dict:
-        """List negative keywords at campaign level, and optionally at ad group level."""
+        """List negative keywords at campaign level, and optionally at ad group level.
+
+        Conflict detection uses exact text matching only; BROAD/PHRASE match type overlaps are not detected.
+        """
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -120,6 +123,60 @@ def register(mcp: FastMCP) -> None:
             all_negatives.append({**item, "ad_group_id": None, "ad_group_name": None})
         for item in ad_group_negatives:
             all_negatives.append(item)
+
+        # --- Conflict detection: find positives blocked by negatives ---
+        conflicts = []
+        if all_negatives:
+            # Collect campaign IDs that have negatives
+            neg_campaign_ids = {neg["campaign_id"] for neg in all_negatives if neg.get("campaign_id")}
+            if neg_campaign_ids:
+                # Build a single query for positive keywords in those campaigns
+                cid_filter = ", ".join(str(cid) for cid in neg_campaign_ids)
+                pos_query = f"""
+                    SELECT
+                        ad_group_criterion.keyword.text,
+                        ad_group_criterion.keyword.match_type,
+                        ad_group_criterion.status,
+                        ad_group.id,
+                        ad_group.name,
+                        campaign.id,
+                        campaign.name
+                    FROM keyword_view
+                    WHERE campaign.id IN ({cid_filter})
+                """
+                pos_rows = run_gaql(client, customer_id, pos_query)
+
+                # Build negative lookup: (campaign_id, lowercase text) -> negative info
+                neg_lookup: dict[tuple[str, str], dict] = {}
+                for neg in all_negatives:
+                    key = (str(neg["campaign_id"]), (neg["text"] or "").lower())
+                    neg_lookup[key] = neg
+
+                for row in pos_rows:
+                    cr = row.get("ad_group_criterion", {})
+                    kw = cr.get("keyword", {})
+                    ag = row.get("ad_group", {})
+                    c = row.get("campaign", {})
+                    pos_text = (kw.get("text") or "").lower()
+                    cid = str(c.get("id"))
+
+                    # Check exact text match between negative and positive
+                    neg = neg_lookup.get((cid, pos_text))
+                    if neg is not None:
+                        conflicts.append(
+                            {
+                                "positive_keyword": kw.get("text"),
+                                "positive_match_type": kw.get("match_type"),
+                                "positive_ad_group_id": ag.get("id"),
+                                "positive_ad_group_name": ag.get("name"),
+                                "negative_keyword": neg["text"],
+                                "negative_match_type": neg["match_type"],
+                                "negative_level": neg["level"],
+                                "campaign_id": cid,
+                                "campaign_name": c.get("name"),
+                            }
+                        )
+
         report = save_report(all_negatives, "negative_keywords")
         if report.get("error"):
             return report
@@ -142,6 +199,9 @@ def register(mcp: FastMCP) -> None:
             },
             "by_match_type": match_type_counts,
         }
+        if conflicts:
+            report["conflicts"] = conflicts
+            report["summary"]["conflict_count"] = len(conflicts)
         return report
 
     @mcp.tool

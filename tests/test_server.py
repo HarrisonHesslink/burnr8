@@ -15,7 +15,7 @@ def test_tool_count():
     from burnr8.server import mcp
 
     tools = asyncio.run(mcp.list_tools())
-    assert len(tools) == 65
+    assert len(tools) == 66
 
 
 def test_all_tools_have_descriptions():

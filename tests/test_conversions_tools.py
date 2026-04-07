@@ -38,7 +38,7 @@ def _conversion_action_row(
             "attribution_model_settings": {
                 "attribution_model": attribution_model,
             },
-            "most_recent_conversion_date_time": most_recent_conversion,
+            "most_recent_conversion_date": most_recent_conversion,
             "click_through_lookback_window_days": click_lookback_days,
             "view_through_lookback_window_days": view_lookback_days,
             "include_in_conversions_metric": include_in_conversions,

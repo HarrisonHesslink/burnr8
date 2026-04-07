@@ -100,23 +100,26 @@ def register(mcp: FastMCP) -> None:
         rows = run_gaql(client, customer_id, query)
 
         # Resolve conversion action names by category
-        action_query = """
-            SELECT
-                conversion_action.id,
-                conversion_action.name,
-                conversion_action.category
-            FROM conversion_action
-            WHERE conversion_action.status = 'ENABLED'
-        """
-        action_rows = run_gaql(client, customer_id, action_query)
-        actions_by_category: dict[str, list[dict]] = {}
-        for arow in action_rows:
-            ca = arow.get("conversion_action", {})
-            cat = ca.get("category")
-            if cat:
-                actions_by_category.setdefault(cat, []).append(
-                    {"id": str(ca.get("id")), "name": ca.get("name")}
-                )
+        try:
+            action_query = """
+                SELECT
+                    conversion_action.id,
+                    conversion_action.name,
+                    conversion_action.category
+                FROM conversion_action
+                WHERE conversion_action.status = 'ENABLED'
+            """
+            action_rows = run_gaql(client, customer_id, action_query)
+            actions_by_category: dict[str, list[dict]] = {}
+            for arow in action_rows:
+                ca = arow.get("conversion_action", {})
+                cat = ca.get("category")
+                if cat:
+                    actions_by_category.setdefault(cat, []).append(
+                        {"id": str(ca.get("id")), "name": ca.get("name")}
+                    )
+        except Exception:
+            actions_by_category = {}
 
         results = []
         for row in rows:
@@ -260,7 +263,10 @@ def register(mcp: FastMCP) -> None:
         config_service.mutate_conversion_goal_campaign_configs(customer_id=customer_id, operations=[config_op])
 
         # Resolve action names for the response
-        name_map = _resolve_action_names(client, customer_id, list(conversion_action_ids))
+        try:
+            name_map = _resolve_action_names(client, customer_id, list(conversion_action_ids))
+        except Exception:
+            name_map = {}
         resolved_actions = [
             {"id": aid, "name": name_map.get(aid)} for aid in conversion_action_ids
         ]
@@ -304,7 +310,11 @@ def register(mcp: FastMCP) -> None:
                 if aid is not None:
                     all_action_ids.append(aid)
 
-        name_map = _resolve_action_names(client, customer_id, all_action_ids) if all_action_ids else {}
+        try:
+            unique_ids = list(set(all_action_ids))
+            name_map = _resolve_action_names(client, customer_id, unique_ids) if unique_ids else {}
+        except Exception:
+            name_map = {}
 
         results = []
         for row in rows:

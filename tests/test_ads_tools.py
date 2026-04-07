@@ -424,6 +424,19 @@ class TestCreateResponsiveSearchAd:
         assert result["error"] is True
         assert "path2 exceeds 15" in result["message"]
 
+    def test_path2_without_path1_returns_error(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_responsive_search_ad")
+        result = fn(
+            ad_group_id="333",
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            path2="shoes",
+        )
+        assert result["error"] is True
+        assert "path1" in result["message"]
+
     def test_invalid_ad_group_id(self, mock_ads_client):
         set_active_account("1234567890")
 

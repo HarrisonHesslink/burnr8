@@ -221,12 +221,12 @@ def register(mcp: FastMCP) -> None:
                     }
 
         # Validate display paths
+        if path2 is not None and path1 is None:
+            return {"error": True, "message": "path2 requires path1 to also be set."}
         if path1 is not None and len(path1) > 15:
             return {"error": True, "message": f"path1 exceeds 15 characters ({len(path1)})."}
         if path2 is not None and len(path2) > 15:
             return {"error": True, "message": f"path2 exceeds 15 characters ({len(path2)})."}
-        if path2 is not None and path1 is None:
-            return {"error": True, "message": "path2 requires path1 to also be set."}
 
         client = get_client()
         ad_group_ad_service = client.get_service("AdGroupAdService")

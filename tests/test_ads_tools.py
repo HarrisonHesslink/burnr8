@@ -264,6 +264,59 @@ class TestListAds:
         assert ad["path1"] is None
         assert ad["path2"] is None
 
+    def test_csv_flattening(self, mock_ads_client):
+        """Verify save_report receives pipe-delimited headlines/descriptions/policy_topics."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM ad_group_ad": [
+                    _ad_row(
+                        headlines=[
+                            {"text": "H1", "pinned_field": "HEADLINE_1"},
+                            {"text": "H2"},
+                        ],
+                        descriptions=[
+                            {"text": "D1"},
+                            {"text": "D2"},
+                        ],
+                        policy_topic_entries=[
+                            {"topic": "HEALTHCARE", "type": "RESTRICTED"},
+                        ],
+                    ),
+                ],
+            }
+        )
+
+        tool = _register_tool("list_ads")
+        tool(customer_id="1234567890")
+
+        import burnr8.tools.ads as _ads_mod
+
+        csv_rows = _ads_mod.save_report.call_args[0][0]
+        assert csv_rows[0]["headlines"] == "H1|H2"
+        assert csv_rows[0]["descriptions"] == "D1|D2"
+        assert csv_rows[0]["policy_topics"] == "HEALTHCARE:RESTRICTED"
+
+    def test_metrics_conversion(self, mock_ads_client):
+        """Verify micros-to-dollars conversion and metric fields."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM ad_group_ad": [
+                    _ad_row(impressions=1000, clicks=50, cost_micros=25_000_000, conversions=5.0),
+                ],
+            }
+        )
+
+        tool = _register_tool("list_ads")
+        result = tool(customer_id="1234567890")
+
+        ad = result["top"][0]
+        assert ad["impressions"] == 1000
+        assert ad["clicks"] == 50
+        assert ad["cost_dollars"] == 25.0
+        assert ad["conversions"] == 5.0
+
     def test_returns_tracking_url_fields(self, mock_ads_client):
         set_active_account("1234567890")
         mock_ads_client["set_gaql"](
@@ -388,6 +441,15 @@ class TestCreateResponsiveSearchAd:
         assert result["pinned_descriptions"] == [None, 2]
         assert result["path1"] == "deals"
         assert result["path2"] == "sale"
+        # Verify all proto assignments in combination
+        op = _get_ad_operation(mock_ads_client)
+        headlines = op.create.ad.responsive_search_ad.headlines
+        assert headlines[0].pinned_field == "HEADLINE_1"
+        assert headlines[2].pinned_field == "HEADLINE_2"
+        descs = op.create.ad.responsive_search_ad.descriptions
+        assert descs[1].pinned_field == "DESCRIPTION_2"
+        assert op.create.ad.responsive_search_ad.path1 == "deals"
+        assert op.create.ad.responsive_search_ad.path2 == "sale"
 
     def test_pinned_headlines_length_mismatch(self, mock_ads_client):
         set_active_account("1234567890")
@@ -478,12 +540,33 @@ class TestCreateResponsiveSearchAd:
             headlines=["H1", "H2", "H3"],
             descriptions=["D1", "D2"],
             final_url="https://example.com",
+            path1="valid",
             path2="b" * 16,
             customer_id="1234567890",
         )
 
         assert result["error"] is True
         assert "path2 exceeds 15" in result["message"]
+
+    def test_path1_only_without_path2(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("create_responsive_search_ad")
+        result = tool(
+            ad_group_id="333",
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            path1="shoes",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert result["path1"] == "shoes"
+        assert "path2" not in result
+        # Verify proto: path1 set, path2 not explicitly assigned
+        op = _get_ad_operation(mock_ads_client)
+        assert op.create.ad.responsive_search_ad.path1 == "shoes"
 
     def test_path2_without_path1_returns_error(self, mock_ads_client):
         set_active_account("1234567890")
@@ -547,6 +630,10 @@ class TestSetAdStatus:
 
         assert "error" not in result
         assert result["new_status"] == "PAUSED"
+        # Verify proto assignments
+        op = _get_ad_operation(mock_ads_client)
+        assert op.update.status == "PAUSED"
+        assert "status" in op.update_mask.paths
 
 
 # ---------------------------------------------------------------------------

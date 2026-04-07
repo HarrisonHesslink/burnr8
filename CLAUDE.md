@@ -1,6 +1,6 @@
 # burnr8 — Google Ads MCP Server
 
-A FastMCP server with 65 tools for managing Google Ads via Claude Code.
+A FastMCP server with 66 tools for managing Google Ads via Claude Code.
 
 ## Setup
 
@@ -38,10 +38,10 @@ src/burnr8/
 ├── logging.py      # File logger + daily usage counter (~/.burnr8/logs/)
 ├── reports.py      # CSV export (save_report, get_storage_stats); ~/.burnr8/reports/; formula sanitization; 7-day auto-prune
 ├── dashboard.py    # Terminal dashboard (burnr8 command)
-└── tools/          # 14 modules, 65 tools
+└── tools/          # 14 modules, 66 tools
 ```
 
-## Tool Categories (65 tools)
+## Tool Categories (66 tools)
 
 | Category | Tools | Key Operations |
 |----------|-------|---------------|
@@ -49,7 +49,7 @@ src/burnr8/
 | Campaigns | 5 | list/get/create/update + set_campaign_status |
 | Ad Groups | 3 | list/create/update |
 | Ads | 3 | list (with ad_strength), create RSA, set status |
-| Keywords | 4 | list/add/remove + research_keywords |
+| Keywords | 5 | list/add/remove/update + research_keywords |
 | Negative Keywords | 4 | list/add (campaign + ad group level)/remove |
 | Budgets | 4 | list/create/update + remove_orphan_budgets |
 | Reporting | 5 | campaign/ad group/keyword perf, search terms, raw GAQL (all save CSV to ~/.burnr8/reports/) |

@@ -30,7 +30,10 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Include ad-group-level negatives for this ad group ID")
         ] = None,
     ) -> dict:
-        """List negative keywords at campaign level, and optionally at ad group level."""
+        """List negative keywords at campaign level, and optionally at ad group level.
+
+        Conflict detection uses exact text matching only; BROAD/PHRASE match type overlaps are not detected.
+        """
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err

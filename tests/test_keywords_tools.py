@@ -167,20 +167,9 @@ class TestUpdateKeyword:
     def test_update_cpc_bid(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("update_keyword")
-        result = fn(criterion_id="444", ad_group_id="333", cpc_bid=3.00, confirm=True)
+        result = fn(criterion_id="444", ad_group_id="333", cpc_bid=3.00)
         assert "cpc_bid_micros" in result["updated_fields"]
         assert "resource_name" in result
-
-    def test_update_tracking_url(self, mock_ads_client):
-        set_active_account("1234567890")
-        fn = _register_tool("update_keyword")
-        result = fn(
-            criterion_id="444",
-            ad_group_id="333",
-            tracking_url_template="https://track.example.com?kw={keyword}",
-            confirm=True,
-        )
-        assert "tracking_url_template" in result["updated_fields"]
 
     def test_update_final_url_suffix(self, mock_ads_client):
         set_active_account("1234567890")
@@ -189,7 +178,6 @@ class TestUpdateKeyword:
             criterion_id="444",
             ad_group_id="333",
             final_url_suffix="utm_source=google",
-            confirm=True,
         )
         assert "final_url_suffix" in result["updated_fields"]
 
@@ -200,46 +188,119 @@ class TestUpdateKeyword:
             criterion_id="444",
             ad_group_id="333",
             cpc_bid=5.00,
-            tracking_url_template="https://t.co",
             final_url_suffix="src=ads",
-            confirm=True,
         )
-        assert set(result["updated_fields"]) == {"cpc_bid_micros", "tracking_url_template", "final_url_suffix"}
+        assert set(result["updated_fields"]) == {"cpc_bid_micros", "final_url_suffix"}
 
     def test_no_fields_returns_error(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("update_keyword")
-        result = fn(criterion_id="444", ad_group_id="333", confirm=True)
+        result = fn(criterion_id="444", ad_group_id="333")
         assert result["error"] is True
         assert "No fields" in result["message"]
 
     def test_uses_field_mask(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("update_keyword")
-        fn(criterion_id="444", ad_group_id="333", cpc_bid=2.00, confirm=True)
+        fn(criterion_id="444", ad_group_id="333", cpc_bid=2.00)
         svc = mock_ads_client["client"].get_service("AdGroupCriterionService")
         svc.mutate_ad_group_criteria.assert_called_once()
 
-    def test_confirm_gate(self, mock_ads_client):
-        set_active_account("1234567890")
-        fn = _register_tool("update_keyword")
-        result = fn(criterion_id="444", ad_group_id="333", cpc_bid=2.00)
-        assert result["warning"] is True
-        assert "confirm=true" in result["message"]
-
     def test_no_customer_id(self):
         fn = _register_tool("update_keyword")
-        result = fn(criterion_id="444", ad_group_id="333", cpc_bid=2.00, confirm=True)
+        result = fn(criterion_id="444", ad_group_id="333", cpc_bid=2.00)
         assert result["error"] is True
 
     def test_invalid_ad_group_id(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("update_keyword")
-        result = fn(criterion_id="444", ad_group_id="bad-id", cpc_bid=2.00, confirm=True)
+        result = fn(criterion_id="444", ad_group_id="bad-id", cpc_bid=2.00)
         assert result["error"] is True
 
     def test_invalid_criterion_id(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("update_keyword")
-        result = fn(criterion_id="bad-id", ad_group_id="333", cpc_bid=2.00, confirm=True)
+        result = fn(criterion_id="bad-id", ad_group_id="333", cpc_bid=2.00)
         assert result["error"] is True
+
+
+# ---------------------------------------------------------------------------
+# Conflict detection in list_negative_keywords
+# ---------------------------------------------------------------------------
+
+
+def _register_neg_tool(name):
+    """Register negative_keywords tools and return the one matching *name*."""
+    from burnr8.tools.negative_keywords import register
+
+    captured = {}
+
+    class _Capture:
+        def tool(self, fn):
+            if fn.__name__ == name:
+                captured["func"] = fn
+            return fn
+
+    cap = _Capture()
+    register(cap)
+    return captured["func"]
+
+
+def _campaign_neg_row(
+    criterion_id="601", text="free stuff", match_type="BROAD", campaign_id="222", campaign_name="Campaign A"
+):
+    return {
+        "campaign_criterion": {
+            "criterion_id": criterion_id,
+            "keyword": {"text": text, "match_type": match_type},
+            "negative": True,
+        },
+        "campaign": {"id": campaign_id, "name": campaign_name},
+    }
+
+
+class TestConflictDetection:
+    def test_conflicts_detected_when_positive_matches_negative(self, mock_ads_client):
+        """When a positive keyword text matches a negative keyword text, a conflict is reported."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign_criterion": [
+                    _campaign_neg_row(criterion_id="601", text="running shoes", match_type="EXACT"),
+                ],
+                "FROM keyword_view": [
+                    _keyword_row(text="running shoes", match_type="BROAD", campaign_id="222"),
+                ],
+            }
+        )
+
+        tool = _register_neg_tool("list_negative_keywords")
+        result = tool(customer_id="1234567890")
+
+        assert "conflicts" in result, f"Expected conflicts key in result: {result}"
+        assert len(result["conflicts"]) == 1
+        conflict = result["conflicts"][0]
+        assert conflict["positive_keyword"] == "running shoes"
+        assert conflict["negative_keyword"] == "running shoes"
+        assert conflict["negative_level"] == "CAMPAIGN"
+        assert result["summary"]["conflict_count"] == 1
+
+    def test_no_conflicts_when_no_overlap(self, mock_ads_client):
+        """When positive and negative keywords don't share text, no conflicts are reported."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign_criterion": [
+                    _campaign_neg_row(criterion_id="601", text="free stuff", match_type="BROAD"),
+                ],
+                "FROM keyword_view": [
+                    _keyword_row(text="running shoes", match_type="BROAD", campaign_id="222"),
+                ],
+            }
+        )
+
+        tool = _register_neg_tool("list_negative_keywords")
+        result = tool(customer_id="1234567890")
+
+        assert "conflicts" not in result, f"Unexpected conflicts: {result.get('conflicts')}"
+        assert "conflict_count" not in result.get("summary", {})

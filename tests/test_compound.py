@@ -214,6 +214,37 @@ class TestQuickAudit:
         assert "top_keywords" in result
         assert "top_ads" in result
 
+    def test_campaigns_without_tracking(self, mock_ads_client):
+        set_active_account("1234567890")
+        tracked = _campaign_row(cid="1", name="Tracked Campaign", status="ENABLED")
+        tracked["campaign"]["tracking_url_template"] = "{lpurl}?src=google"
+        tracked["campaign"]["final_url_suffix"] = "utm_source=google"
+        untracked = _campaign_row(cid="2", name="Untracked Campaign", status="ENABLED")
+        # No tracking_url_template on untracked campaign
+        paused_no_tracking = _campaign_row(cid="3", name="Paused No Track", status="PAUSED")
+        # Paused campaigns should NOT appear in campaigns_without_tracking
+
+        mock_ads_client["set_gaql"](
+            {
+                "campaign.advertising_channel_type": [tracked, untracked, paused_no_tracking],
+                "FROM keyword_view": [],
+                "FROM ad_group_ad": [],
+                "FROM campaign_criterion": [],
+                "FROM conversion_action": [],
+                "FROM campaign_budget": [],
+            }
+        )
+
+        tool = _register_tool("quick_audit")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        without_tracking = result["summary"]["campaigns_without_tracking"]
+        assert "Untracked Campaign" in without_tracking
+        assert "Tracked Campaign" not in without_tracking
+        # Paused campaign should not be in the list (only ENABLED checked)
+        assert "Paused No Track" not in without_tracking
+
     def test_handles_empty_results(self, mock_ads_client):
         set_active_account("1234567890")
         mock_ads_client["set_gaql"]({})

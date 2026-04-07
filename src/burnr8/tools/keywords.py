@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
 
 
@@ -42,6 +42,11 @@ def register(mcp: FastMCP) -> None:
                 ad_group_criterion.status,
                 ad_group_criterion.cpc_bid_micros,
                 ad_group_criterion.quality_info.quality_score,
+                ad_group_criterion.quality_info.creative_quality_score,
+                ad_group_criterion.quality_info.post_click_quality_score,
+                ad_group_criterion.quality_info.search_predicted_ctr,
+                ad_group_criterion.position_estimates.first_page_cpc_micros,
+                ad_group_criterion.position_estimates.top_of_page_cpc_micros,
                 ad_group_criterion.tracking_url_template,
                 ad_group_criterion.final_url_suffix,
                 ad_group_criterion.url_custom_parameters,
@@ -68,6 +73,7 @@ def register(mcp: FastMCP) -> None:
             cr = row.get("ad_group_criterion", {})
             kw = cr.get("keyword", {})
             qi = cr.get("quality_info", {})
+            pe = cr.get("position_estimates", {})
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
@@ -79,6 +85,11 @@ def register(mcp: FastMCP) -> None:
                     "status": cr.get("status"),
                     "cpc_bid_dollars": micros_to_dollars(int(cr.get("cpc_bid_micros", 0))),
                     "quality_score": qi.get("quality_score"),
+                    "creative_quality": qi.get("creative_quality_score"),
+                    "landing_page_quality": qi.get("post_click_quality_score"),
+                    "expected_ctr": qi.get("search_predicted_ctr"),
+                    "first_page_cpc_dollars": micros_to_dollars(int(pe.get("first_page_cpc_micros", 0))),
+                    "top_of_page_cpc_dollars": micros_to_dollars(int(pe.get("top_of_page_cpc_micros", 0))),
                     "tracking_url_template": cr.get("tracking_url_template"),
                     "final_url_suffix": cr.get("final_url_suffix"),
                     "url_custom_parameters": {
@@ -191,6 +202,52 @@ def register(mcp: FastMCP) -> None:
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=[operation])
         return {"removed": response.results[0].resource_name}
+
+    @mcp.tool
+    @handle_google_ads_errors
+    def update_keyword(
+        criterion_id: Annotated[str, Field(description="Keyword criterion ID to update")],
+        ad_group_id: Annotated[str, Field(description="Ad group ID containing the keyword")],
+        cpc_bid: Annotated[float | None, Field(description="New CPC bid in dollars")] = None,
+        final_url_suffix: Annotated[str | None, Field(description="New final URL suffix")] = None,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
+    ) -> dict:
+        """Update a keyword's CPC bid or final URL suffix."""
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+        if err := validate_id(ad_group_id, "ad_group_id"):
+            return {"error": True, "message": err}
+        if err := validate_id(criterion_id, "criterion_id"):
+            return {"error": True, "message": err}
+        client = get_client()
+        ad_group_criterion_service = client.get_service("AdGroupCriterionService")
+
+        operation = client.get_type("AdGroupCriterionOperation")
+        criterion = operation.update
+        criterion.resource_name = ad_group_criterion_service.ad_group_criterion_path(
+            customer_id, ad_group_id, criterion_id
+        )
+
+        field_mask = []
+        if cpc_bid is not None:
+            criterion.cpc_bid_micros = dollars_to_micros(cpc_bid)
+            field_mask.append("cpc_bid_micros")
+        if final_url_suffix is not None:
+            criterion.final_url_suffix = final_url_suffix
+            field_mask.append("final_url_suffix")
+
+        if not field_mask:
+            return {"error": True, "message": "No fields to update"}
+
+        operation.update_mask.paths.extend(field_mask)
+
+        response = ad_group_criterion_service.mutate_ad_group_criteria(
+            customer_id=customer_id, operations=[operation]
+        )
+        return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}
 
     @mcp.tool
     @handle_google_ads_errors

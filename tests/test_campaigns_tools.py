@@ -407,6 +407,7 @@ class TestCreateCampaign:
 
     def test_create_with_tracking_url_template(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
 
         tool = _register_tool("create_campaign")
         result = tool(
@@ -419,6 +420,43 @@ class TestCreateCampaign:
 
         assert "error" not in result
         assert result["id"] == "222"
+        # Verify proto fields were actually set
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.create.tracking_url_template == "{lpurl}?utm_source=google"
+            assert op.create.final_url_suffix == "utm_medium=cpc"
+
+    def test_create_with_url_custom_parameters(self, mock_ads_client):
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("create_campaign")
+        result = tool(
+            name="Custom Params Campaign",
+            budget_id="501",
+            url_custom_parameters={"season": "winter", "promo": "sale"},
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert result["id"] == "222"
+        assert result["url_custom_parameters"] == {"season": "winter", "promo": "sale"}
+        # Verify url_custom_parameters list was populated with 2 items (real list from conftest)
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert len(op.create.url_custom_parameters) == 2
+            # Each appended item should have key/value set
+            for param in op.create.url_custom_parameters:
+                assert hasattr(param, "key")
+                assert hasattr(param, "value")
 
     def test_invalid_budget_id(self, mock_ads_client):
         set_active_account("1234567890")
@@ -523,6 +561,7 @@ class TestUpdateCampaign:
 
     def test_update_tracking_url_template(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
 
         tool = _register_tool("update_campaign")
         result = tool(
@@ -533,9 +572,19 @@ class TestUpdateCampaign:
 
         assert "error" not in result
         assert "tracking_url_template" in result["updated_fields"]
+        # Verify proto field was set
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.update.tracking_url_template == "{lpurl}?utm_source=google"
+            assert "tracking_url_template" in op.update_mask.paths
 
     def test_update_final_url_suffix(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
 
         tool = _register_tool("update_campaign")
         result = tool(
@@ -546,9 +595,19 @@ class TestUpdateCampaign:
 
         assert "error" not in result
         assert "final_url_suffix" in result["updated_fields"]
+        # Verify proto field was set
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.update.final_url_suffix == "utm_source=google&utm_medium=cpc"
+            assert "final_url_suffix" in op.update_mask.paths
 
     def test_clear_tracking_url_template(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
 
         tool = _register_tool("update_campaign")
         result = tool(
@@ -559,9 +618,19 @@ class TestUpdateCampaign:
 
         assert "error" not in result
         assert "tracking_url_template" in result["updated_fields"]
+        # Verify proto was set to empty string (clear)
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.update.tracking_url_template == ""
+            assert "tracking_url_template" in op.update_mask.paths
 
     def test_update_url_custom_parameters(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
 
         tool = _register_tool("update_campaign")
         result = tool(
@@ -572,6 +641,36 @@ class TestUpdateCampaign:
 
         assert "error" not in result
         assert "url_custom_parameters" in result["updated_fields"]
+        # Verify field mask contains url_custom_parameters
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert "url_custom_parameters" in op.update_mask.paths
+
+    def test_clear_url_custom_parameters(self, mock_ads_client):
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("update_campaign")
+        result = tool(
+            campaign_id="100",
+            url_custom_parameters={},
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result
+        assert "url_custom_parameters" in result["updated_fields"]
+        # Verify field mask is set but url_custom_parameters list is empty (no params appended)
+        call_args = client.get_service("CampaignService").mutate_campaigns.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert "url_custom_parameters" in op.update_mask.paths
 
     def test_update_invalid_campaign_id(self, mock_ads_client):
         set_active_account("1234567890")

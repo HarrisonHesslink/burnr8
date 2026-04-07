@@ -35,10 +35,12 @@ def test_log_tool_call_increments_ops():
             patch("burnr8.logging.LOG_DIR", log_dir),
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
+            patch("burnr8.logging._usage_cache", None),
         ):
-            from burnr8.logging import _load_usage, log_tool_call
+            from burnr8.logging import _load_usage, flush, log_tool_call
 
             log_tool_call("test_tool", "123456", 0.5, "ok")
+            flush()
             data = _load_usage()
             assert data["ops"] >= 1
 
@@ -53,9 +55,10 @@ def test_log_tool_call_tracks_errors():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
         ):
-            from burnr8.logging import _load_usage, log_tool_call
+            from burnr8.logging import _load_usage, flush, log_tool_call
 
             log_tool_call("fail_tool", "123456", 0.5, "error", 'msg="test"')
+            flush()
             data = _load_usage()
             assert data["errors"] >= 1
 
@@ -115,10 +118,16 @@ def test_log_tool_call_keeps_last_50_calls():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
         ):
-            from burnr8.logging import _load_usage, log_tool_call
+            import burnr8.logging as _logging_mod
+            from burnr8.logging import _load_usage, flush, log_tool_call
 
+            _logging_mod._usage_cache = None
+            _logging_mod._usage_dirty = False
+            _logging_mod._last_save = 0.0
             for i in range(60):
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
+            flush()
+            _logging_mod._usage_cache = None  # force re-read from disk
             data = _load_usage()
             assert len(data["calls"]) == 50
 
@@ -133,10 +142,15 @@ def test_get_usage_stats_recent_calls_limited_to_10():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
         ):
-            from burnr8.logging import get_usage_stats, log_tool_call
+            import burnr8.logging as _logging_mod
+            from burnr8.logging import flush, get_usage_stats, log_tool_call
 
+            _logging_mod._usage_cache = None
+            _logging_mod._usage_dirty = False
+            _logging_mod._last_save = 0.0
             for i in range(20):
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
+            flush()
             stats = get_usage_stats()
             assert len(stats["recent_calls"]) == 10
 
@@ -356,16 +370,16 @@ def test_write_cloud_log_suppresses_network_errors():
     """_write_cloud_log should not raise on network failures."""
     from unittest.mock import MagicMock
 
-    mock_post = MagicMock(side_effect=ConnectionError("network down"))
+    mock_post = MagicMock(side_effect=OSError("network down"))
+
+    mock_requests = MagicMock()
+    mock_requests.post = mock_post
+    mock_requests.RequestException = OSError  # real base class for suppress()
 
     with (
         patch("burnr8.logging.os.environ.get") as mock_env,
-        patch.dict("sys.modules", {"requests": MagicMock()}),
+        patch.dict("sys.modules", {"requests": mock_requests}),
     ):
-        import sys
-
-        mock_requests = sys.modules["requests"]
-        mock_requests.post = mock_post
         mock_env.side_effect = lambda k, d=None: {
             "BURNR8_SUPABASE_URL": "https://test.supabase.co",
             "BURNR8_SUPABASE_KEY": "test-key",

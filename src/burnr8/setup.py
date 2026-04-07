@@ -180,7 +180,7 @@ def _main():
                 creds["GOOGLE_ADS_CLIENT_ID"],
                 creds["GOOGLE_ADS_CLIENT_SECRET"],
             )
-            print(f"  Got refresh token: {creds['GOOGLE_ADS_REFRESH_TOKEN'][:8]}...")
+            print("  Got refresh token: ****")
         else:
             creds["GOOGLE_ADS_REFRESH_TOKEN"] = _prompt("Refresh token")
 
@@ -214,6 +214,10 @@ def main():
     except OSError as e:
         # Port binding or file system errors
         print(f"\n  Error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n  Setup failed: {e}")
+        print("  You can re-run burnr8-setup or set credentials manually in ~/.burnr8/.env")
         sys.exit(1)
 
 

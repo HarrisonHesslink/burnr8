@@ -1,12 +1,16 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 class KeywordInput(BaseModel):
@@ -14,7 +18,7 @@ class KeywordInput(BaseModel):
     match_type: str = Field(default="BROAD", description="Match type: EXACT, PHRASE, or BROAD")
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_keywords(
@@ -24,15 +28,10 @@ def register(mcp):
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List keyword inventory — what keywords exist, their config, bids, match types, and quality scores. Filter by ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
-        if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+        if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = """
@@ -75,7 +74,7 @@ def register(mcp):
                     "text": kw.get("text"),
                     "match_type": kw.get("match_type"),
                     "status": cr.get("status"),
-                    "cpc_bid_dollars": int(cr.get("cpc_bid_micros", 0)) / 1_000_000,
+                    "cpc_bid_dollars": micros_to_dollars(int(cr.get("cpc_bid_micros", 0))),
                     "quality_score": qi.get("quality_score"),
                     "ad_group_id": ag.get("id"),
                     "ad_group_name": ag.get("name"),
@@ -83,7 +82,7 @@ def register(mcp):
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                     "conversions": float(m.get("conversions", 0)),
                 }
             )
@@ -113,19 +112,20 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Add one or more keywords to an ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()
         ad_group_criterion_service = client.get_service("AdGroupCriterionService")
         ad_group_service = client.get_service("AdGroupService")
+
+        match_map = {
+            "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
+            "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
+            "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
+        }
 
         operations = []
         for kw in keywords:
@@ -134,11 +134,6 @@ def register(mcp):
             criterion.ad_group = ad_group_service.ad_group_path(customer_id, ad_group_id)
             criterion.status = client.enums.AdGroupCriterionStatusEnum.ENABLED
 
-            match_map = {
-                "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
-                "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
-                "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
-            }
             criterion.keyword.text = kw.text
             criterion.keyword.match_type = match_map.get(
                 kw.match_type.upper(),
@@ -164,12 +159,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Remove a keyword from an ad group. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
@@ -178,9 +170,6 @@ def register(mcp):
                 "message": f"This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
                 f"Set confirm=true to execute.",
             }
-
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -207,16 +196,11 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Get keyword ideas with search volume, competition, and CPC estimates. Saves full report to CSV, returns summary + top rows + file path."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if geo_target_ids is None:
             geo_target_ids = ["2840"]
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         client = get_client()
         keyword_plan_idea_service = client.get_service("KeywordPlanIdeaService")
         keyword_plan_network = client.enums.KeywordPlanNetworkEnum.GOOGLE_SEARCH
@@ -248,10 +232,10 @@ def register(mcp):
                     "keyword": idea.text,
                     "avg_monthly_searches": metrics.avg_monthly_searches if metrics else 0,
                     "competition": metrics.competition.name if metrics else "UNKNOWN",
-                    "low_top_of_page_bid_dollars": (metrics.low_top_of_page_bid_micros or 0) / 1_000_000
+                    "low_top_of_page_bid_dollars": micros_to_dollars(metrics.low_top_of_page_bid_micros or 0)
                     if metrics
                     else 0,
-                    "high_top_of_page_bid_dollars": (metrics.high_top_of_page_bid_micros or 0) / 1_000_000
+                    "high_top_of_page_bid_dollars": micros_to_dollars(metrics.high_top_of_page_bid_micros or 0)
                     if metrics
                     else 0,
                 }

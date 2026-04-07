@@ -53,7 +53,7 @@ src/burnr8/
 | Negative Keywords | 4 | list/add (campaign + ad group level)/remove |
 | Budgets | 4 | list/create/update + remove_orphan_budgets |
 | Reporting | 5 | campaign/ad group/keyword perf, search terms, raw GAQL (all save CSV to ~/.burnr8/reports/) |
-| Extensions | 6 | sitelinks, callouts, snippets, images |
+| Extensions | 6 | sitelinks, callouts, snippets, images (campaign + ad group level) |
 | Conversions | 4 | list/get/create/update conversion actions |
 | Compound | 3 | quick_audit, launch_campaign, cleanup_wasted_spend |
 | Adjustments | 11 | device bids, ad schedules, location targets, geo presence |
@@ -105,3 +105,11 @@ create_campaign and update_campaign support all 9 strategies: MANUAL_CPC, MANUAL
 - `GOOGLE_ADS_CLIENT_SECRET`
 - `GOOGLE_ADS_REFRESH_TOKEN`
 - `GOOGLE_ADS_LOGIN_CUSTOMER_ID` (optional, for manager accounts — dashes auto-stripped)
+
+## Workflow Rules
+
+- **Never create git tags or GitHub releases.** Prepare everything (version bump PR, changelog, docs) but stop before `git tag` or `gh release create`. Mark as "user action required."
+- **Never auto-merge PRs.** After creating a PR, report the URL and stop. Do not run `gh pr merge` unless the user explicitly asks.
+- **Review code after significant changes.** After writing tests or modifying tool modules, spawn a code review agent before committing. Fix findings before pushing.
+- **Security review before any release.** Before version bumps, spawn parallel security + production readiness audit agents. Fix all CRITICAL/HIGH findings before proceeding.
+- **Use worktrees for parallel code-writing agents.** Spawn with `isolation: "worktree"` for independent implementation tasks. Research/review agents don't need worktrees. Merge worktree diffs after completion.

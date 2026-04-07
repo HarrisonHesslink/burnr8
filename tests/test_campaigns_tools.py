@@ -1,6 +1,42 @@
-"""Tests for burnr8.tools.campaigns — list, create, update, set_campaign_status tools."""
+"""Tests for burnr8.tools.campaigns — bidding strategies, list, create, update, set_campaign_status."""
 
 from burnr8.session import set_active_account
+from burnr8.tools.campaigns import VALID_BIDDING_STRATEGIES
+
+# ---------------------------------------------------------------------------
+# VALID_BIDDING_STRATEGIES (moved from test_campaigns.py)
+# ---------------------------------------------------------------------------
+
+
+class TestBiddingStrategies:
+    def test_valid_bidding_strategies_set(self):
+        assert "MANUAL_CPC" in VALID_BIDDING_STRATEGIES
+        assert "MAXIMIZE_CONVERSIONS" in VALID_BIDDING_STRATEGIES
+        assert "TARGET_CPA" in VALID_BIDDING_STRATEGIES
+        assert "TARGET_ROAS" in VALID_BIDDING_STRATEGIES
+        assert "MAXIMIZE_CLICKS" in VALID_BIDDING_STRATEGIES
+        assert len(VALID_BIDDING_STRATEGIES) == 9
+
+    def test_invalid_strategy_not_in_set(self):
+        assert "INVALID" not in VALID_BIDDING_STRATEGIES
+        assert "AUTO" not in VALID_BIDDING_STRATEGIES
+
+    def test_all_strategies_are_uppercase(self):
+        for strategy in VALID_BIDDING_STRATEGIES:
+            assert strategy == strategy.upper()
+            assert " " not in strategy
+
+    def test_complete_strategy_list(self):
+        expected = {
+            "MANUAL_CPC", "MANUAL_CPM", "MAXIMIZE_CLICKS",
+            "MAXIMIZE_CONVERSIONS", "MAXIMIZE_CONVERSION_VALUE",
+            "TARGET_CPA", "TARGET_ROAS", "TARGET_IMPRESSION_SHARE",
+            "TARGET_SPEND",
+        }
+        assert expected == VALID_BIDDING_STRATEGIES
+
+    def test_strategies_is_a_set(self):
+        assert isinstance(VALID_BIDDING_STRATEGIES, set)
 
 # ---------------------------------------------------------------------------
 # Helpers — sample GAQL result rows
@@ -632,11 +668,8 @@ class TestInvalidCustomerId:
         set_active_account("1234567890")
 
         tool = _register_tool("set_campaign_status")
-        # set_campaign_status does not validate customer_id format
-        # (unlike other tools), so an invalid ID still proceeds to mutate.
-        # We verify it at least does not crash and returns a resource_name.
+        # require_customer_id now validates customer_id format for all tools
         result = tool(campaign_id="100", status="PAUSED", confirm=True, customer_id="abc-def")
 
-        # The mock mutate succeeds regardless of customer_id format
-        assert "resource_name" in result
-        assert result["new_status"] == "PAUSED"
+        assert result["error"] is True
+        assert "customer_id" in result["message"]

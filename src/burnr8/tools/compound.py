@@ -1,12 +1,19 @@
-from typing import Annotated
+from __future__ import annotations
+
+import re
+from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+    from google.ads.googleads.client import GoogleAdsClient
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_date_range, validate_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_date_range
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 # Keywords that suggest informational/free intent (for cleanup_wasted_spend)
 _INFORMATIONAL_SIGNALS = [
@@ -41,9 +48,10 @@ _INFORMATIONAL_SIGNALS = [
     "review",
     "reviews",
 ]
+_SIGNAL_RE = re.compile(r'\b(?:' + '|'.join(re.escape(s) for s in _INFORMATIONAL_SIGNALS) + r')\b')
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def quick_audit(
@@ -55,14 +63,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Pull all account data and return a formatted audit report in one call. Covers campaigns, keywords, ads, negatives, conversions, and budgets."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
 
@@ -88,35 +91,6 @@ def register(mcp):
             WHERE segments.date DURING {date_range_upper}
             ORDER BY metrics.cost_micros DESC
         """
-        campaign_rows = run_gaql(client, customer_id, campaign_query)
-
-        campaigns = []
-        total_spend_micros = 0
-        total_conversions = 0.0
-        for row in campaign_rows:
-            c = row.get("campaign", {})
-            m = row.get("metrics", {})
-            cost_micros = int(m.get("cost_micros", 0))
-            convs = float(m.get("conversions", 0))
-            total_spend_micros += cost_micros
-            total_conversions += convs
-            campaigns.append(
-                {
-                    "id": c.get("id"),
-                    "name": c.get("name"),
-                    "status": c.get("status"),
-                    "channel_type": c.get("advertising_channel_type"),
-                    "bidding_strategy": c.get("bidding_strategy_type"),
-                    "impressions": int(m.get("impressions", 0)),
-                    "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": cost_micros / 1_000_000,
-                    "conversions": convs,
-                    "conversions_value": float(m.get("conversions_value", 0)),
-                    "ctr": float(m.get("ctr", 0)),
-                    "avg_cpc_dollars": int(m.get("average_cpc", 0)) / 1_000_000,
-                }
-            )
-
         # 2. Keyword performance with quality scores
         keyword_query = f"""
             SELECT
@@ -135,38 +109,6 @@ def register(mcp):
             WHERE segments.date DURING {date_range_upper}
             ORDER BY metrics.cost_micros DESC
         """
-        keyword_rows = run_gaql(client, customer_id, keyword_query)
-
-        top_keywords = []
-        low_quality_keywords = []
-        quality_scores = []
-        for row in keyword_rows:
-            cr = row.get("ad_group_criterion", {})
-            kw = cr.get("keyword", {})
-            qi = cr.get("quality_info", {})
-            ag = row.get("ad_group", {})
-            c = row.get("campaign", {})
-            m = row.get("metrics", {})
-            qs = qi.get("quality_score")
-
-            entry = {
-                "keyword": kw.get("text"),
-                "match_type": kw.get("match_type"),
-                "status": cr.get("status"),
-                "quality_score": qs,
-                "ad_group": ag.get("name"),
-                "campaign": c.get("name"),
-                "impressions": int(m.get("impressions", 0)),
-                "clicks": int(m.get("clicks", 0)),
-                "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
-                "conversions": float(m.get("conversions", 0)),
-            }
-            top_keywords.append(entry)
-
-            if qs is not None and int(qs) > 0:
-                quality_scores.append(int(qs))
-                if int(qs) < 5:
-                    low_quality_keywords.append(entry)
 
         # 3. Ad data with ad_strength
         ad_query = f"""
@@ -189,8 +131,120 @@ def register(mcp):
             WHERE ad_group_ad.status != 'REMOVED'
                 AND segments.date DURING {date_range_upper}
         """
-        ad_rows = run_gaql(client, customer_id, ad_query)
 
+        # 4. Negative keyword count
+        negative_query = """
+            SELECT
+                campaign_criterion.criterion_id
+            FROM campaign_criterion
+            WHERE campaign_criterion.type = 'KEYWORD'
+                AND campaign_criterion.negative = true
+        """
+
+        # 5. Conversion actions (no tag_snippets — not selectable)
+        conversion_query = """
+            SELECT
+                conversion_action.id,
+                conversion_action.name,
+                conversion_action.status,
+                conversion_action.type,
+                conversion_action.category,
+                conversion_action.counting_type
+            FROM conversion_action
+            ORDER BY conversion_action.name
+        """
+
+        # 6. Budget data
+        budget_query = """
+            SELECT
+                campaign_budget.id,
+                campaign_budget.name,
+                campaign_budget.amount_micros,
+                campaign_budget.status,
+                campaign_budget.delivery_method,
+                campaign_budget.explicitly_shared,
+                campaign_budget.reference_count
+            FROM campaign_budget
+            ORDER BY campaign_budget.name
+        """
+
+        # Run all 6 queries in parallel
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            future_campaigns = executor.submit(run_gaql, client, customer_id, campaign_query)
+            future_keywords = executor.submit(run_gaql, client, customer_id, keyword_query)
+            future_ads = executor.submit(run_gaql, client, customer_id, ad_query)
+            future_negatives = executor.submit(run_gaql, client, customer_id, negative_query)
+            future_conversions = executor.submit(run_gaql, client, customer_id, conversion_query)
+            future_budgets = executor.submit(run_gaql, client, customer_id, budget_query)
+
+        campaign_rows = future_campaigns.result()
+        keyword_rows = future_keywords.result()
+        ad_rows = future_ads.result()
+        negative_rows = future_negatives.result()
+        conversion_rows = future_conversions.result()
+        budget_rows = future_budgets.result()
+
+        # Process campaign rows
+        campaigns = []
+        total_spend_micros = 0
+        total_conversions = 0.0
+        for row in campaign_rows:
+            c = row.get("campaign", {})
+            m = row.get("metrics", {})
+            cost_micros = int(m.get("cost_micros", 0))
+            convs = float(m.get("conversions", 0))
+            total_spend_micros += cost_micros
+            total_conversions += convs
+            campaigns.append(
+                {
+                    "id": c.get("id"),
+                    "name": c.get("name"),
+                    "status": c.get("status"),
+                    "channel_type": c.get("advertising_channel_type"),
+                    "bidding_strategy": c.get("bidding_strategy_type"),
+                    "impressions": int(m.get("impressions", 0)),
+                    "clicks": int(m.get("clicks", 0)),
+                    "cost_dollars": micros_to_dollars(cost_micros),
+                    "conversions": convs,
+                    "conversions_value": float(m.get("conversions_value", 0)),
+                    "ctr": float(m.get("ctr", 0)),
+                    "avg_cpc_dollars": micros_to_dollars(int(m.get("average_cpc", 0))),
+                }
+            )
+
+        # Process keyword rows
+        top_keywords = []
+        low_quality_keywords = []
+        quality_scores = []
+        for row in keyword_rows:
+            cr = row.get("ad_group_criterion", {})
+            kw = cr.get("keyword", {})
+            qi = cr.get("quality_info", {})
+            ag = row.get("ad_group", {})
+            c = row.get("campaign", {})
+            m = row.get("metrics", {})
+            qs = qi.get("quality_score")
+
+            entry = {
+                "keyword": kw.get("text"),
+                "match_type": kw.get("match_type"),
+                "status": cr.get("status"),
+                "quality_score": qs,
+                "ad_group": ag.get("name"),
+                "campaign": c.get("name"),
+                "impressions": int(m.get("impressions", 0)),
+                "clicks": int(m.get("clicks", 0)),
+                "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
+                "conversions": float(m.get("conversions", 0)),
+            }
+            top_keywords.append(entry)
+
+            if qs is not None and int(qs) > 0:
+                quality_scores.append(int(qs))
+                if int(qs) < 5:
+                    low_quality_keywords.append(entry)
+
+        # Process ad rows
         ads = []
         for row in ad_rows:
             ad = row.get("ad_group_ad", {}).get("ad", {})
@@ -217,36 +271,15 @@ def register(mcp):
                     "campaign": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                     "conversions": float(m.get("conversions", 0)),
                 }
             )
 
-        # 4. Negative keyword count
-        negative_query = """
-            SELECT
-                campaign_criterion.criterion_id
-            FROM campaign_criterion
-            WHERE campaign_criterion.type = 'KEYWORD'
-                AND campaign_criterion.negative = true
-        """
-        negative_rows = run_gaql(client, customer_id, negative_query)
+        # Process negative keyword rows
         negative_keyword_count = len(negative_rows)
 
-        # 5. Conversion actions (no tag_snippets — not selectable)
-        conversion_query = """
-            SELECT
-                conversion_action.id,
-                conversion_action.name,
-                conversion_action.status,
-                conversion_action.type,
-                conversion_action.category,
-                conversion_action.counting_type
-            FROM conversion_action
-            ORDER BY conversion_action.name
-        """
-        conversion_rows = run_gaql(client, customer_id, conversion_query)
-
+        # Process conversion rows
         conversion_actions = []
         for row in conversion_rows:
             ca = row.get("conversion_action", {})
@@ -261,21 +294,7 @@ def register(mcp):
                 }
             )
 
-        # 6. Budget data
-        budget_query = """
-            SELECT
-                campaign_budget.id,
-                campaign_budget.name,
-                campaign_budget.amount_micros,
-                campaign_budget.status,
-                campaign_budget.delivery_method,
-                campaign_budget.explicitly_shared,
-                campaign_budget.reference_count
-            FROM campaign_budget
-            ORDER BY campaign_budget.name
-        """
-        budget_rows = run_gaql(client, customer_id, budget_query)
-
+        # Process budget rows
         budgets = []
         for row in budget_rows:
             b = row.get("campaign_budget", {})
@@ -283,7 +302,7 @@ def register(mcp):
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": int(b.get("amount_micros", 0)) / 1_000_000,
+                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
                     "status": b.get("status"),
                     "delivery_method": b.get("delivery_method"),
                     "shared": b.get("explicitly_shared"),
@@ -292,7 +311,7 @@ def register(mcp):
             )
 
         # Build summary
-        total_spend_dollars = total_spend_micros / 1_000_000
+        total_spend_dollars = micros_to_dollars(total_spend_micros)
         avg_cpa = (total_spend_dollars / total_conversions) if total_conversions > 0 else None
         avg_qs = (sum(quality_scores) / len(quality_scores)) if quality_scores else None
 
@@ -383,14 +402,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Create a complete campaign setup in one call: budget, campaign (PAUSED, SEARCH, MANUAL_CPC), ad group, keywords (Broad match), and a responsive search ad."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
 
         # Validate inputs
         if len(headlines) < 3 or len(headlines) > 15:
@@ -419,12 +433,36 @@ def register(mcp):
                 created,
             )
         except Exception as ex:
-            return {
-                "error": True,
-                "partial_failure": True,
-                "message": str(ex)[:300],
-                "created_before_failure": {k: v for k, v in created.items() if v is not None},
-            }
+            # Lazy imports to avoid loading SDK at module level
+            import grpc
+            from google.ads.googleads.errors import GoogleAdsException
+
+            created_before = {k: v for k, v in created.items() if v is not None}
+            if isinstance(ex, GoogleAdsException):
+                errors = []
+                for error in ex.failure.errors:
+                    err = {"message": error.message[:200], "code": str(error.error_code)}
+                    if error.location and error.location.field_path_elements:
+                        err["field_path"] = [el.field_name for el in error.location.field_path_elements]
+                    errors.append(err)
+                return {
+                    "error": True,
+                    "partial_failure": True,
+                    "message": errors[0]["message"] if errors else "Unknown Google Ads API error",
+                    "request_id": ex.request_id,
+                    "status": ex.error.code().name,
+                    "errors": errors,
+                    "created_before_failure": created_before,
+                }
+            if isinstance(ex, grpc.RpcError):
+                return {
+                    "error": True,
+                    "partial_failure": True,
+                    "message": f"RPC error: {ex.code().name}"[:200],
+                    "created_before_failure": created_before,
+                }
+            # Programming errors should crash, not be silenced as "partial failures"
+            raise
 
     @mcp.tool
     @handle_google_ads_errors
@@ -438,14 +476,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Analyze keywords with spend but zero conversions and return actionable recommendations for reducing wasted ad spend."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
 
@@ -495,7 +528,7 @@ def register(mcp):
                 continue
 
             keyword_text = kw.get("text", "")
-            cost_dollars = cost_micros / 1_000_000
+            cost_dollars = micros_to_dollars(cost_micros)
             total_wasted_micros += cost_micros
 
             entry = {
@@ -514,18 +547,17 @@ def register(mcp):
             wasted_keywords.append(entry)
 
             keyword_lower = keyword_text.lower()
-            for signal in _INFORMATIONAL_SIGNALS:
-                if signal in keyword_lower:
-                    suggested_negatives.append(
-                        {
-                            "keyword": keyword_text,
-                            "reason": f"Contains '{signal}' — likely informational/non-commercial intent",
-                            "spend_dollars": round(cost_dollars, 2),
-                        }
-                    )
-                    break
+            match = _SIGNAL_RE.search(keyword_lower)
+            if match:
+                suggested_negatives.append(
+                    {
+                        "keyword": keyword_text,
+                        "reason": f"Contains '{match.group()}' — likely informational/non-commercial intent",
+                        "spend_dollars": round(cost_dollars, 2),
+                    }
+                )
 
-        total_wasted_dollars = round(total_wasted_micros / 1_000_000, 2)
+        total_wasted_dollars = round(micros_to_dollars(total_wasted_micros), 2)
 
         # Save full wasted keywords list to CSV
         wasted_report = save_report(wasted_keywords, "wasted-keywords", top_n=10)
@@ -545,19 +577,19 @@ def register(mcp):
 
 
 def _execute_launch(
-    client,
-    customer_id,
-    campaign_name,
-    daily_budget_dollars,
-    keywords,
-    headlines,
-    descriptions,
-    final_url,
-    cpc_bid,
-    ad_group_name,
-    eu_political_ads,
-    created,
-):
+    client: GoogleAdsClient,
+    customer_id: str,
+    campaign_name: str,
+    daily_budget_dollars: float,
+    keywords: list[str],
+    headlines: list[str],
+    descriptions: list[str],
+    final_url: str,
+    cpc_bid: float,
+    ad_group_name: str,
+    eu_political_ads: bool,
+    created: dict,
+) -> dict:
     # 1. Create budget
     budget_service = client.get_service("CampaignBudgetService")
     budget_op = client.get_type("CampaignBudgetOperation")

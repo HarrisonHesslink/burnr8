@@ -1,15 +1,19 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_date_range, validate_id
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def run_gaql_query(
@@ -20,14 +24,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Execute a raw GAQL query. Saves full results to CSV. WARNING: limit=0 fetches all rows — use with caution on large accounts."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         rows = run_gaql(client, customer_id, query, limit=limit)
         return save_report(rows, "gaql_query")
@@ -44,17 +43,12 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Get campaign performance metrics. Saves full report to CSV, returns summary + top rows."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = f"""
@@ -84,7 +78,7 @@ def register(mcp):
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            cost = int(m.get("cost_micros", 0)) / 1_000_000
+            cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
             total_spend += cost
             total_conversions += conv
@@ -96,11 +90,11 @@ def register(mcp):
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
                     "cost_dollars": round(cost, 2),
                     "conversions": round(conv, 1),
                     "conversions_value": round(float(m.get("conversions_value", 0)), 2),
-                    "cost_per_conversion": round(int(m.get("cost_per_conversion", 0)) / 1_000_000, 2),
+                    "cost_per_conversion": round(micros_to_dollars(int(m.get("cost_per_conversion", 0))), 2),
                 }
             )
 
@@ -123,17 +117,12 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Get ad group level performance metrics. Saves full report to CSV, returns summary + top rows."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = f"""
@@ -163,7 +152,7 @@ def register(mcp):
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            cost = round(int(m.get("cost_micros", 0)) / 1_000_000, 2)
+            cost = round(micros_to_dollars(int(m.get("cost_micros", 0))), 2)
             total_spend += cost
             results.append(
                 {
@@ -175,7 +164,7 @@ def register(mcp):
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
+                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
                     "cost_dollars": cost,
                     "conversions": round(float(m.get("conversions", 0)), 1),
                 }
@@ -199,17 +188,12 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Get keyword spending performance — cost, clicks, CTR, CPC, conversions over a date range. Filter by campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = f"""
@@ -259,8 +243,8 @@ def register(mcp):
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(int(m.get("average_cpc", 0)) / 1_000_000, 2),
-                    "cost_dollars": round(int(m.get("cost_micros", 0)) / 1_000_000, 2),
+                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
+                    "cost_dollars": round(micros_to_dollars(int(m.get("cost_micros", 0))), 2),
                     "conversions": round(float(m.get("conversions", 0)), 1),
                 }
             )
@@ -286,17 +270,12 @@ def register(mcp):
 
         Note: Top rows returned inline may contain actual user search queries,
         which can include personally identifiable information (PII). Handle with care."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = f"""
@@ -327,7 +306,7 @@ def register(mcp):
             c = row.get("campaign", {})
             ag = row.get("ad_group", {})
             m = row.get("metrics", {})
-            cost = int(m.get("cost_micros", 0)) / 1_000_000
+            cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
             total_spend += cost
             if conv == 0 and cost > 0:

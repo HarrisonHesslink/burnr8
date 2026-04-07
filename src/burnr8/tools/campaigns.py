@@ -1,11 +1,24 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+    from google.ads.googleads.client import GoogleAdsClient
+    from proto import Message as ProtoMessage
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_id,
+    validate_status,
+)
 
 VALID_BIDDING_STRATEGIES = {
     "MANUAL_CPC",
@@ -21,15 +34,15 @@ VALID_BIDDING_STRATEGIES = {
 
 
 def _apply_bidding_strategy(
-    client,
-    campaign,
-    strategy,
-    target_cpa_dollars=None,
-    target_roas=None,
-    max_cpc_bid_ceiling_dollars=None,
-    target_impression_share_location="TOP_OF_PAGE",
-    target_impression_share_fraction=None,
-):
+    client: GoogleAdsClient,
+    campaign: ProtoMessage,
+    strategy: str,
+    target_cpa_dollars: float | None = None,
+    target_roas: float | None = None,
+    max_cpc_bid_ceiling_dollars: float | None = None,
+    target_impression_share_location: str = "TOP_OF_PAGE",
+    target_impression_share_fraction: float | None = None,
+) -> list[str]:
     """Apply a bidding strategy to a campaign proto. Returns list of field mask paths."""
     paths = []
     if strategy == "MANUAL_CPC":
@@ -112,7 +125,7 @@ def _apply_bidding_strategy(
     return paths
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_campaigns(
@@ -120,16 +133,11 @@ def register(mcp):
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
         status: Annotated[str | None, Field(description="Filter by status: ENABLED, PAUSED, or REMOVED")] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List all campaigns for a customer, optionally filtered by status."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT
@@ -164,7 +172,7 @@ def register(mcp):
                     "budget": c.get("campaign_budget"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                 }
             )
         return results
@@ -178,14 +186,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Get full details for a specific campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -217,7 +220,7 @@ def register(mcp):
             m = row.get("metrics", {})
             c["impressions"] = int(m.get("impressions", 0))
             c["clicks"] = int(m.get("clicks", 0))
-            c["cost_dollars"] = int(m.get("cost_micros", 0)) / 1_000_000
+            c["cost_dollars"] = micros_to_dollars(int(m.get("cost_micros", 0)))
             c["conversions"] = float(m.get("conversions", 0))
             c["conversions_value"] = float(m.get("conversions_value", 0))
             return c
@@ -269,14 +272,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Create a new campaign. Always starts PAUSED for safety. Supports all Google Ads bidding strategies."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(budget_id, "budget_id"):
             return {"error": True, "message": err}
 
@@ -378,14 +376,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Update a campaign's name, budget, bidding strategy, or network settings."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -464,12 +457,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Enable, pause, or remove a campaign. Requires confirm=true for safety."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:

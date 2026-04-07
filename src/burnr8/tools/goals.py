@@ -1,11 +1,15 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 
 VALID_CATEGORIES = {
     "DEFAULT",
@@ -40,23 +44,18 @@ VALID_ORIGINS = {
 }
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_conversion_goals(
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List all customer conversion goals showing which are biddable (used by Smart Bidding)."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT
@@ -89,14 +88,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Toggle a customer conversion goal as biddable or non-biddable. Controls what Smart Bidding optimizes toward."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         cat = category.upper()
         if cat not in VALID_CATEGORIES:
             return {
@@ -137,14 +131,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Check if a campaign uses account-level or campaign-level conversion goals."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -177,14 +166,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Set a campaign to use campaign-level goals with a custom conversion goal targeting specific conversion actions."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         for action_id in conversion_action_ids:
@@ -233,16 +217,11 @@ def register(mcp):
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List existing custom conversion goals."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT

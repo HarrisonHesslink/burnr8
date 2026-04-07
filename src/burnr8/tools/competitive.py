@@ -1,15 +1,19 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_date_range, validate_id
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def get_competitive_metrics(
@@ -34,17 +38,12 @@ def register(mcp):
         - search_rank_lost_impression_share: % of impressions lost due to ad rank (QS + bid)
         - search_exact_match_impression_share: impression share for exact match queries
         """
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
 
         client = get_client()
@@ -77,7 +76,7 @@ def register(mcp):
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
-            cost = int(m.get("cost_micros", 0)) / 1_000_000
+            cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             total_spend += cost
 
             is_val = m.get("search_impression_share")
@@ -163,14 +162,9 @@ def register(mcp):
         doesn't have access, this tool returns an error with a suggestion to use
         get_competitive_metrics instead (which works for all accounts).
         """
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):

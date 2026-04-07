@@ -1,14 +1,25 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, run_gaql, validate_id, validate_status
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_id,
+    validate_status,
+)
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_ad_groups(
@@ -16,17 +27,12 @@ def register(mcp):
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List ad groups, optionally filtered by campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
         query = """
@@ -43,7 +49,7 @@ def register(mcp):
                 metrics.cost_micros
             FROM ad_group
         """
-        if campaign_id:
+        if campaign_id is not None:
             query += f" WHERE campaign.id = {campaign_id}"
         query += " ORDER BY ad_group.name"
         rows = run_gaql(client, customer_id, query)
@@ -58,12 +64,12 @@ def register(mcp):
                     "name": ag.get("name"),
                     "status": ag.get("status"),
                     "type": ag.get("type"),
-                    "cpc_bid_dollars": int(ag.get("cpc_bid_micros", 0)) / 1_000_000,
+                    "cpc_bid_dollars": micros_to_dollars(int(ag.get("cpc_bid_micros", 0))),
                     "campaign_id": c.get("id"),
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
-                    "cost_dollars": int(m.get("cost_micros", 0)) / 1_000_000,
+                    "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
                 }
             )
         return results
@@ -79,14 +85,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Create a new ad group in a campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -119,14 +120,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Update an ad group's name, bid, or status."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()

@@ -1,11 +1,15 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 
 _CONVERSION_ACTION_QUERY = """
     SELECT
@@ -42,23 +46,18 @@ VALID_COUNTING_TYPES = {"ONE_PER_CLICK", "MANY_PER_CLICK"}
 VALID_CONVERSION_STATUSES = {"ENABLED", "REMOVED", "HIDDEN"}
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_conversion_actions(
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
-    ) -> list[dict]:
+    ) -> list[dict] | dict:
         """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = _CONVERSION_ACTION_QUERY + " ORDER BY conversion_action.name"
         rows = run_gaql(client, customer_id, query)
@@ -91,14 +90,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Get detailed info for a specific conversion action by ID."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(conversion_action_id, "conversion_action_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -147,16 +141,11 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Create a new conversion action for tracking sign-ups, purchases, etc. Starts ENABLED by default."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
 
-        type_upper = type.upper()
+        type_upper = type.upper()  # noqa: A001 — shadows builtin but is the MCP API parameter name
         if type_upper not in VALID_CONVERSION_TYPES:
             return {
                 "error": True,
@@ -250,14 +239,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Update a conversion action's name, value, status, or counting type."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(conversion_action_id, "conversion_action_id"):
             return {"error": True, "message": err}
 

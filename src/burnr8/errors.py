@@ -79,6 +79,18 @@ def handle_google_ads_errors(fn: Callable[P, R]) -> Callable[P, R | dict]:
                     "message": safe_msg,
                 }
             else:
+                # Catch gRPC transport errors (timeout, unavailable, etc.)
+                # These lack GoogleAdsFailure metadata so aren't GoogleAdsException
+                import grpc
+
+                if isinstance(ex, grpc.RpcError):
+                    code = ex.code()
+                    if code == grpc.StatusCode.DEADLINE_EXCEEDED:
+                        msg = "Google Ads API request timed out. Try a narrower date range or add a LIMIT clause."
+                    else:
+                        msg = f"Google Ads API RPC error: {code.name}"
+                    log_tool_call(fn.__name__, customer_id, duration, "error", f"grpc_status={code.name}")
+                    return {"error": True, "message": msg}
                 raise
 
     return wrapper

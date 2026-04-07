@@ -2,6 +2,7 @@
 """Terminal dashboard for burnr8 — shows API usage, recent activity, and campaign spend."""
 
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
 from dotenv import load_dotenv
@@ -21,7 +22,7 @@ def print_dashboard():
 
     from burnr8 import __version__
     from burnr8.client import get_client
-    from burnr8.helpers import run_gaql
+    from burnr8.helpers import micros_to_dollars, run_gaql
     from burnr8.logging import get_usage_stats
 
     stats = get_usage_stats()
@@ -69,71 +70,74 @@ def print_dashboard():
     print("  " + "-" * 50)
     try:
         client = get_client()
-        # Get today's spend
-        rows_today = run_gaql(
-            client,
-            _get_customer_id(),
-            """
+        cid = _get_customer_id()
+
+        today_query = """
             SELECT campaign.id, campaign.name, campaign.status,
                    metrics.cost_micros, metrics.clicks, metrics.conversions
             FROM campaign
             WHERE campaign.status = 'ENABLED'
               AND segments.date DURING TODAY
-        """,
-        )
-        rows_mtd = run_gaql(
-            client,
-            _get_customer_id(),
-            """
+        """
+        mtd_query = """
             SELECT campaign.id, campaign.name, campaign.status,
                    metrics.cost_micros, metrics.clicks, metrics.conversions
             FROM campaign
             WHERE campaign.status = 'ENABLED'
               AND segments.date DURING THIS_MONTH
-        """,
-        )
-        # Get budget
-        budgets = run_gaql(
-            client,
-            _get_customer_id(),
-            """
+        """
+        budget_query = """
             SELECT campaign_budget.amount_micros, campaign_budget.status, campaign.name, campaign.status
             FROM campaign_budget
             WHERE campaign.status = 'ENABLED'
-        """,
-        )
+        """
+
+        # Run all 3 queries in parallel
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            future_today = executor.submit(run_gaql, client, cid, today_query)
+            future_mtd = executor.submit(run_gaql, client, cid, mtd_query)
+            future_budgets = executor.submit(run_gaql, client, cid, budget_query)
+
+        rows_today = future_today.result()
+        rows_mtd = future_mtd.result()
+        budgets = future_budgets.result()
 
         print()
         print("  Campaign Spend:")
+        budget_map = {b.get("campaign", {}).get("name"): b for b in budgets}
+        mtd_map = {mr.get("campaign", {}).get("name"): mr for mr in rows_mtd}
         for row in rows_today:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
             name = c.get("name", "Unknown")
-            cost_today = int(m.get("cost_micros", 0)) / 1_000_000
+            cost_today = micros_to_dollars(int(m.get("cost_micros", 0)))
             clicks = int(m.get("clicks", 0))
             conv = float(m.get("conversions", 0))
 
             # Find matching budget
             budget_daily = 0
-            for b in budgets:
-                if b.get("campaign", {}).get("name") == name:
-                    budget_daily = int(b.get("campaign_budget", {}).get("amount_micros", 0)) / 1_000_000
-                    break
+            b = budget_map.get(name)
+            if b:
+                budget_daily = micros_to_dollars(int(b.get("campaign_budget", {}).get("amount_micros", 0)))
 
             # Find MTD
             cost_mtd = 0
-            for mr in rows_mtd:
-                if mr.get("campaign", {}).get("name") == name:
-                    cost_mtd = int(mr.get("metrics", {}).get("cost_micros", 0)) / 1_000_000
-                    break
+            mr = mtd_map.get(name)
+            if mr:
+                cost_mtd = micros_to_dollars(int(mr.get("metrics", {}).get("cost_micros", 0)))
 
             budget_str = f" / {format_dollars(budget_daily)} budget" if budget_daily else ""
             print(f"    {name}:")
             print(f"      Today:  {format_dollars(cost_today)}{budget_str}  |  {clicks} clicks  |  {conv:.0f} conv")
             print(f"      MTD:    {format_dollars(cost_mtd)}")
 
-    except Exception as e:
+    except OSError as e:
         print(f"  Could not load campaign data: {e}")
+    except Exception as e:
+        from burnr8.logging import get_logger
+
+        get_logger().exception("Dashboard campaign data error: %s", e)
+        print(f"  Could not load campaign data: {e} (see ~/.burnr8/logs/burnr8.log)")
 
     print()
 

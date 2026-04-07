@@ -1,12 +1,16 @@
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import BaseModel, Field
 
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 class NegativeKeyword(BaseModel):
@@ -14,7 +18,7 @@ class NegativeKeyword(BaseModel):
     match_type: str = Field(default="BROAD", description="Match type: EXACT, PHRASE, or BROAD")
 
 
-def register(mcp):
+def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
     def list_negative_keywords(
@@ -27,17 +31,12 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """List negative keywords at campaign level, and optionally at ad group level."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+        if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
-        if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
-            return {"error": True, "message": err}
-        if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
+        if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
 
         client = get_client()
@@ -118,31 +117,9 @@ def register(mcp):
         # Combine into flat list with normalized schema (all rows get all 8 keys)
         all_negatives = []
         for item in campaign_negatives:
-            all_negatives.append(
-                {
-                    "criterion_id": item["criterion_id"],
-                    "text": item["text"],
-                    "match_type": item["match_type"],
-                    "campaign_id": item["campaign_id"],
-                    "campaign_name": item["campaign_name"],
-                    "ad_group_id": None,
-                    "ad_group_name": None,
-                    "level": item["level"],
-                }
-            )
+            all_negatives.append({**item, "ad_group_id": None, "ad_group_name": None})
         for item in ad_group_negatives:
-            all_negatives.append(
-                {
-                    "criterion_id": item["criterion_id"],
-                    "text": item["text"],
-                    "match_type": item["match_type"],
-                    "campaign_id": item.get("campaign_id"),
-                    "campaign_name": item.get("campaign_name"),
-                    "ad_group_id": item.get("ad_group_id"),
-                    "ad_group_name": item.get("ad_group_name"),
-                    "level": item["level"],
-                }
-            )
+            all_negatives.append(item)
         report = save_report(all_negatives, "negative_keywords")
         if report.get("error"):
             return report
@@ -179,20 +156,21 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Add one or more negative keywords at campaign level via CampaignCriterionService."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
         client = get_client()
         campaign_criterion_service = client.get_service("CampaignCriterionService")
         campaign_service = client.get_service("CampaignService")
+
+        match_map = {
+            "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
+            "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
+            "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
+        }
 
         operations = []
         for kw in keywords:
@@ -201,11 +179,6 @@ def register(mcp):
             criterion.campaign = campaign_service.campaign_path(customer_id, campaign_id)
             criterion.negative = True
 
-            match_map = {
-                "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
-                "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
-                "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
-            }
             criterion.keyword.text = kw.text
             criterion.keyword.match_type = match_map.get(
                 kw.match_type.upper(),
@@ -232,20 +205,21 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Add one or more negative keywords at ad group level via AdGroupCriterionService."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
 
         client = get_client()
         ad_group_criterion_service = client.get_service("AdGroupCriterionService")
         ad_group_service = client.get_service("AdGroupService")
+
+        match_map = {
+            "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
+            "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
+            "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
+        }
 
         operations = []
         for kw in keywords:
@@ -254,11 +228,6 @@ def register(mcp):
             criterion.ad_group = ad_group_service.ad_group_path(customer_id, ad_group_id)
             criterion.negative = True
 
-            match_map = {
-                "EXACT": client.enums.KeywordMatchTypeEnum.EXACT,
-                "PHRASE": client.enums.KeywordMatchTypeEnum.PHRASE,
-                "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
-            }
             criterion.keyword.text = kw.text
             criterion.keyword.match_type = match_map.get(
                 kw.match_type.upper(),
@@ -289,12 +258,9 @@ def register(mcp):
         ] = None,
     ) -> dict:
         """Remove a negative keyword. Provide campaign_id for campaign-level or ad_group_id for ad-group-level. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
@@ -302,9 +268,6 @@ def register(mcp):
                 "level": "CAMPAIGN" if campaign_id else "AD_GROUP" if ad_group_id else "UNKNOWN",
                 "message": f"This will remove negative keyword criterion {criterion_id}. Set confirm=true to execute.",
             }
-
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
             return {"error": True, "message": err}
 

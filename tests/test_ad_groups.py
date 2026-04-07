@@ -198,6 +198,7 @@ class TestCreateAdGroup:
 
     def test_create_with_tracking_url_template(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
         fn = _register_tool("create_ad_group")
         result = fn(
             campaign_id="222",
@@ -207,6 +208,38 @@ class TestCreateAdGroup:
         )
         assert "error" not in result
         assert result["name"] == "Tracked Group"
+        # Verify proto fields were actually set
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.create.tracking_url_template == "{lpurl}?utm_source=google"
+            assert op.create.final_url_suffix == "utm_medium=cpc"
+
+    def test_create_with_url_custom_parameters(self, mock_ads_client):
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+        fn = _register_tool("create_ad_group")
+        result = fn(
+            campaign_id="222",
+            name="Custom Params Group",
+            url_custom_parameters={"season": "winter", "promo": "sale"},
+        )
+        assert "error" not in result
+        assert result["url_custom_parameters"] == {"season": "winter", "promo": "sale"}
+        # Verify url_custom_parameters list was populated with 2 items (real list from conftest)
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert len(op.create.url_custom_parameters) == 2
+            for param in op.create.url_custom_parameters:
+                assert hasattr(param, "key")
+                assert hasattr(param, "value")
 
 
 # ---------------------------------------------------------------------------
@@ -284,27 +317,81 @@ class TestUpdateAdGroup:
 
     def test_update_tracking_url_template(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
         fn = _register_tool("update_ad_group")
         result = fn(ad_group_id="333", tracking_url_template="{lpurl}?src=google")
         assert "tracking_url_template" in result["updated_fields"]
+        # Verify proto field was set
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.update.tracking_url_template == "{lpurl}?src=google"
+            assert "tracking_url_template" in op.update_mask.paths
 
     def test_update_final_url_suffix(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
         fn = _register_tool("update_ad_group")
         result = fn(ad_group_id="333", final_url_suffix="utm_source=google")
         assert "final_url_suffix" in result["updated_fields"]
+        # Verify proto field was set
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.update.final_url_suffix == "utm_source=google"
+            assert "final_url_suffix" in op.update_mask.paths
 
     def test_clear_tracking_url_template(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
         fn = _register_tool("update_ad_group")
         result = fn(ad_group_id="333", tracking_url_template="")
         assert "tracking_url_template" in result["updated_fields"]
+        # Verify proto was set to empty string (clear)
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert op.update.tracking_url_template == ""
+            assert "tracking_url_template" in op.update_mask.paths
 
     def test_update_url_custom_parameters(self, mock_ads_client):
         set_active_account("1234567890")
+        client = mock_ads_client["client"]
         fn = _register_tool("update_ad_group")
         result = fn(ad_group_id="333", url_custom_parameters={"season": "winter"})
         assert "url_custom_parameters" in result["updated_fields"]
+        # Verify field mask
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert "url_custom_parameters" in op.update_mask.paths
+
+    def test_clear_url_custom_parameters(self, mock_ads_client):
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+        fn = _register_tool("update_ad_group")
+        result = fn(ad_group_id="333", url_custom_parameters={})
+        assert "url_custom_parameters" in result["updated_fields"]
+        # Verify field mask is set (clearing means field mask present with no params appended)
+        call_args = client.get_service("AdGroupService").mutate_ad_groups.call_args
+        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operation and not isinstance(operation, list):
+            operation = [operation]
+        if operation:
+            op = operation[0]
+            assert "url_custom_parameters" in op.update_mask.paths
 
     def test_uses_field_mask(self, mock_ads_client):
         set_active_account("1234567890")

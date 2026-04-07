@@ -65,11 +65,20 @@ class MockGoogleAdsClient:
             mock.update_mask.paths = []
             mock.update = MagicMock(name=f"Type:{name}.update")
 
+        # CampaignOperation needs real list for url_custom_parameters
+        if name == "CampaignOperation":
+            mock.create.url_custom_parameters = []
+
+        # AdGroupOperation needs real list for url_custom_parameters
+        if name == "AdGroupOperation":
+            mock.create.url_custom_parameters = []
+
         # AdGroupAdOperation needs real lists for append-based RSA fields
         if name == "AdGroupAdOperation":
             mock.create.ad.final_urls = []
             mock.create.ad.responsive_search_ad.headlines = []
             mock.create.ad.responsive_search_ad.descriptions = []
+            mock.create.ad.url_custom_parameters = []
 
         # AssetOperation needs real lists for sitelink/snippet fields
         if name == "AssetOperation":

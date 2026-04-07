@@ -1,5 +1,7 @@
 """Tests for burnr8.tools.conversions — list/get with filters, new fields."""
 
+from unittest.mock import patch
+
 from burnr8.session import set_active_account
 from burnr8.tools.conversions import VALID_CONVERSION_CATEGORIES, VALID_CONVERSION_STATUSES
 
@@ -211,6 +213,24 @@ class TestListConversionActionsStatusFilter:
 
         assert isinstance(result, list)
 
+    def test_status_filter_gaql_where_clause(self, mock_ads_client):
+        """Verify the GAQL query contains the correct WHERE clause."""
+        set_active_account("1234567890")
+        queries = []
+
+        with patch("burnr8.tools.conversions.run_gaql") as mock_rg:
+            def _capture(_client, _cid, query, limit=0):
+                queries.append(query)
+                return [_conversion_action_row(status="ENABLED")]
+
+            mock_rg.side_effect = _capture
+
+            tool = _register_tool("list_conversion_actions")
+            tool(customer_id="1234567890", status="ENABLED")
+
+        assert len(queries) == 1
+        assert "conversion_action.status = 'ENABLED'" in queries[0]
+
 
 # ---------------------------------------------------------------------------
 # list_conversion_actions — category filter
@@ -268,6 +288,24 @@ class TestListConversionActionsCategoryFilter:
         assert isinstance(result, list)
         assert len(result) == 1
 
+    def test_category_filter_gaql_where_clause(self, mock_ads_client):
+        """Verify the GAQL query contains the correct WHERE clause."""
+        set_active_account("1234567890")
+        queries = []
+
+        with patch("burnr8.tools.conversions.run_gaql") as mock_rg:
+            def _capture(_client, _cid, query, limit=0):
+                queries.append(query)
+                return [_conversion_action_row(category="PURCHASE")]
+
+            mock_rg.side_effect = _capture
+
+            tool = _register_tool("list_conversion_actions")
+            tool(customer_id="1234567890", category="PURCHASE")
+
+        assert len(queries) == 1
+        assert "conversion_action.category = 'PURCHASE'" in queries[0]
+
     def test_combined_status_and_category_filter(self, mock_ads_client):
         set_active_account("1234567890")
         mock_ads_client["set_gaql"](
@@ -283,6 +321,26 @@ class TestListConversionActionsCategoryFilter:
 
         assert isinstance(result, list)
         assert len(result) == 1
+
+    def test_combined_filter_gaql_where_clause(self, mock_ads_client):
+        """Verify combined filters produce correct GAQL with AND."""
+        set_active_account("1234567890")
+        queries = []
+
+        with patch("burnr8.tools.conversions.run_gaql") as mock_rg:
+            def _capture(_client, _cid, query, limit=0):
+                queries.append(query)
+                return [_conversion_action_row(status="ENABLED", category="LEAD")]
+
+            mock_rg.side_effect = _capture
+
+            tool = _register_tool("list_conversion_actions")
+            tool(customer_id="1234567890", status="ENABLED", category="LEAD")
+
+        assert len(queries) == 1
+        assert "conversion_action.status = 'ENABLED'" in queries[0]
+        assert "conversion_action.category = 'LEAD'" in queries[0]
+        assert " AND " in queries[0]
 
 
 # ---------------------------------------------------------------------------

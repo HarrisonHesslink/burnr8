@@ -311,6 +311,22 @@ class TestListCustomConversionGoals:
 
 
 class TestSetCampaignConversionGoal:
+    def _get_custom_goal_op(self, mock_ads_client):
+        svc = mock_ads_client["client"].get_service("CustomConversionGoalService")
+        call_args = svc.mutate_custom_conversion_goals.call_args
+        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if ops and not isinstance(ops, list):
+            ops = [ops]
+        return ops[0]
+
+    def _get_config_op(self, mock_ads_client):
+        svc = mock_ads_client["client"].get_service("ConversionGoalCampaignConfigService")
+        call_args = svc.mutate_conversion_goal_campaign_configs.call_args
+        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if ops and not isinstance(ops, list):
+            ops = [ops]
+        return ops[0]
+
     def test_returns_resolved_actions(self, mock_ads_client):
         set_active_account("1234567890")
         mock_ads_client["set_gaql"](
@@ -332,6 +348,37 @@ class TestSetCampaignConversionGoal:
         assert result["conversion_actions"] == [{"id": "700", "name": "Purchase"}]
         assert result["goal_config_level"] == "CAMPAIGN"
         assert "conversion_action_ids" not in result
+
+    def test_proto_custom_goal_fields(self, mock_ads_client):
+        """Verify the proto sent to CustomConversionGoalService."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {"FROM conversion_action": [{"conversion_action": {"id": "700", "name": "Purchase"}}]}
+        )
+
+        tool = _register_tool("set_campaign_conversion_goal")
+        tool(campaign_id="222", conversion_action_ids=["700"], customer_id="1234567890")
+
+        op = self._get_custom_goal_op(mock_ads_client)
+        assert op.create.name == "Campaign 222 Goal"
+        assert op.create.status == "ENABLED"
+        # conversion_actions is a real list (from conftest); verify resource name appended
+        assert len(op.create.conversion_actions) == 1
+
+    def test_proto_config_fields(self, mock_ads_client):
+        """Verify the proto sent to ConversionGoalCampaignConfigService."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {"FROM conversion_action": [{"conversion_action": {"id": "700", "name": "Purchase"}}]}
+        )
+
+        tool = _register_tool("set_campaign_conversion_goal")
+        tool(campaign_id="222", conversion_action_ids=["700"], customer_id="1234567890")
+
+        op = self._get_config_op(mock_ads_client)
+        assert op.update.goal_config_level == "CAMPAIGN"
+        assert "goal_config_level" in op.update_mask.paths
+        assert "custom_conversion_goal" in op.update_mask.paths
 
     def test_resolution_failure_returns_null_names(self, mock_ads_client):
         set_active_account("1234567890")

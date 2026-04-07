@@ -37,10 +37,10 @@ def test_log_tool_call_increments_ops():
             patch("burnr8.logging._logger", None),
             patch("burnr8.logging._usage_cache", None),
         ):
-            from burnr8.logging import _flush_usage, _load_usage, log_tool_call
+            from burnr8.logging import _load_usage, flush, log_tool_call
 
             log_tool_call("test_tool", "123456", 0.5, "ok")
-            _flush_usage()
+            flush()
             data = _load_usage()
             assert data["ops"] >= 1
 
@@ -55,10 +55,10 @@ def test_log_tool_call_tracks_errors():
             patch("burnr8.logging.USAGE_FILE", usage_file),
             patch("burnr8.logging._logger", None),
         ):
-            from burnr8.logging import _flush_usage, _load_usage, log_tool_call
+            from burnr8.logging import _load_usage, flush, log_tool_call
 
             log_tool_call("fail_tool", "123456", 0.5, "error", 'msg="test"')
-            _flush_usage()
+            flush()
             data = _load_usage()
             assert data["errors"] >= 1
 
@@ -119,14 +119,14 @@ def test_log_tool_call_keeps_last_50_calls():
             patch("burnr8.logging._logger", None),
         ):
             import burnr8.logging as _logging_mod
-            from burnr8.logging import _flush_usage, _load_usage, log_tool_call
+            from burnr8.logging import _load_usage, flush, log_tool_call
 
             _logging_mod._usage_cache = None
             _logging_mod._usage_dirty = False
             _logging_mod._last_save = 0.0
             for i in range(60):
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
-            _flush_usage()
+            flush()
             _logging_mod._usage_cache = None  # force re-read from disk
             data = _load_usage()
             assert len(data["calls"]) == 50
@@ -143,14 +143,14 @@ def test_get_usage_stats_recent_calls_limited_to_10():
             patch("burnr8.logging._logger", None),
         ):
             import burnr8.logging as _logging_mod
-            from burnr8.logging import _flush_usage, get_usage_stats, log_tool_call
+            from burnr8.logging import flush, get_usage_stats, log_tool_call
 
             _logging_mod._usage_cache = None
             _logging_mod._usage_dirty = False
             _logging_mod._last_save = 0.0
             for i in range(20):
                 log_tool_call(f"tool_{i}", "123456", 0.1, "ok")
-            _flush_usage()
+            flush()
             stats = get_usage_stats()
             assert len(stats["recent_calls"]) == 10
 
@@ -420,6 +420,108 @@ def test_json_formatter_in_cloud_mode():
     parsed = json.loads(output)
     assert parsed["level"] == "INFO"
     assert "tool=test" in parsed["msg"]
+
+
+def test_flush_drains_cloud_queue_and_clears_globals():
+    """flush() should send sentinel, join the worker, and clear globals."""
+    import queue
+    import threading
+
+    sentinel_received = threading.Event()
+    q = queue.Queue(maxsize=100)
+
+    def mock_worker():
+        item = q.get()
+        if item is None:
+            q.task_done()
+            sentinel_received.set()
+
+    w = threading.Thread(target=mock_worker, daemon=True)
+    w.start()
+
+    import burnr8.logging as _logging_mod
+
+    _logging_mod._cloud_queue = q
+    _logging_mod._cloud_worker = w
+    _logging_mod.flush()
+
+    assert sentinel_received.is_set()
+    assert _logging_mod._cloud_queue is None
+    assert _logging_mod._cloud_worker is None
+
+
+def test_flush_is_idempotent():
+    """flush() called twice: first drains, second is a no-op."""
+    import queue
+    import threading
+
+    sentinel_received = threading.Event()
+    q = queue.Queue(maxsize=100)
+
+    def mock_worker():
+        item = q.get()
+        if item is None:
+            q.task_done()
+            sentinel_received.set()
+
+    w = threading.Thread(target=mock_worker, daemon=True)
+    w.start()
+
+    import burnr8.logging as _logging_mod
+
+    _logging_mod._cloud_queue = q
+    _logging_mod._cloud_worker = w
+    _logging_mod.flush()  # drains worker
+    _logging_mod.flush()  # no-op, should not raise
+
+    assert sentinel_received.is_set()
+    assert _logging_mod._cloud_queue is None
+    assert _logging_mod._cloud_worker is None
+
+
+def test_flush_noop_when_no_cloud_queue():
+    """flush() should be a no-op when cloud queue was never initialized."""
+    import burnr8.logging as _logging_mod
+
+    _logging_mod._cloud_queue = None
+    _logging_mod._cloud_worker = None
+    _logging_mod.flush()  # should not raise
+
+
+def test_flush_handles_join_timeout():
+    """When the worker doesn't exit within timeout, flush() logs a warning."""
+    import queue
+    import threading
+    from unittest.mock import MagicMock
+
+    q = queue.Queue(maxsize=100)
+    w = MagicMock(spec=threading.Thread)
+    w.is_alive.return_value = True  # stays alive even after join
+    w.join.return_value = None
+
+    import burnr8.logging as _logging_mod
+
+    _logging_mod._cloud_queue = q
+    _logging_mod._cloud_worker = w
+
+    with patch.object(_logging_mod, "get_logger") as mock_get_logger:
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+        _logging_mod.flush()
+        mock_logger.warning.assert_called()
+        assert "did not exit" in mock_logger.warning.call_args[0][0]
+
+    w.join.assert_called_once_with(timeout=5)
+    # Globals should still be cleared so _enqueue_cloud_log can reinitialize
+    assert _logging_mod._cloud_queue is None
+    assert _logging_mod._cloud_worker is None
+
+
+def test_flush_exported_in_all():
+    """flush must be in __all__ so it's part of the public API."""
+    from burnr8.logging import __all__
+
+    assert "flush" in __all__
 
 
 def test_usage_stats_includes_log_level():

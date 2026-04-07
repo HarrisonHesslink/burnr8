@@ -33,7 +33,7 @@ correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cor
 # If using a thread pool, use contextvars.copy_context().run() to propagate.
 cloud_user_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cloud_user_id", default=None)
 
-__all__ = ["log_tool_call", "get_usage_stats", "get_recent_errors", "new_correlation_id", "get_correlation_id", "cloud_user_id"]
+__all__ = ["log_tool_call", "get_usage_stats", "get_recent_errors", "new_correlation_id", "get_correlation_id", "cloud_user_id", "flush"]
 
 # Bounded queue for cloud log writes — single worker thread, max 100 pending items.
 # Items beyond the limit are silently dropped (backpressure).
@@ -141,7 +141,38 @@ def _flush_usage() -> None:
         _last_save = time.monotonic()
 
 
-atexit.register(_flush_usage)
+def flush() -> None:
+    """Flush all pending log data before shutdown.
+
+    Writes dirty usage counters to disk, then sends a stop sentinel to
+    the cloud log worker thread (if running) and waits up to 5 seconds
+    for it to drain pending items.  Safe to call multiple times.
+    """
+    _flush_usage()
+
+    global _cloud_queue, _cloud_worker
+    with _cloud_init_lock:
+        q = _cloud_queue
+        w = _cloud_worker
+        if q is None or w is None or not w.is_alive():
+            return
+        # Detach globals before releasing the lock so _enqueue_cloud_log
+        # will create a fresh queue rather than writing to the dying one.
+        _cloud_queue = None
+        _cloud_worker = None
+
+    # Outside the lock: drain and join.
+    try:
+        q.put(None, timeout=2)  # sentinel — tells worker to exit
+    except queue.Full:
+        get_logger().warning("cloud log queue full — pending rows will be lost")
+        return
+    w.join(timeout=5)
+    if w.is_alive():
+        get_logger().warning("cloud log worker did not exit within 5s")
+
+
+atexit.register(flush)
 
 
 def log_tool_call(tool_name: str, customer_id: str | None, duration: float, status: str, detail: str = "") -> None:
@@ -225,8 +256,10 @@ def _enqueue_cloud_log(row: dict) -> None:
                 _cloud_worker = threading.Thread(target=_cloud_log_worker, daemon=True)
                 _cloud_worker.start()
 
-    with contextlib.suppress(queue.Full):
-        _cloud_queue.put_nowait(row)
+    q = _cloud_queue  # local snapshot — immune to flush() nulling the global
+    if q is not None:
+        with contextlib.suppress(queue.Full):
+            q.put_nowait(row)
 
 
 def _cloud_log_worker() -> None:
@@ -235,6 +268,7 @@ def _cloud_log_worker() -> None:
     while True:
         row = _cloud_queue.get()
         if row is None:
+            _cloud_queue.task_done()  # type: ignore[union-attr]
             break
         _write_cloud_log(row)
         _cloud_queue.task_done()

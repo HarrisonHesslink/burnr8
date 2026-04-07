@@ -65,6 +65,7 @@ src/burnr8/
 - **Full audit**: Use `quick_audit` or `/project:audit` — pulls all data in one call
 - **Fix wasted spend**: Use `cleanup_wasted_spend` then `add_negative_keywords`
 - **Launch campaign**: Use `launch_campaign` — creates budget + campaign + ad group + keywords + RSA
+- **Set up tracking**: Use `update_campaign` with `tracking_url_template`, `final_url_suffix`, and `url_custom_parameters`. Inherits: account → campaign → ad group → ad → keyword. Check `get_account_info` for account-level defaults.
 - **Competitive analysis**: Use `get_competitive_metrics` for impression share, or `/project:competitors`
 - **Check usage**: Use `get_api_usage` — shows ops count and version
 
@@ -85,6 +86,8 @@ src/burnr8/
 - **`search_term_view` can't join `ad_group_criterion`**: These resources are incompatible in GAQL SELECT.
 - **`conversion_action.tag_snippets` is not GAQL-selectable**: Don't include it in queries.
 - **`end_hour=24` is valid**: Google Ads API uses 24 to mean end of day / midnight.
+- **`tracking_url_template`**: Supported on campaigns, ad groups, ads, and keywords (read-only for keywords). Pass empty string `''` to clear in update operations. ValueTrack parameters like `{lpurl}`, `{campaignid}` are validated server-side by Google.
+- **`url_custom_parameters`**: Accepted as `dict[str, str]` (e.g. `{"season": "winter"}`), converted to `CustomParameter` proto objects. Pass empty dict `{}` to clear in update operations. Keys map to `{_key}` tags in tracking URL templates.
 
 ## Bidding Strategies
 

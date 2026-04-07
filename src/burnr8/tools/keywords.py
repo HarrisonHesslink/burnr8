@@ -42,6 +42,9 @@ def register(mcp: FastMCP) -> None:
                 ad_group_criterion.status,
                 ad_group_criterion.cpc_bid_micros,
                 ad_group_criterion.quality_info.quality_score,
+                ad_group_criterion.tracking_url_template,
+                ad_group_criterion.final_url_suffix,
+                ad_group_criterion.url_custom_parameters,
                 ad_group.id,
                 ad_group.name,
                 campaign.id,
@@ -76,6 +79,11 @@ def register(mcp: FastMCP) -> None:
                     "status": cr.get("status"),
                     "cpc_bid_dollars": micros_to_dollars(int(cr.get("cpc_bid_micros", 0))),
                     "quality_score": qi.get("quality_score"),
+                    "tracking_url_template": cr.get("tracking_url_template"),
+                    "final_url_suffix": cr.get("final_url_suffix"),
+                    "url_custom_parameters": {
+                        p["key"]: p["value"] for p in cr.get("url_custom_parameters", []) if "key" in p
+                    } or None,
                     "ad_group_id": ag.get("id"),
                     "ad_group_name": ag.get("name"),
                     "campaign_id": c.get("id"),

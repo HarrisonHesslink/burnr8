@@ -80,6 +80,8 @@ def register(mcp: FastMCP) -> None:
                 campaign.status,
                 campaign.advertising_channel_type,
                 campaign.bidding_strategy_type,
+                campaign.tracking_url_template,
+                campaign.final_url_suffix,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
@@ -202,6 +204,8 @@ def register(mcp: FastMCP) -> None:
                     "status": c.get("status"),
                     "channel_type": c.get("advertising_channel_type"),
                     "bidding_strategy": c.get("bidding_strategy_type"),
+                    "tracking_url_template": c.get("tracking_url_template"),
+                    "final_url_suffix": c.get("final_url_suffix"),
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "cost_dollars": micros_to_dollars(cost_micros),
@@ -315,6 +319,12 @@ def register(mcp: FastMCP) -> None:
         avg_cpa = (total_spend_dollars / total_conversions) if total_conversions > 0 else None
         avg_qs = (sum(quality_scores) / len(quality_scores)) if quality_scores else None
 
+        # Tracking URL stats
+        enabled_campaigns = [c for c in campaigns if c.get("status") == "ENABLED"]
+        campaigns_without_tracking = [
+            c["name"] for c in enabled_campaigns if not c.get("tracking_url_template")
+        ]
+
         # Save each section to CSV
         files = {}
         campaigns_report = save_report(campaigns, "audit-campaigns", top_n=5)
@@ -370,6 +380,7 @@ def register(mcp: FastMCP) -> None:
                 "negative_keyword_count": negative_keyword_count,
                 "conversion_action_count": len(conversion_actions),
                 "budget_count": len(budgets),
+                "campaigns_without_tracking": campaigns_without_tracking or None,
             },
             "top_campaigns": campaigns_report.get("top", []),
             "top_keywords": keywords_report.get("top", []),
@@ -397,6 +408,18 @@ def register(mcp: FastMCP) -> None:
         eu_political_ads: Annotated[
             bool, Field(description="Set to true if this campaign contains EU political advertising")
         ] = False,
+        tracking_url_template: Annotated[
+            str | None,
+            Field(description="URL template for tracking applied at campaign level, e.g. '{lpurl}?utm_source=google'"),
+        ] = None,
+        final_url_suffix: Annotated[
+            str | None,
+            Field(description="Suffix appended to final URLs at campaign level"),
+        ] = None,
+        url_custom_parameters: Annotated[
+            dict[str, str] | None,
+            Field(description="Custom parameters for tracking URL substitution at campaign level"),
+        ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -430,6 +453,9 @@ def register(mcp: FastMCP) -> None:
                 cpc_bid,
                 ad_group_name,
                 eu_political_ads,
+                tracking_url_template,
+                final_url_suffix,
+                url_custom_parameters,
                 created,
             )
         except Exception as ex:
@@ -588,6 +614,9 @@ def _execute_launch(
     cpc_bid: float,
     ad_group_name: str,
     eu_political_ads: bool,
+    tracking_url_template: str | None,
+    final_url_suffix: str | None,
+    url_custom_parameters: dict[str, str] | None,
     created: dict,
 ) -> dict:
     # 1. Create budget
@@ -625,6 +654,17 @@ def _execute_launch(
         campaign.contains_eu_political_advertising = (
             client.enums.EuPoliticalAdvertisingStatusEnum.DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING
         )
+
+    if tracking_url_template is not None:
+        campaign.tracking_url_template = tracking_url_template
+    if final_url_suffix is not None:
+        campaign.final_url_suffix = final_url_suffix
+    if url_custom_parameters is not None:
+        for key, value in url_custom_parameters.items():
+            param = client.get_type("CustomParameter")
+            param.key = key
+            param.value = value
+            campaign.url_custom_parameters.append(param)
 
     campaign_response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[campaign_op])
     campaign_resource_name = campaign_response.results[0].resource_name
@@ -698,6 +738,9 @@ def _execute_launch(
             "id": campaign_id,
             "resource_name": campaign_resource_name,
             "name": campaign_name,
+            **({"tracking_url_template": tracking_url_template} if tracking_url_template is not None else {}),
+            **({"final_url_suffix": final_url_suffix} if final_url_suffix is not None else {}),
+            **({"url_custom_parameters": url_custom_parameters} if url_custom_parameters is not None else {}),
         },
         "ad_group": {
             "id": ad_group_id,

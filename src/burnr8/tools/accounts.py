@@ -114,7 +114,9 @@ def register(mcp: FastMCP) -> None:
                 customer.time_zone,
                 customer.status,
                 customer.manager,
-                customer.test_account
+                customer.test_account,
+                customer.tracking_url_template,
+                customer.final_url_suffix
             FROM customer
             LIMIT 1
         """

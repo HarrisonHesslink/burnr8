@@ -408,67 +408,99 @@ def test_json_formatter_in_cloud_mode():
     assert "tool=test" in parsed["msg"]
 
 
-def test_flush_is_idempotent():
-    """flush() should be safe to call multiple times without error."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_dir = Path(tmpdir)
-        usage_file = log_dir / "usage.json"
-        with (
-            patch("burnr8.logging.LOG_DIR", log_dir),
-            patch("burnr8.logging.USAGE_FILE", usage_file),
-            patch("burnr8.logging._logger", None),
-            patch("burnr8.logging._usage_cache", None),
-        ):
-            from burnr8.logging import flush, log_tool_call
-
-            log_tool_call("test_tool", "123456", 0.5, "ok")
-            flush()
-            flush()  # second call should be a no-op, not raise
-
-
-def test_flush_drains_cloud_queue():
-    """flush() should send sentinel and join the cloud worker thread."""
+def test_flush_drains_cloud_queue_and_clears_globals():
+    """flush() should send sentinel, join the worker, and clear globals."""
     import queue
     import threading
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        log_dir = Path(tmpdir)
-        usage_file = log_dir / "usage.json"
+    sentinel_received = threading.Event()
+    q = queue.Queue(maxsize=100)
 
-        # Test with a live worker that reads the sentinel
-        sentinel_received = threading.Event()
-        q = queue.Queue(maxsize=100)
+    def mock_worker():
+        item = q.get()
+        if item is None:
+            q.task_done()
+            sentinel_received.set()
 
-        def mock_worker():
-            item = q.get()
-            if item is None:
-                sentinel_received.set()
+    w = threading.Thread(target=mock_worker, daemon=True)
+    w.start()
 
-        w = threading.Thread(target=mock_worker, daemon=True)
-        w.start()
+    import burnr8.logging as _logging_mod
 
-        with (
-            patch("burnr8.logging.LOG_DIR", log_dir),
-            patch("burnr8.logging.USAGE_FILE", usage_file),
-            patch("burnr8.logging._cloud_queue", q),
-            patch("burnr8.logging._cloud_worker", w),
-        ):
-            import burnr8.logging as _logging_mod
+    _logging_mod._cloud_queue = q
+    _logging_mod._cloud_worker = w
+    _logging_mod.flush()
 
-            _logging_mod.flush()
+    assert sentinel_received.is_set()
+    assert _logging_mod._cloud_queue is None
+    assert _logging_mod._cloud_worker is None
 
-        assert sentinel_received.is_set()
+
+def test_flush_is_idempotent():
+    """flush() called twice: first drains, second is a no-op."""
+    import queue
+    import threading
+
+    sentinel_received = threading.Event()
+    q = queue.Queue(maxsize=100)
+
+    def mock_worker():
+        item = q.get()
+        if item is None:
+            q.task_done()
+            sentinel_received.set()
+
+    w = threading.Thread(target=mock_worker, daemon=True)
+    w.start()
+
+    import burnr8.logging as _logging_mod
+
+    _logging_mod._cloud_queue = q
+    _logging_mod._cloud_worker = w
+    _logging_mod.flush()  # drains worker
+    _logging_mod.flush()  # no-op, should not raise
+
+    assert sentinel_received.is_set()
+    assert _logging_mod._cloud_queue is None
+    assert _logging_mod._cloud_worker is None
 
 
 def test_flush_noop_when_no_cloud_queue():
     """flush() should be a no-op when cloud queue was never initialized."""
-    with (
-        patch("burnr8.logging._cloud_queue", None),
-        patch("burnr8.logging._cloud_worker", None),
-    ):
-        from burnr8.logging import flush
+    import burnr8.logging as _logging_mod
 
-        flush()  # should not raise
+    _logging_mod._cloud_queue = None
+    _logging_mod._cloud_worker = None
+    _logging_mod.flush()  # should not raise
+
+
+def test_flush_handles_join_timeout():
+    """When the worker doesn't exit within timeout, flush() logs a warning."""
+    import queue
+    import threading
+    from unittest.mock import MagicMock
+
+    q = queue.Queue(maxsize=100)
+    w = MagicMock(spec=threading.Thread)
+    w.is_alive.return_value = True  # stays alive even after join
+    w.join.return_value = None
+
+    import burnr8.logging as _logging_mod
+
+    _logging_mod._cloud_queue = q
+    _logging_mod._cloud_worker = w
+
+    with patch.object(_logging_mod, "get_logger") as mock_get_logger:
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+        _logging_mod.flush()
+        mock_logger.warning.assert_called()
+        assert "did not exit" in mock_logger.warning.call_args[0][0]
+
+    w.join.assert_called_once_with(timeout=5)
+    # Globals should still be cleared so _enqueue_cloud_log can reinitialize
+    assert _logging_mod._cloud_queue is None
+    assert _logging_mod._cloud_worker is None
 
 
 def test_flush_exported_in_all():

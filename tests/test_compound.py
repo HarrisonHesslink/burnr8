@@ -430,6 +430,173 @@ class TestLaunchCampaign:
 
 
 # ---------------------------------------------------------------------------
+# launch_campaign — bidding strategies, negative keywords, locations
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchBiddingStrategies:
+    def test_launch_default_manual_cpc(self, mock_ads_client):
+        """Default bidding strategy is MANUAL_CPC — existing behavior preserved."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Default Strategy",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["status"] == "PAUSED"
+        assert result["campaign"]["bidding_strategy"] == "MANUAL_CPC"
+
+    def test_launch_with_maximize_conversions(self, mock_ads_client):
+        """MAXIMIZE_CONVERSIONS strategy is accepted without error."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Max Conv Campaign",
+            daily_budget_dollars=100.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="MAXIMIZE_CONVERSIONS",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["campaign"]["bidding_strategy"] == "MAXIMIZE_CONVERSIONS"
+
+    def test_launch_with_target_cpa(self, mock_ads_client):
+        """TARGET_CPA with target_cpa_dollars flows through without error."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Target CPA Campaign",
+            daily_budget_dollars=75.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="TARGET_CPA",
+            target_cpa_dollars=15.0,
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["campaign"]["bidding_strategy"] == "TARGET_CPA"
+
+    def test_launch_with_invalid_strategy(self, mock_ads_client):
+        """Invalid bidding strategy returns a validation error."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Bad Strategy",
+            daily_budget_dollars=50.0,
+            keywords=["test"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="INVALID_STRATEGY",
+            customer_id="1234567890",
+        )
+
+        assert result["error"] is True
+        assert "Invalid bidding_strategy" in result["message"]
+
+
+class TestLaunchNegativeKeywords:
+    def test_launch_with_negative_keywords(self, mock_ads_client):
+        """Negative keywords are added as PHRASE match campaign-level negatives."""
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="With Negatives",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            negative_keywords=["free", "cheap"],
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "negative_keywords" in result
+        assert result["negative_keywords"]["added"] == 1  # mock returns 1 result
+        assert result["negative_keywords"]["match_type"] == "PHRASE"
+
+        # CampaignCriterionService should have been called for negatives
+        client.get_service("CampaignCriterionService").mutate_campaign_criteria.assert_called()
+
+    def test_launch_without_negative_keywords(self, mock_ads_client):
+        """When no negative keywords are provided, response omits the section."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="No Negatives",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "negative_keywords" not in result
+
+
+class TestLaunchLocationTargeting:
+    def test_launch_with_location_ids(self, mock_ads_client):
+        """Location IDs are added as campaign criteria."""
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="With Locations",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            location_ids=["2840"],
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "locations" in result
+        assert result["locations"]["added"] == 1
+        assert result["locations"]["location_ids"] == ["2840"]
+
+        client.get_service("CampaignCriterionService").mutate_campaign_criteria.assert_called()
+
+    def test_launch_without_location_ids(self, mock_ads_client):
+        """When no location IDs are provided, response omits the section."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="No Locations",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "locations" not in result
+
+
+# ---------------------------------------------------------------------------
 # Missing account / validation tests
 # ---------------------------------------------------------------------------
 

@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
-from burnr8.session import resolve_customer_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 
 _CONVERSION_ACTION_QUERY = """
     SELECT
@@ -56,14 +55,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         client = get_client()
         query = _CONVERSION_ACTION_QUERY + " ORDER BY conversion_action.name"
         rows = run_gaql(client, customer_id, query)
@@ -96,14 +90,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get detailed info for a specific conversion action by ID."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_id(conversion_action_id, "conversion_action_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -152,14 +141,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new conversion action for tracking sign-ups, purchases, etc. Starts ENABLED by default."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
 
         type_upper = type.upper()  # noqa: A001 — shadows builtin but is the MCP API parameter name
         if type_upper not in VALID_CONVERSION_TYPES:
@@ -255,14 +239,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update a conversion action's name, value, status, or counting type."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_id(conversion_action_id, "conversion_action_id"):
             return {"error": True, "message": err}
 

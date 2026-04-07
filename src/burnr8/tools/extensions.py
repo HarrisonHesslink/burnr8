@@ -9,9 +9,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 def register(mcp: FastMCP) -> None:
@@ -71,14 +70,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to campaigns and/or ad groups. Saves full results to CSV, returns summary + top rows."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -255,14 +249,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a sitelink extension asset and link it to a campaign or ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -324,14 +313,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a callout extension asset and link it to a campaign or ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -395,14 +379,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a structured snippet extension asset and link it to a campaign or ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -466,14 +445,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create an image extension asset from a URL and link it to a campaign or ad group. Image must be square (1:1 ratio), minimum 300x300 pixels."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -599,14 +573,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove an extension link from a campaign or ad group. Requires confirm=true for safety. This removes the link between the asset and the campaign/ad group, not the asset itself."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if not confirm:
             return {
                 "warning": True,

@@ -25,7 +25,7 @@ VALID_DATE_RANGES = {
 }
 _NUMERIC_RE = re.compile(r"^\d+$")
 
-__all__ = ["run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range"]
+__all__ = ["run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range", "require_customer_id"]
 
 
 def validate_id(value: str, name: str) -> str | None:
@@ -33,6 +33,27 @@ def validate_id(value: str, name: str) -> str | None:
     if not _NUMERIC_RE.match(value):
         return f"{name} must be numeric, got: {value}"
     return None
+
+
+def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
+    """Resolve and validate customer_id in one step.
+
+    Returns ``(customer_id, None)`` on success, or ``("", error_dict)`` on
+    failure.  Combines :func:`~burnr8.session.resolve_customer_id` and
+    :func:`validate_id` so callers don't need to repeat the same 5-line
+    guard block.
+    """
+    from burnr8.session import resolve_customer_id
+
+    customer_id = resolve_customer_id(customer_id)
+    if not customer_id:
+        return "", {
+            "error": True,
+            "message": "No customer_id provided and no active account set. Call set_active_account first.",
+        }
+    if err := validate_id(customer_id, "customer_id"):
+        return "", {"error": True, "message": err}
+    return customer_id, None
 
 
 def validate_status(value: str) -> str | None:

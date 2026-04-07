@@ -9,9 +9,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import micros_to_dollars, run_gaql, validate_date_range, validate_id
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 def register(mcp: FastMCP) -> None:
@@ -39,14 +38,9 @@ def register(mcp: FastMCP) -> None:
         - search_rank_lost_impression_share: % of impressions lost due to ad rank (QS + bid)
         - search_exact_match_impression_share: impression share for exact match queries
         """
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -168,14 +162,9 @@ def register(mcp: FastMCP) -> None:
         doesn't have access, this tool returns an error with a suggestion to use
         get_competitive_metrics instead (which works for all accounts).
         """
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):

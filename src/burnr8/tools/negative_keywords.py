@@ -9,9 +9,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 class NegativeKeyword(BaseModel):
@@ -32,14 +31,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """List negative keywords at campaign level, and optionally at ad group level."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -162,14 +156,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add one or more negative keywords at campaign level via CampaignCriterionService."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -216,14 +205,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add one or more negative keywords at ad group level via AdGroupCriterionService."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
 
@@ -274,12 +258,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove a negative keyword. Provide campaign_id for campaign-level or ad_group_id for ad-group-level. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if not confirm:
             return {
                 "warning": True,
@@ -287,9 +268,6 @@ def register(mcp: FastMCP) -> None:
                 "level": "CAMPAIGN" if campaign_id else "AD_GROUP" if ad_group_id else "UNKNOWN",
                 "message": f"This will remove negative keyword criterion {criterion_id}. Set confirm=true to execute.",
             }
-
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
             return {"error": True, "message": err}
 

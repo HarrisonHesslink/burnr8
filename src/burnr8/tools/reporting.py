@@ -9,9 +9,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import micros_to_dollars, run_gaql, validate_date_range, validate_id
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_date_range, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 def register(mcp: FastMCP) -> None:
@@ -25,14 +24,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Execute a raw GAQL query. Saves full results to CSV. WARNING: limit=0 fetches all rows — use with caution on large accounts."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         client = get_client()
         rows = run_gaql(client, customer_id, query, limit=limit)
         return save_report(rows, "gaql_query")
@@ -49,14 +43,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get campaign performance metrics. Saves full report to CSV, returns summary + top rows."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -128,14 +117,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get ad group level performance metrics. Saves full report to CSV, returns summary + top rows."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -204,14 +188,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get keyword spending performance — cost, clicks, CTR, CPC, conversions over a date range. Filter by campaign."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):
@@ -291,14 +270,9 @@ def register(mcp: FastMCP) -> None:
 
         Note: Top rows returned inline may contain actual user search queries,
         which can include personally identifiable information (PII). Handle with care."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id and (err := validate_id(campaign_id, "campaign_id")):

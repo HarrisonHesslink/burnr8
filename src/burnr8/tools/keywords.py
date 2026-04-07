@@ -9,9 +9,8 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import micros_to_dollars, run_gaql, validate_id
+from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
-from burnr8.session import resolve_customer_id
 
 
 class KeywordInput(BaseModel):
@@ -29,14 +28,9 @@ def register(mcp: FastMCP) -> None:
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List keyword inventory — what keywords exist, their config, bids, match types, and quality scores. Filter by ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if ad_group_id and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
         client = get_client()
@@ -118,14 +112,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add one or more keywords to an ad group."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -170,12 +159,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove a keyword from an ad group. Requires confirm=true."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if not confirm:
             return {
                 "warning": True,
@@ -184,9 +170,6 @@ def register(mcp: FastMCP) -> None:
                 "message": f"This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
                 f"Set confirm=true to execute.",
             }
-
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -213,16 +196,11 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get keyword ideas with search volume, competition, and CPC estimates. Saves full report to CSV, returns summary + top rows + file path."""
-        customer_id = resolve_customer_id(customer_id)
-        if not customer_id:
-            return {
-                "error": True,
-                "message": "No customer_id provided and no active account set. Call set_active_account first.",
-            }
+        customer_id, err = require_customer_id(customer_id)
+        if err:
+            return err
         if geo_target_ids is None:
             geo_target_ids = ["2840"]
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
         client = get_client()
         keyword_plan_idea_service = client.get_service("KeywordPlanIdeaService")
         keyword_plan_network = client.enums.KeywordPlanNetworkEnum.GOOGLE_SEARCH

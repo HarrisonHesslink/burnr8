@@ -21,7 +21,11 @@ _CONVERSION_ACTION_QUERY = """
         conversion_action.counting_type,
         conversion_action.value_settings.default_value,
         conversion_action.value_settings.always_use_default_value,
-        conversion_action.attribution_model_settings.attribution_model
+        conversion_action.attribution_model_settings.attribution_model,
+        conversion_action.most_recent_conversion_date_time,
+        conversion_action.click_through_lookback_window_days,
+        conversion_action.view_through_lookback_window_days,
+        conversion_action.include_in_conversions_metric
     FROM conversion_action
 """
 
@@ -53,13 +57,37 @@ def register(mcp: FastMCP) -> None:
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        status: Annotated[str | None, Field(description="Filter by status: ENABLED, REMOVED, HIDDEN")] = None,
+        category: Annotated[str | None, Field(description="Filter by category: PURCHASE, LEAD, SIGNUP, etc.")] = None,
     ) -> list[dict] | dict:
-        """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
+        """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model, lookback windows, include_in_conversions)."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
+
+        where_clauses: list[str] = []
+        if status is not None:
+            status_upper = status.upper()
+            if status_upper not in VALID_CONVERSION_STATUSES:
+                return {
+                    "error": True,
+                    "message": f"Invalid status '{status}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_STATUSES))}",
+                }
+            where_clauses.append(f"conversion_action.status = '{status_upper}'")
+        if category is not None:
+            category_upper = category.upper()
+            if category_upper not in VALID_CONVERSION_CATEGORIES:
+                return {
+                    "error": True,
+                    "message": f"Invalid category '{category}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_CATEGORIES))}",
+                }
+            where_clauses.append(f"conversion_action.category = '{category_upper}'")
+
         client = get_client()
-        query = _CONVERSION_ACTION_QUERY + " ORDER BY conversion_action.name"
+        query = _CONVERSION_ACTION_QUERY
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+        query += " ORDER BY conversion_action.name"
         rows = run_gaql(client, customer_id, query)
         results = []
         for row in rows:
@@ -77,6 +105,10 @@ def register(mcp: FastMCP) -> None:
                     "default_value": vs.get("default_value"),
                     "always_use_default_value": vs.get("always_use_default_value"),
                     "attribution_model": am.get("attribution_model"),
+                    "most_recent_conversion": ca.get("most_recent_conversion_date_time"),
+                    "click_lookback_days": ca.get("click_through_lookback_window_days"),
+                    "view_lookback_days": ca.get("view_through_lookback_window_days"),
+                    "include_in_conversions": ca.get("include_in_conversions_metric"),
                 }
             )
         return results
@@ -113,6 +145,10 @@ def register(mcp: FastMCP) -> None:
                 "default_value": vs.get("default_value"),
                 "always_use_default_value": vs.get("always_use_default_value"),
                 "attribution_model": am.get("attribution_model"),
+                "most_recent_conversion": ca.get("most_recent_conversion_date_time"),
+                "click_lookback_days": ca.get("click_through_lookback_window_days"),
+                "view_lookback_days": ca.get("view_through_lookback_window_days"),
+                "include_in_conversions": ca.get("include_in_conversions_metric"),
             }
         return {"error": True, "message": "Conversion action not found"}
 

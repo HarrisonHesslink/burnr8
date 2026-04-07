@@ -14,6 +14,7 @@ from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_date_range
 from burnr8.reports import save_report
+from burnr8.tools.campaigns import VALID_BIDDING_STRATEGIES, _apply_bidding_strategy
 
 # Keywords that suggest informational/free intent (for cleanup_wasted_spend)
 _INFORMATIONAL_SIGNALS = [
@@ -405,6 +406,31 @@ def register(mcp: FastMCP) -> None:
         final_url: Annotated[str, Field(description="Landing page URL for the ad")],
         cpc_bid: Annotated[float, Field(description="Default CPC bid in dollars")] = 1.0,
         ad_group_name: Annotated[str, Field(description="Name for the ad group")] = "Ad Group 1",
+        bidding_strategy: Annotated[
+            str,
+            Field(
+                description="Bidding strategy: MANUAL_CPC, MANUAL_CPM, MAXIMIZE_CLICKS, MAXIMIZE_CONVERSIONS, MAXIMIZE_CONVERSION_VALUE, TARGET_CPA, TARGET_ROAS, TARGET_IMPRESSION_SHARE, TARGET_SPEND"
+            ),
+        ] = "MANUAL_CPC",
+        target_cpa_dollars: Annotated[
+            float | None, Field(description="Target CPA in dollars (for TARGET_CPA or MAXIMIZE_CONVERSIONS)")
+        ] = None,
+        target_roas: Annotated[
+            float | None,
+            Field(description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)"),
+        ] = None,
+        max_cpc_bid_ceiling_dollars: Annotated[
+            float | None,
+            Field(description="Max CPC bid ceiling in dollars (for MAXIMIZE_CLICKS or TARGET_IMPRESSION_SHARE)"),
+        ] = None,
+        negative_keywords: Annotated[
+            list[str] | None,
+            Field(description="Optional list of negative keyword texts to add as PHRASE match campaign-level negatives"),
+        ] = None,
+        location_ids: Annotated[
+            list[str] | None,
+            Field(description="Geo target constant IDs, e.g. ['2840'] for US"),
+        ] = None,
         eu_political_ads: Annotated[
             bool, Field(description="Set to true if this campaign contains EU political advertising")
         ] = False,
@@ -424,7 +450,7 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> dict:
-        """Create a complete campaign setup in one call: budget, campaign (PAUSED, SEARCH, MANUAL_CPC), ad group, keywords (Broad match), and a responsive search ad."""
+        """Create a complete campaign setup in one call: budget, campaign (PAUSED, SEARCH), ad group, keywords (Broad match), and a responsive search ad. Supports all bidding strategies, optional negative keywords, and location targeting."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -437,8 +463,15 @@ def register(mcp: FastMCP) -> None:
         if not keywords:
             return {"error": True, "message": "keywords list cannot be empty"}
 
+        strategy = bidding_strategy.upper()
+        if strategy not in VALID_BIDDING_STRATEGIES:
+            return {
+                "error": True,
+                "message": f"Invalid bidding_strategy '{bidding_strategy}'. Must be one of: {', '.join(sorted(VALID_BIDDING_STRATEGIES))}",
+            }
+
         client = get_client()
-        created = {"budget": None, "campaign": None, "ad_group": None, "keywords": None, "ad": None}
+        created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}
 
         try:
             return _execute_launch(
@@ -452,6 +485,12 @@ def register(mcp: FastMCP) -> None:
                 final_url,
                 cpc_bid,
                 ad_group_name,
+                strategy,
+                target_cpa_dollars,
+                target_roas,
+                max_cpc_bid_ceiling_dollars,
+                negative_keywords,
+                location_ids,
                 eu_political_ads,
                 tracking_url_template,
                 final_url_suffix,
@@ -613,6 +652,12 @@ def _execute_launch(
     final_url: str,
     cpc_bid: float,
     ad_group_name: str,
+    bidding_strategy: str,
+    target_cpa_dollars: float | None,
+    target_roas: float | None,
+    max_cpc_bid_ceiling_dollars: float | None,
+    negative_keywords: list[str] | None,
+    location_ids: list[str] | None,
     eu_political_ads: bool,
     tracking_url_template: str | None,
     final_url_suffix: str | None,
@@ -633,7 +678,7 @@ def _execute_launch(
     budget_id = budget_resource_name.split("/")[-1]
     created["budget"] = budget_resource_name
 
-    # 2. Create campaign (PAUSED, SEARCH, MANUAL_CPC)
+    # 2. Create campaign (PAUSED, SEARCH)
     campaign_service = client.get_service("CampaignService")
     campaign_op = client.get_type("CampaignOperation")
     campaign = campaign_op.create
@@ -641,7 +686,12 @@ def _execute_launch(
     campaign.status = client.enums.CampaignStatusEnum.PAUSED
     campaign.campaign_budget = budget_resource_name
     campaign.advertising_channel_type = client.enums.AdvertisingChannelTypeEnum.SEARCH
-    campaign.manual_cpc = client.get_type("ManualCpc")
+    _apply_bidding_strategy(
+        client, campaign, bidding_strategy,
+        target_cpa_dollars=target_cpa_dollars,
+        target_roas=target_roas,
+        max_cpc_bid_ceiling_dollars=max_cpc_bid_ceiling_dollars,
+    )
     campaign.network_settings.target_google_search = True
     campaign.network_settings.target_search_network = True
     campaign.network_settings.target_content_network = False
@@ -670,6 +720,40 @@ def _execute_launch(
     campaign_resource_name = campaign_response.results[0].resource_name
     campaign_id = campaign_resource_name.split("/")[-1]
     created["campaign"] = campaign_resource_name
+
+    # 2b. Add negative keywords (PHRASE match, campaign-level)
+    neg_response = None
+    if negative_keywords:
+        campaign_criterion_service = client.get_service("CampaignCriterionService")
+        neg_ops = []
+        for neg_text in negative_keywords:
+            neg_op = client.get_type("CampaignCriterionOperation")
+            criterion = neg_op.create
+            criterion.campaign = campaign_resource_name
+            criterion.negative = True
+            criterion.keyword.text = neg_text
+            criterion.keyword.match_type = client.enums.KeywordMatchTypeEnum.PHRASE
+            neg_ops.append(neg_op)
+        neg_response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=customer_id, operations=neg_ops
+        )
+        created["negative_keywords"] = [r.resource_name for r in neg_response.results]
+
+    # 2c. Add location targets
+    loc_response = None
+    if location_ids:
+        campaign_criterion_service = client.get_service("CampaignCriterionService")
+        loc_ops = []
+        for loc_id in location_ids:
+            loc_op = client.get_type("CampaignCriterionOperation")
+            criterion = loc_op.create
+            criterion.campaign = campaign_resource_name
+            criterion.location.geo_target_constant = f"geoTargetConstants/{loc_id}"
+            loc_ops.append(loc_op)
+        loc_response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=customer_id, operations=loc_ops
+        )
+        created["locations"] = [r.resource_name for r in loc_response.results]
 
     # 3. Create ad group
     ad_group_service = client.get_service("AdGroupService")
@@ -727,7 +811,7 @@ def _execute_launch(
     ad_resource_name = ad_response.results[0].resource_name
     created["ad"] = ad_resource_name
 
-    return {
+    result = {
         "status": "PAUSED",
         "budget": {
             "id": budget_id,
@@ -738,6 +822,7 @@ def _execute_launch(
             "id": campaign_id,
             "resource_name": campaign_resource_name,
             "name": campaign_name,
+            "bidding_strategy": bidding_strategy,
             **({"tracking_url_template": tracking_url_template} if tracking_url_template is not None else {}),
             **({"final_url_suffix": final_url_suffix} if final_url_suffix is not None else {}),
             **({"url_custom_parameters": url_custom_parameters} if url_custom_parameters is not None else {}),
@@ -760,3 +845,17 @@ def _execute_launch(
             "final_url": final_url,
         },
     }
+
+    if neg_response is not None:
+        result["negative_keywords"] = {
+            "added": len(neg_response.results),
+            "match_type": "PHRASE",
+        }
+
+    if loc_response is not None:
+        result["locations"] = {
+            "added": len(loc_response.results),
+            "location_ids": location_ids,
+        }
+
+    return result

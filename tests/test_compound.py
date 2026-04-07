@@ -428,6 +428,283 @@ class TestLaunchCampaign:
         assert created["campaign"] == "customers/1234567890/campaigns/222"
         assert "ad_group" not in created
 
+    def test_partial_failure_negative_keywords(self, mock_ads_client):
+        """When negative keyword creation fails, partial failure includes budget and campaign but not negative_keywords."""
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+        import grpc
+
+        rpc_error = grpc.RpcError()
+        rpc_error.code = lambda: grpc.StatusCode.INVALID_ARGUMENT
+        rpc_error.details = lambda: "Invalid negative keyword criteria"
+        client.get_service("CampaignCriterionService").mutate_campaign_criteria.side_effect = rpc_error
+
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Fail Negatives",
+            daily_budget_dollars=20.0,
+            keywords=["test"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            negative_keywords=["free", "cheap"],
+            customer_id="1234567890",
+        )
+
+        assert result["error"] is True
+        assert result["partial_failure"] is True
+        created = result["created_before_failure"]
+        assert created["budget"] == "customers/1234567890/campaignBudgets/111"
+        assert created["campaign"] == "customers/1234567890/campaigns/222"
+        assert "negative_keywords" not in created
+
+
+# ---------------------------------------------------------------------------
+# launch_campaign — bidding strategies, negative keywords, locations
+# ---------------------------------------------------------------------------
+
+
+class TestLaunchBiddingStrategies:
+    def _get_campaign_op(self, mock_ads_client):
+        """Extract the CampaignOperation from the mock CampaignService call_args."""
+        svc = mock_ads_client["client"].get_service("CampaignService")
+        call_args = svc.mutate_campaigns.call_args
+        operations = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if operations and not isinstance(operations, list):
+            operations = [operations]
+        return operations[0]
+
+    def test_launch_default_manual_cpc(self, mock_ads_client):
+        """Default bidding strategy is MANUAL_CPC — existing behavior preserved."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Default Strategy",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["status"] == "PAUSED"
+        assert result["campaign"]["bidding_strategy"] == "MANUAL_CPC"
+        # Verify proto: manual_cpc was set
+        op = self._get_campaign_op(mock_ads_client)
+        assert hasattr(op.create, "manual_cpc")
+
+    def test_launch_with_maximize_conversions(self, mock_ads_client):
+        """MAXIMIZE_CONVERSIONS strategy is accepted and applied to proto."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Max Conv Campaign",
+            daily_budget_dollars=100.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="MAXIMIZE_CONVERSIONS",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["campaign"]["bidding_strategy"] == "MAXIMIZE_CONVERSIONS"
+        # Verify proto: maximize_conversions was set
+        op = self._get_campaign_op(mock_ads_client)
+        assert hasattr(op.create, "maximize_conversions")
+
+    def test_launch_with_target_cpa(self, mock_ads_client):
+        """TARGET_CPA with target_cpa_dollars flows through to proto."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Target CPA Campaign",
+            daily_budget_dollars=75.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="TARGET_CPA",
+            target_cpa_dollars=15.0,
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["campaign"]["bidding_strategy"] == "TARGET_CPA"
+        # Verify proto: target_cpa.target_cpa_micros was set
+        op = self._get_campaign_op(mock_ads_client)
+        assert op.create.target_cpa.target_cpa_micros == 15_000_000
+
+    def test_launch_with_invalid_strategy(self, mock_ads_client):
+        """Invalid bidding strategy returns a validation error."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Bad Strategy",
+            daily_budget_dollars=50.0,
+            keywords=["test"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="INVALID_STRATEGY",
+            customer_id="1234567890",
+        )
+
+        assert result["error"] is True
+        assert "Invalid bidding_strategy" in result["message"]
+
+    def test_launch_case_insensitive_strategy(self, mock_ads_client):
+        """Lowercase bidding strategy is accepted (upper-cased internally)."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Lowercase Strategy",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            bidding_strategy="maximize_conversions",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["campaign"]["bidding_strategy"] == "MAXIMIZE_CONVERSIONS"
+
+
+class TestLaunchNegativeKeywords:
+    def test_launch_with_negative_keywords(self, mock_ads_client):
+        """Negative keywords are added as PHRASE match campaign-level negatives."""
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="With Negatives",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            negative_keywords=["free", "cheap"],
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "negative_keywords" in result
+        assert result["negative_keywords"]["match_type"] == "PHRASE"
+
+        # Verify proto: 2 operations with negative=True and PHRASE match
+        svc = client.get_service("CampaignCriterionService")
+        call_args = svc.mutate_campaign_criteria.call_args
+        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if ops and not isinstance(ops, list):
+            ops = [ops]
+        assert len(ops) == 2
+        for op in ops:
+            assert op.create.negative is True
+            assert op.create.keyword.match_type == "PHRASE"
+        texts = {op.create.keyword.text for op in ops}
+        assert texts == {"free", "cheap"}
+
+    def test_launch_without_negative_keywords(self, mock_ads_client):
+        """When no negative keywords are provided, response omits the section."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="No Negatives",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "negative_keywords" not in result
+
+
+class TestLaunchLocationTargeting:
+    def test_launch_with_location_ids(self, mock_ads_client):
+        """Location IDs are added as campaign criteria with correct geo_target_constant."""
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="With Locations",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            location_ids=["2840"],
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "locations" in result
+        assert result["locations"]["location_ids"] == ["2840"]
+
+        # Verify proto: geo_target_constant set correctly
+        svc = client.get_service("CampaignCriterionService")
+        call_args = svc.mutate_campaign_criteria.call_args
+        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        if ops and not isinstance(ops, list):
+            ops = [ops]
+        assert len(ops) == 1
+        assert ops[0].create.location.geo_target_constant == "geoTargetConstants/2840"
+
+    def test_launch_without_location_ids(self, mock_ads_client):
+        """When no location IDs are provided, response omits the section."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="No Locations",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert "locations" not in result
+
+
+class TestLaunchCombinedOptions:
+    def test_launch_with_negatives_and_locations(self, mock_ads_client):
+        """Both negative keywords and location IDs can be set in the same launch."""
+        set_active_account("1234567890")
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Full Setup",
+            daily_budget_dollars=50.0,
+            keywords=["buy shoes"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            negative_keywords=["free"],
+            location_ids=["2840", "2826"],
+            bidding_strategy="MAXIMIZE_CONVERSIONS",
+            customer_id="1234567890",
+        )
+
+        assert "error" not in result, f"Unexpected error: {result}"
+        assert result["campaign"]["bidding_strategy"] == "MAXIMIZE_CONVERSIONS"
+        assert "negative_keywords" in result
+        assert "locations" in result
+        assert result["locations"]["location_ids"] == ["2840", "2826"]
+
+        # CampaignCriterionService should have been called twice (negatives + locations)
+        svc = mock_ads_client["client"].get_service("CampaignCriterionService")
+        assert svc.mutate_campaign_criteria.call_count == 2
+
 
 # ---------------------------------------------------------------------------
 # Missing account / validation tests

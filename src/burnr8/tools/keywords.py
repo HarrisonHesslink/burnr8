@@ -28,9 +28,9 @@ def register(mcp: FastMCP) -> None:
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List keyword inventory — what keywords exist, their config, bids, match types, and quality scores. Filter by ad group."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
         client = get_client()
@@ -112,9 +112,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add one or more keywords to an ad group."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -159,9 +159,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove a keyword from an ad group. Requires confirm=true."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
@@ -196,9 +196,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get keyword ideas with search volume, competition, and CPC estimates. Saves full report to CSV, returns summary + top rows + file path."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if geo_target_ids is None:
             geo_target_ids = ["2840"]
         client = get_client()

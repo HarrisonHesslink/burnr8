@@ -102,9 +102,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get account details including name, currency, timezone, and status."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT

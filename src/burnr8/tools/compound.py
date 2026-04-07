@@ -63,9 +63,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Pull all account data and return a formatted audit report in one call. Covers campaigns, keywords, ads, negatives, conversions, and budgets."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
 
@@ -402,9 +402,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a complete campaign setup in one call: budget, campaign (PAUSED, SEARCH, MANUAL_CPC), ad group, keywords (Broad match), and a responsive search ad."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
 
         # Validate inputs
         if len(headlines) < 3 or len(headlines) > 15:
@@ -476,9 +476,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Analyze keywords with spend but zero conversions and return actionable recommendations for reducing wasted ad spend."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
 

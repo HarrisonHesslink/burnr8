@@ -21,9 +21,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List all campaign budgets with spend data."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT
@@ -64,9 +64,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new daily campaign budget."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         budget_service = client.get_service("CampaignBudgetService")
 
@@ -96,9 +96,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update a campaign budget amount. Requires confirm=true."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
@@ -130,9 +130,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Find and remove orphan budgets (reference_count = 0). Requires confirm=true."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT

@@ -31,9 +31,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """List negative keywords at campaign level, and optionally at ad group level."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -156,9 +156,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add one or more negative keywords at campaign level via CampaignCriterionService."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -205,9 +205,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add one or more negative keywords at ad group level via AdGroupCriterionService."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
 
@@ -258,9 +258,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove a negative keyword. Provide campaign_id for campaign-level or ad_group_id for ad-group-level. Requires confirm=true."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,

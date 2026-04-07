@@ -23,9 +23,9 @@ def register(mcp: FastMCP) -> None:
         ad_group_id: Annotated[str | None, Field(description="Filter by ad group ID")] = None,
     ) -> dict:
         """List ads with approval status and performance metrics. Saves full results to CSV, returns summary + top rows."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
             return {"error": True, "message": err}
         client = get_client()
@@ -119,9 +119,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a responsive search ad in an ad group."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -169,9 +169,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Enable, pause, or remove an ad. Requires confirm=true for safety."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:

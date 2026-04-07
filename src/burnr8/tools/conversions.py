@@ -55,9 +55,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List all conversion actions with their settings (name, type, category, status, counting type, value settings, attribution model)."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = _CONVERSION_ACTION_QUERY + " ORDER BY conversion_action.name"
         rows = run_gaql(client, customer_id, query)
@@ -90,9 +90,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get detailed info for a specific conversion action by ID."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(conversion_action_id, "conversion_action_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -141,9 +141,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new conversion action for tracking sign-ups, purchases, etc. Starts ENABLED by default."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
 
         type_upper = type.upper()  # noqa: A001 — shadows builtin but is the MCP API parameter name
         if type_upper not in VALID_CONVERSION_TYPES:
@@ -239,9 +239,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update a conversion action's name, value, status, or counting type."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(conversion_action_id, "conversion_action_id"):
             return {"error": True, "message": err}
 

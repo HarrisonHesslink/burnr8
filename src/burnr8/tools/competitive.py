@@ -38,9 +38,9 @@ def register(mcp: FastMCP) -> None:
         - search_rank_lost_impression_share: % of impressions lost due to ad rank (QS + bid)
         - search_exact_match_impression_share: impression share for exact match queries
         """
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -162,9 +162,9 @@ def register(mcp: FastMCP) -> None:
         doesn't have access, this tool returns an error with a suggestion to use
         get_competitive_metrics instead (which works for all accounts).
         """
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if err := validate_id(campaign_id, "campaign_id"):

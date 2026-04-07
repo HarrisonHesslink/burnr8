@@ -35,9 +35,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Pause a specific keyword by criterion ID."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -73,9 +73,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set a bid adjustment for a device type on a campaign. Creates the device criterion if it doesn't exist (common with Smart Bidding strategies)."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if device_type.upper() not in VALID_DEVICE_TYPES:
@@ -151,9 +151,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List current device bid adjustments for a campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -203,9 +203,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set an ad schedule (dayparting) for a campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if day_of_week.upper() not in VALID_DAYS_OF_WEEK:
@@ -263,9 +263,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List current ad schedules (dayparting) for a campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -317,9 +317,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove an ad schedule criterion from a campaign. Requires confirm=true."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
@@ -350,9 +350,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> list[dict] | dict:
         """List location targets (geo targets) for a campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -408,9 +408,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Add a location target (or exclusion) to a campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(geo_target_id, "geo_target_id"):
@@ -447,9 +447,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove a location target from a campaign. Requires confirm=true."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,
@@ -479,9 +479,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get the location targeting presence setting for a campaign (Presence vs Presence or Interest)."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
@@ -525,9 +525,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Set the location targeting presence mode for a campaign. PRESENCE is recommended — it targets people physically in your locations, not just searching about them."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if positive_type.upper() not in VALID_PRESENCE_TYPES:

@@ -24,9 +24,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Execute a raw GAQL query. Saves full results to CSV. WARNING: limit=0 fetches all rows — use with caution on large accounts."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         rows = run_gaql(client, customer_id, query, limit=limit)
         return save_report(rows, "gaql_query")
@@ -43,9 +43,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get campaign performance metrics. Saves full report to CSV, returns summary + top rows."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -117,9 +117,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get ad group level performance metrics. Saves full report to CSV, returns summary + top rows."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -188,9 +188,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get keyword spending performance — cost, clicks, CTR, CPC, conversions over a date range. Filter by campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -270,9 +270,9 @@ def register(mcp: FastMCP) -> None:
 
         Note: Top rows returned inline may contain actual user search queries,
         which can include personally identifiable information (PII). Handle with care."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_date_range(date_range):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):

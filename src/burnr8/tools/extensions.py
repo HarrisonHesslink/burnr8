@@ -70,9 +70,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to campaigns and/or ad groups. Saves full results to CSV, returns summary + top rows."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         if ad_group_id is not None and (err := validate_id(ad_group_id, "ad_group_id")):
@@ -249,9 +249,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a sitelink extension asset and link it to a campaign or ad group."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -313,9 +313,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a callout extension asset and link it to a campaign or ad group."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -379,9 +379,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a structured snippet extension asset and link it to a campaign or ad group."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -445,9 +445,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create an image extension asset from a URL and link it to a campaign or ad group. Image must be square (1:1 ratio), minimum 300x300 pixels."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := _validate_link_target(campaign_id, ad_group_id):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
@@ -573,9 +573,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Remove an extension link from a campaign or ad group. Requires confirm=true for safety. This removes the link between the asset and the campaign/ad group, not the asset itself."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if not confirm:
             return {
                 "warning": True,

@@ -135,9 +135,9 @@ def register(mcp: FastMCP) -> None:
         status: Annotated[str | None, Field(description="Filter by status: ENABLED, PAUSED, or REMOVED")] = None,
     ) -> list[dict] | dict:
         """List all campaigns for a customer, optionally filtered by status."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         client = get_client()
         query = """
             SELECT
@@ -186,9 +186,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Get full details for a specific campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -272,9 +272,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new campaign. Always starts PAUSED for safety. Supports all Google Ads bidding strategies."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(budget_id, "budget_id"):
             return {"error": True, "message": err}
 
@@ -376,9 +376,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update a campaign's name, budget, bidding strategy, or network settings."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -457,9 +457,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Enable, pause, or remove a campaign. Requires confirm=true for safety."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_status(status):
             return {"error": True, "message": err}
         if not confirm:

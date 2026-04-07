@@ -29,9 +29,9 @@ def register(mcp: FastMCP) -> None:
         campaign_id: Annotated[str | None, Field(description="Filter by campaign ID")] = None,
     ) -> list[dict] | dict:
         """List ad groups, optionally filtered by campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
         client = get_client()
@@ -85,9 +85,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Create a new ad group in a campaign."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         client = get_client()
@@ -120,9 +120,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
     ) -> dict:
         """Update an ad group's name, bid, or status."""
-        customer_id, err = require_customer_id(customer_id)
-        if err:
-            return err
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         client = get_client()

@@ -46,6 +46,23 @@ VALID_CONVERSION_CATEGORIES = {
     "ADD_TO_CART",
     "BEGIN_CHECKOUT",
 }
+
+# Broader set for list filtering — Google Ads returns many more categories
+# than what we expose for creation (above).
+_ALL_CONVERSION_CATEGORIES = VALID_CONVERSION_CATEGORIES | {
+    "CONTACT",
+    "BOOK_APPOINTMENT",
+    "REQUEST_QUOTE",
+    "GET_DIRECTIONS",
+    "SUBMIT_LEAD_FORM",
+    "SUBSCRIBE_PAID",
+    "PHONE_CALL_LEAD",
+    "IMPORTED_LEAD",
+    "CONVERTED_LEAD",
+    "QUALIFIED_LEAD",
+    "STORE_SALE",
+    "STORE_VISIT",
+}
 VALID_COUNTING_TYPES = {"ONE_PER_CLICK", "MANY_PER_CLICK"}
 VALID_CONVERSION_STATUSES = {"ENABLED", "REMOVED", "HIDDEN"}
 
@@ -76,10 +93,10 @@ def register(mcp: FastMCP) -> None:
             where_clauses.append(f"conversion_action.status = '{status_upper}'")
         if category is not None:
             category_upper = category.upper()
-            if category_upper not in VALID_CONVERSION_CATEGORIES:
+            if category_upper not in _ALL_CONVERSION_CATEGORIES:
                 return {
                     "error": True,
-                    "message": f"Invalid category '{category}'. Must be one of: {', '.join(sorted(VALID_CONVERSION_CATEGORIES))}",
+                    "message": f"Invalid category '{category}'. Must be one of: {', '.join(sorted(_ALL_CONVERSION_CATEGORIES))}",
                 }
             where_clauses.append(f"conversion_action.category = '{category_upper}'")
 

@@ -255,6 +255,19 @@ class TestListConversionActionsCategoryFilter:
 
         assert isinstance(result, list)
 
+    def test_filter_by_extended_category(self, mock_ads_client):
+        """Categories like CONTACT exist in Google Ads but not in the create-only set."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {"FROM conversion_action": [_conversion_action_row(category="CONTACT")]}
+        )
+
+        tool = _register_tool("list_conversion_actions")
+        result = tool(customer_id="1234567890", category="CONTACT")
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+
     def test_combined_status_and_category_filter(self, mock_ads_client):
         set_active_account("1234567890")
         mock_ads_client["set_gaql"](

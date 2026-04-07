@@ -163,6 +163,16 @@ class TestListKeywords:
 # ---------------------------------------------------------------------------
 
 
+def _get_criterion_operation(mock_ads_client):
+    """Extract the AdGroupCriterionOperation from the mock mutate call_args."""
+    svc = mock_ads_client["client"].get_service("AdGroupCriterionService")
+    call_args = svc.mutate_ad_group_criteria.call_args
+    operations = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+    if operations and not isinstance(operations, list):
+        operations = [operations]
+    return operations[0]
+
+
 class TestUpdateKeyword:
     def test_update_cpc_bid(self, mock_ads_client):
         set_active_account("1234567890")
@@ -170,6 +180,10 @@ class TestUpdateKeyword:
         result = fn(criterion_id="444", ad_group_id="333", cpc_bid=3.00)
         assert "cpc_bid_micros" in result["updated_fields"]
         assert "resource_name" in result
+        # Verify proto assignment
+        op = _get_criterion_operation(mock_ads_client)
+        assert op.update.cpc_bid_micros == 3_000_000
+        assert "cpc_bid_micros" in op.update_mask.paths
 
     def test_update_final_url_suffix(self, mock_ads_client):
         set_active_account("1234567890")
@@ -180,6 +194,10 @@ class TestUpdateKeyword:
             final_url_suffix="utm_source=google",
         )
         assert "final_url_suffix" in result["updated_fields"]
+        # Verify proto assignment
+        op = _get_criterion_operation(mock_ads_client)
+        assert op.update.final_url_suffix == "utm_source=google"
+        assert "final_url_suffix" in op.update_mask.paths
 
     def test_update_multiple_fields(self, mock_ads_client):
         set_active_account("1234567890")
@@ -191,6 +209,11 @@ class TestUpdateKeyword:
             final_url_suffix="src=ads",
         )
         assert set(result["updated_fields"]) == {"cpc_bid_micros", "final_url_suffix"}
+        # Verify both proto fields
+        op = _get_criterion_operation(mock_ads_client)
+        assert op.update.cpc_bid_micros == 5_000_000
+        assert op.update.final_url_suffix == "src=ads"
+        assert set(op.update_mask.paths) == {"cpc_bid_micros", "final_url_suffix"}
 
     def test_no_fields_returns_error(self, mock_ads_client):
         set_active_account("1234567890")
@@ -203,8 +226,8 @@ class TestUpdateKeyword:
         set_active_account("1234567890")
         fn = _register_tool("update_keyword")
         fn(criterion_id="444", ad_group_id="333", cpc_bid=2.00)
-        svc = mock_ads_client["client"].get_service("AdGroupCriterionService")
-        svc.mutate_ad_group_criteria.assert_called_once()
+        op = _get_criterion_operation(mock_ads_client)
+        assert op.update_mask.paths == ["cpc_bid_micros"]
 
     def test_no_customer_id(self):
         fn = _register_tool("update_keyword")
@@ -222,6 +245,25 @@ class TestUpdateKeyword:
         fn = _register_tool("update_keyword")
         result = fn(criterion_id="bad-id", ad_group_id="333", cpc_bid=2.00)
         assert result["error"] is True
+
+    def test_update_cpc_bid_zero(self, mock_ads_client):
+        """cpc_bid=0.0 is valid — must not be skipped by falsy check."""
+        set_active_account("1234567890")
+        fn = _register_tool("update_keyword")
+        result = fn(criterion_id="444", ad_group_id="333", cpc_bid=0.0)
+        assert "cpc_bid_micros" in result["updated_fields"]
+        op = _get_criterion_operation(mock_ads_client)
+        assert op.update.cpc_bid_micros == 0
+
+    def test_clear_final_url_suffix(self, mock_ads_client):
+        """Empty string clears the field (per CLAUDE.md convention)."""
+        set_active_account("1234567890")
+        fn = _register_tool("update_keyword")
+        result = fn(criterion_id="444", ad_group_id="333", final_url_suffix="")
+        assert "final_url_suffix" in result["updated_fields"]
+        op = _get_criterion_operation(mock_ads_client)
+        assert op.update.final_url_suffix == ""
+        assert "final_url_suffix" in op.update_mask.paths
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +326,26 @@ class TestConflictDetection:
         assert conflict["negative_keyword"] == "running shoes"
         assert conflict["negative_level"] == "CAMPAIGN"
         assert result["summary"]["conflict_count"] == 1
+
+    def test_conflict_case_insensitive(self, mock_ads_client):
+        """Conflict detection is case-insensitive — 'Running Shoes' matches 'running shoes'."""
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign_criterion": [
+                    _campaign_neg_row(criterion_id="601", text="Running Shoes", match_type="EXACT"),
+                ],
+                "FROM keyword_view": [
+                    _keyword_row(text="running shoes", match_type="BROAD", campaign_id="222"),
+                ],
+            }
+        )
+
+        tool = _register_neg_tool("list_negative_keywords")
+        result = tool(customer_id="1234567890")
+
+        assert "conflicts" in result
+        assert len(result["conflicts"]) == 1
 
     def test_no_conflicts_when_no_overlap(self, mock_ads_client):
         """When positive and negative keywords don't share text, no conflicts are reported."""

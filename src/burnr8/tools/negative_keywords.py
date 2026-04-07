@@ -149,7 +149,7 @@ def register(mcp: FastMCP) -> None:
                 # Build negative lookup: (campaign_id, lowercase text) -> negative info
                 neg_lookup: dict[tuple[str, str], dict] = {}
                 for neg in all_negatives:
-                    key = (str(neg["campaign_id"]), neg["text"].lower())
+                    key = (str(neg["campaign_id"]), (neg["text"] or "").lower())
                     neg_lookup[key] = neg
 
                 for row in pos_rows:

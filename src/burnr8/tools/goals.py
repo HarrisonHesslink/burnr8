@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import require_customer_id, run_gaql, validate_id
+from burnr8.logging import get_logger
 
 VALID_CATEGORIES = {
     "DEFAULT",
@@ -44,6 +45,43 @@ VALID_ORIGINS = {
 }
 
 
+def _resolve_action_names(client: object, customer_id: str, action_ids: list[str]) -> dict[str, str]:
+    """Resolve conversion action IDs to names via a single GAQL query.
+
+    Returns a dict mapping action ID (str) -> action name (str).
+    """
+    if not action_ids:
+        return {}
+    # Guard against non-numeric IDs that would produce invalid GAQL
+    if not all(aid.isdigit() for aid in action_ids):
+        get_logger().warning("_resolve_action_names: non-numeric action IDs skipped: %s", action_ids)
+        return {}
+    id_list = ", ".join(action_ids)
+    query = f"""
+        SELECT conversion_action.id, conversion_action.name
+        FROM conversion_action
+        WHERE conversion_action.id IN ({id_list})
+    """
+    rows = run_gaql(client, customer_id, query)
+    result: dict[str, str] = {}
+    for row in rows:
+        ca = row.get("conversion_action", {})
+        aid = ca.get("id")
+        aname = ca.get("name")
+        if aid is not None:
+            result[str(aid)] = aname
+    return result
+
+
+def _extract_action_id(resource_name: str) -> str | None:
+    """Extract the action ID from a conversion action resource name.
+
+    E.g. 'customers/123/conversionActions/456' -> '456'
+    """
+    parts = resource_name.rsplit("/", 1)
+    return parts[-1] if len(parts) == 2 and parts[-1] else None
+
+
 def register(mcp: FastMCP) -> None:
     @mcp.tool
     @handle_google_ads_errors
@@ -52,7 +90,7 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> list[dict] | dict:
-        """List all customer conversion goals showing which are biddable (used by Smart Bidding)."""
+        """List all customer conversion goals showing which are biddable (used by Smart Bidding), with conversion actions grouped by category."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -65,14 +103,39 @@ def register(mcp: FastMCP) -> None:
             FROM customer_conversion_goal
         """
         rows = run_gaql(client, customer_id, query)
+
+        try:
+            action_query = """
+                SELECT
+                    conversion_action.id,
+                    conversion_action.name,
+                    conversion_action.category
+                FROM conversion_action
+                WHERE conversion_action.status = 'ENABLED'
+            """
+            action_rows = run_gaql(client, customer_id, action_query)
+            actions_by_category: dict[str, list[dict]] = {}
+            for arow in action_rows:
+                ca = arow.get("conversion_action", {})
+                cat = ca.get("category")
+                if cat:
+                    actions_by_category.setdefault(cat, []).append(
+                        {"id": str(ca.get("id")), "name": ca.get("name")}
+                    )
+        except Exception:
+            get_logger().warning("list_conversion_goals: action name resolution failed", exc_info=True)
+            actions_by_category = {}
+
         results = []
         for row in rows:
             g = row.get("customer_conversion_goal", {})
+            cat = g.get("category")
             results.append(
                 {
-                    "category": g.get("category"),
+                    "category": cat,
                     "origin": g.get("origin"),
                     "biddable": g.get("biddable"),
+                    "conversion_actions": actions_by_category.get(cat, []),
                 }
             )
         return results
@@ -204,11 +267,20 @@ def register(mcp: FastMCP) -> None:
         config_op.update_mask.paths.extend(["goal_config_level", "custom_conversion_goal"])
         config_service.mutate_conversion_goal_campaign_configs(customer_id=customer_id, operations=[config_op])
 
+        try:
+            name_map = _resolve_action_names(client, customer_id, list(conversion_action_ids))
+        except Exception:
+            get_logger().warning("set_campaign_conversion_goal: action name resolution failed", exc_info=True)
+            name_map = {}
+        resolved_actions = [
+            {"id": aid, "name": name_map.get(aid)} for aid in conversion_action_ids
+        ]
+
         return {
             "campaign_id": campaign_id,
             "custom_conversion_goal": custom_goal_resource,
             "goal_config_level": "CAMPAIGN",
-            "conversion_action_ids": conversion_action_ids,
+            "conversion_actions": resolved_actions,
         }
 
     @mcp.tool
@@ -218,7 +290,7 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> list[dict] | dict:
-        """List existing custom conversion goals."""
+        """List existing custom conversion goals with resolved conversion action names."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -233,15 +305,35 @@ def register(mcp: FastMCP) -> None:
             ORDER BY custom_conversion_goal.name
         """
         rows = run_gaql(client, customer_id, query)
+
+        all_action_ids: list[str] = []
+        for row in rows:
+            g = row.get("custom_conversion_goal", {})
+            for rn in g.get("conversion_actions", []):
+                aid = _extract_action_id(rn)
+                if aid is not None:
+                    all_action_ids.append(aid)
+
+        try:
+            unique_ids = list(set(all_action_ids))
+            name_map = _resolve_action_names(client, customer_id, unique_ids) if unique_ids else {}
+        except Exception:
+            get_logger().warning("list_custom_conversion_goals: action name resolution failed", exc_info=True)
+            name_map = {}
+
         results = []
         for row in rows:
             g = row.get("custom_conversion_goal", {})
+            resolved_actions = []
+            for rn in g.get("conversion_actions", []):
+                aid = _extract_action_id(rn)
+                resolved_actions.append({"id": aid, "name": name_map.get(aid)})
             results.append(
                 {
                     "id": g.get("id"),
                     "name": g.get("name"),
                     "status": g.get("status"),
-                    "conversion_actions": g.get("conversion_actions", []),
+                    "conversion_actions": resolved_actions,
                 }
             )
         return results

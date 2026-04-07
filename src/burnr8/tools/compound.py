@@ -471,7 +471,7 @@ def register(mcp: FastMCP) -> None:
             }
 
         client = get_client()
-        created = {"budget": None, "campaign": None, "ad_group": None, "keywords": None, "ad": None}
+        created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}
 
         try:
             return _execute_launch(

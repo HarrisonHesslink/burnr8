@@ -428,6 +428,36 @@ class TestLaunchCampaign:
         assert created["campaign"] == "customers/1234567890/campaigns/222"
         assert "ad_group" not in created
 
+    def test_partial_failure_negative_keywords(self, mock_ads_client):
+        """When negative keyword creation fails, partial failure includes budget and campaign but not negative_keywords."""
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+        import grpc
+
+        rpc_error = grpc.RpcError()
+        rpc_error.code = lambda: grpc.StatusCode.INVALID_ARGUMENT
+        rpc_error.details = lambda: "Invalid negative keyword criteria"
+        client.get_service("CampaignCriterionService").mutate_campaign_criteria.side_effect = rpc_error
+
+        tool = _register_tool("launch_campaign")
+        result = tool(
+            campaign_name="Fail Negatives",
+            daily_budget_dollars=20.0,
+            keywords=["test"],
+            headlines=["H1", "H2", "H3"],
+            descriptions=["D1", "D2"],
+            final_url="https://example.com",
+            negative_keywords=["free", "cheap"],
+            customer_id="1234567890",
+        )
+
+        assert result["error"] is True
+        assert result["partial_failure"] is True
+        created = result["created_before_failure"]
+        assert created["budget"] == "customers/1234567890/campaignBudgets/111"
+        assert created["campaign"] == "customers/1234567890/campaigns/222"
+        assert "negative_keywords" not in created
+
 
 # ---------------------------------------------------------------------------
 # launch_campaign — bidding strategies, negative keywords, locations

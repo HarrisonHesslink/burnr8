@@ -75,6 +75,12 @@ class TestValidateId:
 
     def test_zero_is_valid(self):
         assert validate_id("0", "id") is None
+    
+    def test_length_exceeds_limit(self):
+        long_id = "1" * 10  # 10 digits, exceeds typical length limits
+        err = validate_id(long_id, "customer_id")
+        assert err is not None
+        assert "customer_id" in err
 
 
 # ---------------------------------------------------------------------------

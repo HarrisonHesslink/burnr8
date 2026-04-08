@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_id
+from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_id, validate_name, validate_budget_amount, require_budget_id
 
 
 def register(mcp: FastMCP) -> None:
@@ -65,6 +65,13 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Create a new daily campaign budget."""
         customer_id, cid_err = require_customer_id(customer_id)
+
+        if err := validate_name(name):
+            return {"error": True, "message": err}
+
+        if err := validate_budget_amount(amount_dollars):
+            return {"error": True, "message": err}
+
         if cid_err:
             return cid_err
         client = get_client()
@@ -97,16 +104,23 @@ def register(mcp: FastMCP) -> None:
     ) -> dict:
         """Update a campaign budget amount. Requires confirm=true."""
         customer_id, cid_err = require_customer_id(customer_id)
+
         if cid_err:
             return cid_err
+
+        budget_id, cid_err = require_budget_id(budget_id)
+        if cid_err:
+            return cid_err
+
+        if err := validate_budget_amount(amount_dollars):
+            return {"error": True, "message": err}
+
         if not confirm:
             return {
                 "warning": True,
                 "message": f"This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
                 "Set confirm=true to execute.",
             }
-        if err := validate_id(budget_id, "budget_id"):
-            return {"error": True, "message": err}
         client = get_client()
         budget_service = client.get_service("CampaignBudgetService")
 

@@ -27,13 +27,40 @@ _NUMERIC_RE = re.compile(r"^\d+$")
 
 __all__ = ["run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range", "require_customer_id"]
 
-
+# Validate resource IDs: budgets, campaigns, ad groups, etc.
 def validate_id(value: str, name: str) -> str | None:
     """Return error message if value is not a numeric ID, else None."""
+    if value is None or value == "":
+        return f"{name} cannot be empty"
+    if not isinstance(value, str):
+        return f"{name} must be a string, got: {type(value).__name__}"
     if not _NUMERIC_RE.match(value):
         return f"{name} must be numeric, got: {value}"
     return None
 
+def validate_recent_errors_limit(value: int) -> str | None:
+    """Return error message if value is not a positive integer, else None."""
+    if not isinstance(value, int) or value <= 0:
+        return f"limit must be a positive integer, got: {value}"
+
+    if value > 5:
+        return f"limit must be 5 or less to prevent excessive memory usage, got: {value}"
+
+    return None
+
+def validate_budget_amount(amount: float) -> str | None:
+    """Return error message if amount is not a positive number, else None."""
+    if not isinstance(amount, (int, float)):
+        return f"Amount must be a number, got: {amount}"
+    if amount <= 0:
+        return f"Amount must be greater than zero, got: {amount}"
+    return None
+
+def require_budget_id(budget_id: str) -> tuple[str, dict | None]:
+    """Validate budget_id and return (budget_id, None) on success, or ("", error_dict) on failure."""
+    if err := validate_id(budget_id, "budget_id"):
+        return "", {"error": True, "message": err}
+    return budget_id, None
 
 def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
     """Resolve and validate customer_id in one step.
@@ -53,8 +80,27 @@ def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
         }
     if err := validate_id(customer_id, "customer_id"):
         return "", {"error": True, "message": err}
+
+    if len(customer_id) != 10:
+        return "", {"error": True, "message": f"customer_id digits must be 10 chars, got: {len(customer_id)}"}
+
     return customer_id, None
 
+def validate_name(value: str) -> str | None:
+    """Return error message if value is not a valid name, else None."""
+    if value is None:
+        return "Name cannot be null"
+    if value == "":
+        return "Name cannot be empty"
+    if not isinstance(value, str):
+        return "Name must be a string"
+    if not value or not value.strip():
+        return "Name cannot be empty"
+    if len(value) > 255:
+        return "Name cannot exceed 255 characters"
+    if re.match(r'^[\w\s\-.,&()!]+$', value):
+        return None
+    return "Name cannot contain special characters: <>:\"/\\|?*"
 
 def validate_status(value: str) -> str | None:
     if value.upper() not in VALID_STATUSES:

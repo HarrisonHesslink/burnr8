@@ -511,7 +511,7 @@ def register(mcp: FastMCP) -> None:
     @handle_google_ads_errors
     def set_campaign_status(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
-        status: Annotated[str, Field(description="New status: ENABLED, PAUSED, or REMOVED")],
+        status: Annotated[str, Field(description="New status: ENABLED or PAUSED")],
         confirm: Annotated[
             bool,
             Field(
@@ -522,12 +522,16 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> dict:
-        """Enable, pause, or remove a campaign. Requires confirm=true for safety."""
+        """Enable or pause a campaign. Requires confirm=true for safety."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if err := validate_status(status):
-            return {"error": True, "message": err}
+        _ALLOWED = {"ENABLED", "PAUSED"}
+        if status.upper() not in _ALLOWED:
+            msg = f"Invalid status '{status}'. Must be one of: {', '.join(sorted(_ALLOWED))}"
+            if status.upper() == "REMOVED":
+                msg += ". Use remove_campaign to permanently remove a campaign."
+            return {"error": True, "message": msg}
         if not confirm:
             return {
                 "warning": True,
@@ -548,10 +552,46 @@ def register(mcp: FastMCP) -> None:
         status_map = {
             "ENABLED": client.enums.CampaignStatusEnum.ENABLED,
             "PAUSED": client.enums.CampaignStatusEnum.PAUSED,
-            "REMOVED": client.enums.CampaignStatusEnum.REMOVED,
         }
         campaign.status = status_map[status.upper()]
         operation.update_mask.paths.append("status")
 
         response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
         return {"resource_name": response.results[0].resource_name, "new_status": status.upper()}
+
+    @mcp.tool
+    @handle_google_ads_errors
+    def remove_campaign(
+        campaign_id: Annotated[str, Field(description="Campaign ID to remove")],
+        confirm: Annotated[
+            bool,
+            Field(
+                description="Must be true to execute. This permanently removes the campaign."
+            ),
+        ] = False,
+        customer_id: Annotated[
+            str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
+        ] = None,
+    ) -> dict:
+        """Permanently remove a campaign. Internal use only (test cleanup). Requires confirm=true."""
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+        if err := validate_id(campaign_id, "campaign_id"):
+            return {"error": True, "message": err}
+        if not confirm:
+            return {
+                "warning": True,
+                "campaign_id": campaign_id,
+                "message": f"This will permanently remove campaign {campaign_id}. "
+                f"Set confirm=true to execute.",
+            }
+
+        client = get_client()
+        campaign_service = client.get_service("CampaignService")
+
+        op = client.get_type("CampaignOperation")
+        op.remove = campaign_service.campaign_path(customer_id, campaign_id)
+
+        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[op])
+        return {"resource_name": response.results[0].resource_name, "removed": True}

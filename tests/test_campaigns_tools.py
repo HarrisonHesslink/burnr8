@@ -736,7 +736,8 @@ class TestSetCampaignStatus:
         assert "error" not in result
         assert result["new_status"] == "PAUSED"
 
-    def test_remove_campaign(self, mock_ads_client):
+    def test_removed_status_rejected(self, mock_ads_client):
+        """REMOVED is not valid for set_campaign_status — use remove_campaign instead."""
         set_active_account("1234567890")
 
         tool = _register_tool("set_campaign_status")
@@ -747,8 +748,7 @@ class TestSetCampaignStatus:
             customer_id="1234567890",
         )
 
-        assert "error" not in result
-        assert result["new_status"] == "REMOVED"
+        assert result["error"] is True
 
     def test_invalid_status_returns_error(self, mock_ads_client):
         set_active_account("1234567890")
@@ -854,6 +854,58 @@ class TestInvalidCustomerId:
         tool = _register_tool("set_campaign_status")
         # require_customer_id now validates customer_id format for all tools
         result = tool(campaign_id="100", status="PAUSED", confirm=True, customer_id="abc-def")
+
+        assert result["error"] is True
+        assert "customer_id" in result["message"]
+
+
+# ---------------------------------------------------------------------------
+# remove_campaign (internal tool)
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveCampaign:
+    def test_confirm_gate(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("remove_campaign")
+        result = tool(campaign_id="100", customer_id="1234567890")
+
+        assert result["warning"] is True
+        assert "confirm" in result["message"].lower()
+
+    def test_removes_campaign(self, mock_ads_client):
+        set_active_account("1234567890")
+        client = mock_ads_client["client"]
+
+        tool = _register_tool("remove_campaign")
+        result = tool(campaign_id="100", confirm=True, customer_id="1234567890")
+
+        assert result["removed"] is True
+        assert "resource_name" in result
+        client.get_service("CampaignService").mutate_campaigns.assert_called_once()
+
+    def test_invalid_campaign_id(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("remove_campaign")
+        result = tool(campaign_id="abc", confirm=True, customer_id="1234567890")
+
+        assert result["error"] is True
+        assert "campaign_id" in result["message"]
+
+    def test_no_customer_id(self, mock_ads_client):
+        tool = _register_tool("remove_campaign")
+        result = tool(campaign_id="100", confirm=True)
+
+        assert result["error"] is True
+        assert "No customer_id" in result["message"]
+
+    def test_invalid_customer_id(self, mock_ads_client):
+        set_active_account("1234567890")
+
+        tool = _register_tool("remove_campaign")
+        result = tool(campaign_id="100", confirm=True, customer_id="abc-def")
 
         assert result["error"] is True
         assert "customer_id" in result["message"]

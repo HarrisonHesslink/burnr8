@@ -311,6 +311,17 @@ def _mock_save_report(rows, report_name, top_n=10):
 # Fixtures
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(scope="session")
+def test_customer_id():
+    """A valid customer ID for integration tests that make real API calls."""
+    return "INSERT_TEST_CUSTOMER_ID_HERE"
+
+@pytest.fixture(scope="session")
+def test_account_ads_client():
+    """A real GoogleAdsClient for integration tests that make real API calls."""
+    from burnr8.client import get_client
+
+    return get_client()
 
 @pytest.fixture()
 def mock_ads_client():

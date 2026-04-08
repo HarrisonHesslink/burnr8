@@ -18,6 +18,7 @@ from burnr8.helpers import (
     run_gaql,
     validate_id,
     validate_status,
+    validate_budget_amount
 )
 
 VALID_BIDDING_STRATEGIES = {
@@ -47,7 +48,7 @@ def _apply_bidding_strategy(
     paths = []
     if strategy == "MANUAL_CPC":
         campaign.manual_cpc = client.get_type("ManualCpc")
-        paths.append("manual_cpc")
+        paths.append("manual_cpc.enhanced_cpc_enabled")
     elif strategy == "MANUAL_CPM":
         campaign.manual_cpm = client.get_type("ManualCpm")
         paths.append("manual_cpm")
@@ -58,7 +59,7 @@ def _apply_bidding_strategy(
             ts.cpc_bid_ceiling_micros = dollars_to_micros(max_cpc_bid_ceiling_dollars)
             paths.append("target_spend.cpc_bid_ceiling_micros")
         else:
-            paths.append("target_spend")
+            paths.append("target_spend.cpc_bid_ceiling_micros")
         campaign.target_spend = ts
     elif strategy == "MAXIMIZE_CONVERSIONS":
         mc = client.get_type("MaximizeConversions")
@@ -66,7 +67,7 @@ def _apply_bidding_strategy(
             mc.target_cpa_micros = dollars_to_micros(target_cpa_dollars)
             paths.append("maximize_conversions.target_cpa_micros")
         else:
-            paths.append("maximize_conversions")
+            paths.append("maximize_conversions.target_cpa_micros")
         campaign.maximize_conversions = mc
     elif strategy == "MAXIMIZE_CONVERSION_VALUE":
         mcv = client.get_type("MaximizeConversionValue")
@@ -74,7 +75,7 @@ def _apply_bidding_strategy(
             mcv.target_roas = target_roas
             paths.append("maximize_conversion_value.target_roas")
         else:
-            paths.append("maximize_conversion_value")
+            paths.append("maximize_conversion_value.target_roas")
         campaign.maximize_conversion_value = mcv
     elif strategy == "TARGET_CPA":
         tcpa = client.get_type("TargetCpa")
@@ -120,7 +121,7 @@ def _apply_bidding_strategy(
             ts.cpc_bid_ceiling_micros = dollars_to_micros(max_cpc_bid_ceiling_dollars)
             paths.append("target_spend.cpc_bid_ceiling_micros")
         else:
-            paths.append("target_spend")
+            paths.append("target_spend.cpc_bid_ceiling_micros")
         campaign.target_spend = ts
     return paths
 
@@ -208,8 +209,6 @@ def register(mcp: FastMCP) -> None:
                 campaign.advertising_channel_type,
                 campaign.bidding_strategy_type,
                 campaign.campaign_budget,
-                campaign.start_date,
-                campaign.end_date,
                 campaign.network_settings.target_google_search,
                 campaign.network_settings.target_search_network,
                 campaign.network_settings.target_content_network,
@@ -300,6 +299,15 @@ def register(mcp: FastMCP) -> None:
             return cid_err
         if err := validate_id(budget_id, "budget_id"):
             return {"error": True, "message": err}
+
+        if err := validate_budget_amount(target_cpa_dollars) if target_cpa_dollars is not None else None:
+            return {"error": True, "message": err}
+        
+        if err := validate_budget_amount(max_cpc_bid_ceiling_dollars) if max_cpc_bid_ceiling_dollars is not None else None:
+            return {"error": True, "message": err}
+
+        #TODO: Check Target ROAS is positive number if provided
+        #TODO Check impression share % is between 0.0 and 1.0 if provided
 
         strategy = bidding_strategy.upper()
         if strategy not in VALID_BIDDING_STRATEGIES:
@@ -427,6 +435,12 @@ def register(mcp: FastMCP) -> None:
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        confirm: Annotated[
+            bool,
+            Field(
+                description="Must be true to execute. Enabling a campaign will cause it to serve ads and spend money."
+            ),
+        ] = False,
     ) -> dict:
         """Update a campaign's name, budget, bidding strategy, network settings, or tracking URLs."""
         customer_id, cid_err = require_customer_id(customer_id)
@@ -434,6 +448,14 @@ def register(mcp: FastMCP) -> None:
             return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
+
+        if not confirm:
+            return {
+                "warning": True,
+                "campaign_id": campaign_id,
+                "message": f"This will update campaign {campaign_id}. "
+                f"Set confirm=true to execute.",
+            }
         client = get_client()
         campaign_service = client.get_service("CampaignService")
 

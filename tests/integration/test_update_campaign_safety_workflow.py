@@ -62,7 +62,6 @@ class TestCampaignUpdateSafety:
         # cleanup: remove the campaign after all tests        
         remove_tool = _register_tool("remove_campaign", "campaigns")
         remove_result = remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
-        print("Cleanup result:", remove_result)
 
     def test_update_campaign_no_confirmation(self, test_customer_id):
         tool = _register_tool("update_campaign", "campaigns")
@@ -74,9 +73,6 @@ class TestCampaignUpdateSafety:
         tool = _register_tool("update_campaign", "campaigns")
         result = tool(campaign_id=self.campaign_id, budget_id=self.second_budget_id, customer_id=test_customer_id, confirm=True)
 
-        print(result)
-
-
         # Response Asserts
 
         assert "resource_name" in result
@@ -87,7 +83,10 @@ class TestCampaignUpdateSafety:
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
-        print(get_result)
+        assert "campaign_budget" in get_result and get_result["campaign_budget"] == "customers/" + test_customer_id + "/campaignBudgets/" + self.second_budget_id
+        assert get_result["campaign_budget"] != "customers/" + test_customer_id + "/campaignBudgets/" + self.budget_id
+
+        self.__class__.budget_id = self.second_budget_id  # Update for potential cleanup if budget ID is used in matching
 
     @pytest.mark.parametrize("label,bidding_strategy", VALID_BIDDING_STRATEGIES)
     def test_update_campaign_change_bidding_strategy_no_sub_fields(self, label, bidding_strategy, test_customer_id):
@@ -122,11 +121,14 @@ class TestCampaignUpdateSafety:
 
         kwargs = {"campaign_id": self.campaign_id, "bidding_strategy": bidding_strategy, "customer_id": test_customer_id, "confirm": True}
 
+        expected = bidding_strategy
+
         match bidding_strategy:
             case "MANUAL_CPC":
                 pass  # no extra params needed
             case "MAXIMIZE_CLICKS" | "TARGET_SPEND":
                 kwargs["max_cpc_bid_ceiling_dollars"] = 2.0
+                expected = "TARGET_SPEND"
             case "MAXIMIZE_CONVERSIONS" | "TARGET_CPA":
                 kwargs["target_cpa_dollars"] = 5.0
             case "MAXIMIZE_CONVERSION_VALUE" | "TARGET_ROAS":
@@ -139,7 +141,13 @@ class TestCampaignUpdateSafety:
 
         assert "resource_name" in result
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id
-        assert "updated_fields"
+        assert "updated_fields" in result
+
+        # State Asserts 
+        get_tool = _register_tool("get_campaign", "campaigns")
+        get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
+
+        assert "bidding_strategy_type" in get_result and get_result["bidding_strategy_type"] == expected
 
     def test_update_campaign_change_target_cpa(self, test_customer_id):
 
@@ -153,7 +161,7 @@ class TestCampaignUpdateSafety:
 
         assert "resource_name" in result
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id
-        assert "updated_fields"
+        assert "updated_fields" in result
 
     def test_update_campaign_change_target_roas(self, test_customer_id):
 
@@ -169,9 +177,18 @@ class TestCampaignUpdateSafety:
         new_name = f"Updated Campaign {uuid.uuid4().hex[:8]}"
         result = tool(campaign_id=self.campaign_id, name=new_name, customer_id=test_customer_id, confirm=True)
 
-        self.__class__.campaign_name = new_name  # Update for potential cleanup if name is used in matching
+        # Response Asserts
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id
         assert "name" in result and result["name"] == new_name
+
+        # State Asserts 
+        get_tool = _register_tool("get_campaign", "campaigns")
+        get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
+
+        assert "name" in get_result and get_result["name"] == new_name
+
+        self.__class__.campaign_name = new_name  # Update for potential cleanup if name is used in matching
+
 
     def test_update_campaign_change_channel(self, test_customer_id):
 
@@ -186,11 +203,24 @@ class TestCampaignUpdateSafety:
     
         assert "new_status" in result and result["new_status"] == "PAUSED"
 
+        # State Asserts 
+        get_tool = _register_tool("get_campaign", "campaigns")
+        get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
+
+        assert "status" in get_result and get_result["status"] == "PAUSED"
+
     def test_set_campaign_status(self, test_customer_id):
         tool = _register_tool("set_campaign_status", "campaigns")
         result = tool(campaign_id=self.campaign_id, status="ENABLED", customer_id=test_customer_id, confirm=False)
     
         assert result.get("warning") is True
 
+        # State Asserts 
+        get_tool = _register_tool("get_campaign", "campaigns")
+        get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
+
+        assert "status" in get_result and get_result["status"] == "PAUSED", f"Expected campaign to remain PAUSED without confirmation, got: {get_result.get('status')}"
+
+    #TODO: add test for status enabled with budget = 0
 
     #TODO: Tracking URL Changes

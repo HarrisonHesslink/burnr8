@@ -24,22 +24,6 @@ INVALID_BUDGET_NAME = [
     ("too_long", "B" * 256),  # Assuming 255 char limit
     ("special_chars", "Budget!@#")
 ]
-
-def _register_tool(name):   
-    """Register list_accessible_accounts tools and return the one matching *name*."""
-    from burnr8.tools.budgets import register
-
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    register(cap)
-    return captured["func"]
     
 class TestListBudgets:
     def test_list_budget_invalid_active_account(self):

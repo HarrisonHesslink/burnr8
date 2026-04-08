@@ -23,6 +23,19 @@ def pytest_collection_modifyitems(config, items):
             if not has_env_var:
                 item.add_marker(skip_e2e)
 
+            # Auto-mark by filename for easier selective test runs (e.g. pytest -m "campaigns")
+            filename = item.fspath.basename
+            if "accounts" in filename:
+                item.add_marker(pytest.mark.accounts)
+            elif "budgets" in filename:
+                item.add_marker(pytest.mark.budgets)
+            elif "campaigns" in filename:
+                item.add_marker(pytest.mark.campaigns)
+            elif "campaign_safety_workflow" in filename:
+                item.add_marker(pytest.mark.safety)
+            elif "destructive_safety_workflow" in filename:
+                item.add_marker(pytest.mark.destructive)
+
 
 @pytest.fixture(scope="session")
 def test_customer_id():

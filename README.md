@@ -339,7 +339,7 @@ PRs welcome. Some areas that would be great to expand:
 - **YouTube ads** — video campaign management
 - **Audience targeting** — remarketing lists, customer match
 - **Location bid adjustments** — geographic bid modifiers
-- **Tests** — unit tests for helpers, integration tests with test accounts
+- **Tests** — unit tests for logic/helpers, integration tests with active test accounts (test account agnostic)
 
 ---
 

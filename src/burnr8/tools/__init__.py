@@ -20,6 +20,10 @@ from burnr8.tools.keywords import register as register_keywords
 from burnr8.tools.negative_keywords import register as register_negative_keywords
 from burnr8.tools.reporting import register as register_reporting
 
+# Tools registered with @mcp.tool but hidden from MCP exposure.
+# Used for internal/test purposes only (e.g. cleaning up test campaigns).
+_INTERNAL_TOOLS = {"remove_campaign"}
+
 
 def register_all_tools(mcp: FastMCP) -> None:
     register_accounts(mcp)
@@ -36,3 +40,13 @@ def register_all_tools(mcp: FastMCP) -> None:
     register_adjustments(mcp)
     register_goals(mcp)
     register_competitive(mcp)
+
+    # Hide internal-only tools from MCP clients while keeping them importable
+    for name in _INTERNAL_TOOLS:
+        try:
+            mcp.local_provider.remove_tool(name)
+        except KeyError:
+            raise RuntimeError(
+                f"Cannot hide internal tool '{name}': not found in registered tools. "
+                f"Verify _INTERNAL_TOOLS matches the @mcp.tool function name."
+            ) from None

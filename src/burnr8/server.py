@@ -3,13 +3,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load credentials: ~/.burnr8/.env is the canonical location (written by burnr8-setup).
+# Load credentials from ~/.burnr8/.env only (written by burnr8-setup).
 # override=True so credentials saved by the wizard always win over stale shell exports.
-# CWD .env is the fallback for clone-and-install workflow (no override — lowest priority).
+# CWD .env is NOT loaded — prevents credential injection via malicious repo clones.
 _burnr8_env = Path.home() / ".burnr8" / ".env"
 if _burnr8_env.exists():
     load_dotenv(_burnr8_env, override=True)
-load_dotenv()  # CWD .env — won't override anything already set
 
 from fastmcp import FastMCP  # noqa: E402
 

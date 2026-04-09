@@ -56,7 +56,7 @@ def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
     return customer_id, None
 
 
-def validate_status(value: str) -> str | None:
+def validate_status(value: str | None) -> str | None:
     if value is None:
         return "Status cannot be null"
     if not isinstance(value, str):
@@ -66,7 +66,7 @@ def validate_status(value: str) -> str | None:
     return None
 
 
-def validate_date_range(value: str) -> str | None:
+def validate_date_range(value: str | None) -> str | None:
     if value is None:
         return "Date range cannot be null"
     if not isinstance(value, str):

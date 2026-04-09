@@ -25,7 +25,18 @@ VALID_DATE_RANGES = {
 }
 _NUMERIC_RE = re.compile(r"^\d+$")
 
-__all__ = ["run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range", "require_customer_id"]
+__all__ = ["run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros", "validate_id", "validate_status", "validate_date_range", "validate_budget_amount", "require_customer_id"]
+
+
+def validate_budget_amount(amount: float) -> str | None:
+    """Return error message if amount is not a non-negative number, else None."""
+    if isinstance(amount, bool):
+        return f"Amount must be a number, got: {amount}"
+    if not isinstance(amount, (int, float)):
+        return f"Amount must be a number, got: {amount}"
+    if amount < 0:
+        return f"Amount must be non-negative, got: {amount}"
+    return None
 
 
 def validate_id(value: str, name: str) -> str | None:

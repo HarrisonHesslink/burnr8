@@ -12,7 +12,14 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_date_range
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_budget_amount,
+    validate_date_range,
+)
 from burnr8.reports import save_report
 from burnr8.tools.campaigns import VALID_BIDDING_STRATEGIES, _apply_bidding_strategy
 
@@ -469,6 +476,23 @@ def register(mcp: FastMCP) -> None:
                 "error": True,
                 "message": f"Invalid bidding_strategy '{bidding_strategy}'. Must be one of: {', '.join(sorted(VALID_BIDDING_STRATEGIES))}",
             }
+
+        if err := validate_budget_amount(daily_budget_dollars):
+            return {"error": True, "message": f"daily_budget_dollars: {err}"}
+
+        if err := validate_budget_amount(cpc_bid):
+            return {"error": True, "message": f"cpc_bid: {err}"}
+        if cpc_bid <= 0:
+            return {"error": True, "message": f"cpc_bid must be greater than zero, got: {cpc_bid}"}
+
+        if target_cpa_dollars is not None and (not isinstance(target_cpa_dollars, (int, float)) or target_cpa_dollars <= 0):
+            return {"error": True, "message": f"target_cpa_dollars must be a positive number, got: {target_cpa_dollars}"}
+
+        if target_roas is not None and (not isinstance(target_roas, (int, float)) or target_roas <= 0):
+            return {"error": True, "message": f"target_roas must be a positive number, got: {target_roas}"}
+
+        if max_cpc_bid_ceiling_dollars is not None and (not isinstance(max_cpc_bid_ceiling_dollars, (int, float)) or max_cpc_bid_ceiling_dollars <= 0):
+            return {"error": True, "message": f"max_cpc_bid_ceiling_dollars must be a positive number, got: {max_cpc_bid_ceiling_dollars}"}
 
         client = get_client()
         created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}

@@ -63,7 +63,7 @@ def _main():
     print("\n  burnr8 setup")
     print("  " + "-" * 40)
 
-    print("\n  Get your credentials: https://docs.burnrate.sh/getting-started")
+    print("\n  Get your credentials: https://burnrate.sh/docs/getting-started/credentials")
     print("  Or skip setup and use burnr8 Cloud: https://burnrate.sh\n")
 
     existing = _load_existing()

@@ -3,6 +3,7 @@
 from burnr8.helpers import (
     dollars_to_micros,
     micros_to_dollars,
+    validate_budget_amount,
     validate_date_range,
     validate_id,
     validate_status,
@@ -26,6 +27,15 @@ class TestMicrosToDollars:
     def test_sub_dollar_precision(self):
         assert micros_to_dollars(999_999) == 0.999999
 
+    def test_negative_micros(self):
+        assert micros_to_dollars(-1_000_000) == -1.0
+
+    def test_one_cent(self):
+        assert micros_to_dollars(10_000) == 0.01
+
+    def test_very_large(self):
+        assert micros_to_dollars(999_999_990_000) == 999_999.99
+
 
 # ---------------------------------------------------------------------------
 # dollars_to_micros
@@ -48,6 +58,24 @@ class TestDollarsToMicros:
 
     def test_whole_dollar_as_float(self):
         assert dollars_to_micros(5.00) == 5_000_000
+
+    def test_one_cent(self):
+        assert dollars_to_micros(0.01) == 10_000
+
+    def test_negative(self):
+        assert dollars_to_micros(-5.0) == -5_000_000
+
+    def test_integer_input(self):
+        assert dollars_to_micros(5) == 5_000_000
+
+    def test_very_large(self):
+        assert dollars_to_micros(999_999.99) == 999_999_990_000
+
+    def test_round_trip(self):
+        assert micros_to_dollars(dollars_to_micros(10.50)) == 10.5
+
+    def test_floating_point_precision(self):
+        assert dollars_to_micros(0.1 + 0.2) == 300_000
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +104,10 @@ class TestValidateId:
     def test_zero_is_valid(self):
         assert validate_id("0", "id") is None
 
+    def test_long_id_is_valid(self):
+        """validate_id is generic — length checks are in require_customer_id."""
+        assert validate_id("1" * 20, "some_id") is None
+
 
 # ---------------------------------------------------------------------------
 # validate_status
@@ -103,6 +135,15 @@ class TestValidateStatus:
     def test_empty_string(self):
         err = validate_status("")
         assert err is not None
+
+    def test_none_rejected(self):
+        err = validate_status(None)
+        assert err is not None
+
+    def test_integer_rejected(self):
+        err = validate_status(123)
+        assert err is not None
+        assert "must be a string" in err
 
 
 # ---------------------------------------------------------------------------
@@ -135,3 +176,53 @@ class TestValidateDateRange:
     def test_empty_string(self):
         err = validate_date_range("")
         assert err is not None
+
+    def test_none_rejected(self):
+        err = validate_date_range(None)
+        assert err is not None
+
+    def test_integer_rejected(self):
+        err = validate_date_range(123)
+        assert err is not None
+        assert "must be a string" in err
+
+
+# ---------------------------------------------------------------------------
+# validate_budget_amount
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBudgetAmount:
+    def test_valid_positive_float(self):
+        assert validate_budget_amount(10.0) is None
+
+    def test_valid_positive_integer(self):
+        assert validate_budget_amount(10) is None
+
+    def test_valid_small_amount(self):
+        assert validate_budget_amount(0.01) is None
+
+    def test_zero_rejected(self):
+        err = validate_budget_amount(0)
+        assert err is not None
+        assert "greater than zero" in err
+
+    def test_negative_rejected(self):
+        err = validate_budget_amount(-5.0)
+        assert err is not None
+        assert "greater than zero" in err
+
+    def test_string_rejected(self):
+        err = validate_budget_amount("ten")
+        assert err is not None
+        assert "must be a number" in err
+
+    def test_none_rejected(self):
+        err = validate_budget_amount(None)
+        assert err is not None
+        assert "must be a number" in err
+
+    def test_boolean_rejected(self):
+        err = validate_budget_amount(True)
+        assert err is not None
+        assert "must be a number" in err

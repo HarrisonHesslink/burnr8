@@ -141,7 +141,7 @@ class TestMainEntrypoint:
 
         mock_exit.assert_called_once_with(0)
         captured = capsys.readouterr()
-        assert "cancelled" in captured.out.lower()
+        assert "interrupted" in captured.out.lower()
 
     def test_os_error_exits_with_message(self, capsys):
         from burnr8.setup import main

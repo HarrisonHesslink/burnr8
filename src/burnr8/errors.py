@@ -64,7 +64,7 @@ def handle_google_ads_errors(fn: Callable[P, R]) -> Callable[P, R | dict]:
                     "status": ex.error.code().name,
                     "errors": errors,
                 }
-            elif isinstance(ex, (KeyError, ValueError, TypeError)):
+            elif isinstance(ex, (KeyError, ValueError, TypeError, IndexError)):
                 log_tool_call(fn.__name__, customer_id, duration, "error", f'msg="{ex}"')
                 return {
                     "error": True,

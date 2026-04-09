@@ -57,12 +57,20 @@ def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
 
 
 def validate_status(value: str) -> str | None:
+    if value is None:
+        return "Status cannot be null"
+    if not isinstance(value, str):
+        return f"Status must be a string, got: {type(value).__name__}"
     if value.upper() not in VALID_STATUSES:
         return f"Invalid status '{value}'. Must be one of: {', '.join(sorted(VALID_STATUSES))}"
     return None
 
 
 def validate_date_range(value: str) -> str | None:
+    if value is None:
+        return "Date range cannot be null"
+    if not isinstance(value, str):
+        return f"Date range must be a string, got: {type(value).__name__}"
     if value.upper() not in VALID_DATE_RANGES:
         return f"Invalid date_range '{value}'. Must be one of: {', '.join(sorted(VALID_DATE_RANGES))}"
     return None

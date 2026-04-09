@@ -308,6 +308,15 @@ def register(mcp: FastMCP) -> None:
                 "message": f"Invalid bidding_strategy '{bidding_strategy}'. Must be one of: {', '.join(sorted(VALID_BIDDING_STRATEGIES))}",
             }
 
+        if target_roas is not None and (not isinstance(target_roas, (int, float)) or target_roas <= 0):
+            return {"error": True, "message": f"target_roas must be a positive number, got: {target_roas}"}
+
+        if target_impression_share_fraction is not None and (
+            not isinstance(target_impression_share_fraction, (int, float))
+            or not (0.0 <= target_impression_share_fraction <= 1.0)
+        ):
+            return {"error": True, "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}"}
+
         client = get_client()
         campaign_service = client.get_service("CampaignService")
         campaign_budget_service = client.get_service("CampaignBudgetService")
@@ -451,6 +460,15 @@ def register(mcp: FastMCP) -> None:
             budget_service = client.get_service("CampaignBudgetService")
             campaign.campaign_budget = budget_service.campaign_budget_path(customer_id, budget_id)
             field_mask.append("campaign_budget")
+        if target_roas is not None and (not isinstance(target_roas, (int, float)) or target_roas <= 0):
+            return {"error": True, "message": f"target_roas must be a positive number, got: {target_roas}"}
+
+        if target_impression_share_fraction is not None and (
+            not isinstance(target_impression_share_fraction, (int, float))
+            or not (0.0 <= target_impression_share_fraction <= 1.0)
+        ):
+            return {"error": True, "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}"}
+
         if bidding_strategy is not None:
             strategy = bidding_strategy.upper()
             if strategy not in VALID_BIDDING_STRATEGIES:

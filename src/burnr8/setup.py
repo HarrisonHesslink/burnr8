@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
 """Interactive setup wizard for burnr8 — prompts for credentials and saves to ~/.burnr8/.env."""
 
-import hashlib
 import os
-import re
-import socket
 import stat
 import sys
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
 
 BURNR8_DIR = Path.home() / ".burnr8"
 ENV_FILE = BURNR8_DIR / ".env"
-
-SCOPE = "https://www.googleapis.com/auth/adwords"
-REDIRECT_HOST = "127.0.0.1"
-REDIRECT_PORT = 8080
-REDIRECT_URI = f"http://{REDIRECT_HOST}:{REDIRECT_PORT}"
 
 
 def _prompt(label: str, current: str | None = None, required: bool = True) -> str:
@@ -42,81 +33,6 @@ def _load_existing() -> dict[str, str]:
                 key, _, value = line.partition("=")
                 creds[key.strip()] = value.strip().strip("\"'")
     return creds
-
-
-def _run_oauth(client_id: str, client_secret: str) -> str:
-    """Run the OAuth2 flow and return the refresh token."""
-    try:
-        from google_auth_oauthlib.flow import Flow
-    except ImportError:
-        print("\n  google-auth-oauthlib is required for OAuth setup.")
-        print("  Install it with: pip install google-auth-oauthlib")
-        sys.exit(1)
-
-    client_config = {
-        "installed": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [REDIRECT_URI],
-        }
-    }
-
-    flow = Flow.from_client_config(client_config, scopes=[SCOPE])
-    flow.redirect_uri = REDIRECT_URI
-
-    state = hashlib.sha256(os.urandom(1024)).hexdigest()
-    auth_url, _ = flow.authorization_url(
-        access_type="offline",
-        state=state,
-        prompt="consent",
-        include_granted_scopes="true",
-    )
-
-    print(f"\n  Open this URL in your browser:\n\n  {auth_url}\n")
-    print(f"  Waiting for callback on {REDIRECT_URI} ...")
-
-    sock = socket.socket()
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    conn = None
-    try:
-        sock.bind((REDIRECT_HOST, REDIRECT_PORT))
-        sock.listen(1)
-        conn, _ = sock.accept()
-        data = b""
-        while b"\r\n\r\n" not in data:
-            chunk = conn.recv(4096)
-            if not chunk:
-                break
-            data += chunk
-        data = data.decode("utf-8")
-
-        match = re.search(r"GET\s(/[^\s]*)\s", data)
-        if not match:
-            print("  Error: Could not parse callback request")
-            sys.exit(1)
-
-        params = parse_qs(urlparse(match.group(1)).query)
-
-        if params.get("state", [None])[0] != state:
-            print("  Error: State mismatch — possible CSRF. Aborting.")
-            sys.exit(1)
-
-        code = params.get("code", [None])[0]
-        if not code:
-            print("  Error: No authorization code in callback")
-            sys.exit(1)
-
-        response = "HTTP/1.1 200 OK\r\n\r\n<b>Success!</b> You can close this tab."
-        conn.sendall(response.encode())
-    finally:
-        if conn:
-            conn.close()
-        sock.close()
-
-    flow.fetch_token(code=code)
-    return flow.credentials.refresh_token
 
 
 def _save_env(creds: dict[str, str]) -> None:
@@ -147,42 +63,28 @@ def _main():
     print("\n  burnr8 setup")
     print("  " + "-" * 40)
 
+    print("\n  Get your credentials: https://docs.burnrate.sh/getting-started")
+    print("  Or skip setup and use burnr8 Cloud: https://burnrate.sh\n")
+
     existing = _load_existing()
     if existing:
-        print(f"\n  Found existing credentials at {ENV_FILE}")
+        print(f"  Found existing credentials at {ENV_FILE}")
         print("  Press Enter to keep current values, or type a new one.\n")
-    else:
-        print("\n  No existing credentials found.")
-        print("  You'll need:")
-        print("    - Google Ads API developer token (from API Center)")
-        print("    - OAuth2 client ID + secret (from Google Cloud Console)")
-        print("    - A refresh token (this wizard can generate one)\n")
 
     # Collect credentials
     creds = {}
-    creds["GOOGLE_ADS_DEVELOPER_TOKEN"] = _prompt("Developer token", existing.get("GOOGLE_ADS_DEVELOPER_TOKEN"))
-    creds["GOOGLE_ADS_CLIENT_ID"] = _prompt("OAuth2 client ID", existing.get("GOOGLE_ADS_CLIENT_ID"))
-    creds["GOOGLE_ADS_CLIENT_SECRET"] = _prompt("OAuth2 client secret", existing.get("GOOGLE_ADS_CLIENT_SECRET"))
-
-    # Refresh token — offer to run OAuth flow
-    existing_token = existing.get("GOOGLE_ADS_REFRESH_TOKEN")
-    if existing_token:
-        keep = input(f"  Refresh token [{existing_token[:8]}...]: ").strip()
-        if keep:
-            creds["GOOGLE_ADS_REFRESH_TOKEN"] = keep
-        else:
-            creds["GOOGLE_ADS_REFRESH_TOKEN"] = existing_token
-    else:
-        print("\n  No refresh token found. Run OAuth flow to generate one?")
-        choice = input("  [Y/n]: ").strip().lower()
-        if choice in ("", "y", "yes"):
-            creds["GOOGLE_ADS_REFRESH_TOKEN"] = _run_oauth(
-                creds["GOOGLE_ADS_CLIENT_ID"],
-                creds["GOOGLE_ADS_CLIENT_SECRET"],
-            )
-            print("  Got refresh token: ****")
-        else:
-            creds["GOOGLE_ADS_REFRESH_TOKEN"] = _prompt("Refresh token")
+    creds["GOOGLE_ADS_DEVELOPER_TOKEN"] = _prompt(
+        "Developer token", existing.get("GOOGLE_ADS_DEVELOPER_TOKEN")
+    )
+    creds["GOOGLE_ADS_CLIENT_ID"] = _prompt(
+        "OAuth2 client ID", existing.get("GOOGLE_ADS_CLIENT_ID")
+    )
+    creds["GOOGLE_ADS_CLIENT_SECRET"] = _prompt(
+        "OAuth2 client secret", existing.get("GOOGLE_ADS_CLIENT_SECRET")
+    )
+    creds["GOOGLE_ADS_REFRESH_TOKEN"] = _prompt(
+        "Refresh token", existing.get("GOOGLE_ADS_REFRESH_TOKEN")
+    )
 
     # Optional: login customer ID (validate numeric)
     login_id = _prompt(
@@ -193,7 +95,10 @@ def _main():
     if login_id:
         cleaned = login_id.replace("-", "")
         if cleaned and not cleaned.isdigit():
-            print(f"  Warning: '{cleaned}' contains non-numeric characters. Customer IDs are 10 digits.")
+            print(
+                f"  Warning: '{cleaned}' contains non-numeric characters."
+                " Customer IDs are 10 digits."
+            )
         creds["GOOGLE_ADS_LOGIN_CUSTOMER_ID"] = cleaned
 
     # Save
@@ -212,7 +117,7 @@ def main():
         print("\n\n  Setup cancelled. No credentials were saved.")
         sys.exit(0)
     except OSError as e:
-        # Port binding or file system errors
+        # File system errors (permissions, disk full, etc.)
         print(f"\n  Error: {e}")
         sys.exit(1)
     except Exception as e:

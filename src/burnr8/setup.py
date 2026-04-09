@@ -4,6 +4,7 @@
 import os
 import stat
 import sys
+import tempfile
 from pathlib import Path
 
 BURNR8_DIR = Path.home() / ".burnr8"
@@ -12,7 +13,7 @@ ENV_FILE = BURNR8_DIR / ".env"
 
 def _prompt(label: str, current: str | None = None, required: bool = True) -> str:
     """Prompt for a value, showing the current one if it exists."""
-    if current:
+    if current is not None and current != "":
         display = current[:8] + "..." if len(current) > 11 else current
         raw = input(f"  {label} [{display}]: ").strip()
         return raw if raw else current
@@ -26,17 +27,22 @@ def _prompt(label: str, current: str | None = None, required: bool = True) -> st
 def _load_existing() -> dict[str, str]:
     """Load existing credentials from ~/.burnr8/.env if it exists."""
     creds: dict[str, str] = {}
-    if ENV_FILE.exists():
+    if not ENV_FILE.exists():
+        return creds
+    try:
         for line in ENV_FILE.read_text().splitlines():
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, _, value = line.partition("=")
                 creds[key.strip()] = value.strip().strip("\"'")
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"  Warning: Could not read {ENV_FILE}: {e}")
+        print("  Starting fresh.\n")
     return creds
 
 
 def _save_env(creds: dict[str, str]) -> None:
-    """Write credentials to ~/.burnr8/.env with 0600 permissions."""
+    """Write credentials to ~/.burnr8/.env with 0600 permissions (atomic)."""
     BURNR8_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     lines = [
@@ -50,10 +56,18 @@ def _save_env(creds: dict[str, str]) -> None:
     if login_id:
         lines.append(f"GOOGLE_ADS_LOGIN_CUSTOMER_ID={login_id}")
 
-    # Write with restrictive permissions
-    fd = os.open(ENV_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with open(fd, "w") as f:
-        f.write("\n".join(lines) + "\n")
+    content = "\n".join(lines) + "\n"
+
+    # Atomic write: temp file + rename prevents data loss on interrupt
+    fd, tmp_path = tempfile.mkstemp(dir=BURNR8_DIR, prefix=".env.", suffix=".tmp")
+    try:
+        with open(fd, "w") as f:
+            f.write(content)
+        os.chmod(tmp_path, 0o600)
+        os.rename(tmp_path, ENV_FILE)
+    except BaseException:
+        os.unlink(tmp_path)
+        raise
 
     print(f"\n  Saved to {ENV_FILE}")
     print(f"  Permissions: {oct(stat.S_IMODE(os.stat(ENV_FILE).st_mode))}")
@@ -114,15 +128,20 @@ def main():
     try:
         _main()
     except KeyboardInterrupt:
-        print("\n\n  Setup cancelled. No credentials were saved.")
+        print("\n\n  Setup interrupted.")
         sys.exit(0)
+    except EOFError:
+        print("\n\n  burnr8-setup requires an interactive terminal.")
+        print("  Set credentials manually in ~/.burnr8/.env")
+        sys.exit(1)
     except OSError as e:
-        # File system errors (permissions, disk full, etc.)
         print(f"\n  Error: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n  Setup failed: {e}")
-        print("  You can re-run burnr8-setup or set credentials manually in ~/.burnr8/.env")
+        import traceback
+        print(f"\n  Unexpected error: {e}")
+        traceback.print_exc()
+        print("  Please report this at https://github.com/HarrisonHesslink/burnr8/issues")
         sys.exit(1)
 
 

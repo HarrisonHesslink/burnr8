@@ -21,6 +21,8 @@ from burnr8.reports import save_report
 
 
 class KeywordInput(BaseModel):
+    """A keyword with text and match type to add to an ad group."""
+
     text: str = Field(description="The keyword text")
     match_type: str = Field(default="BROAD", description="Match type: EXACT, PHRASE, or BROAD")
 
@@ -168,7 +170,9 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        response = ad_group_criterion_service.mutate_ad_group_criteria(
+            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} keyword(s). Set confirm=true to execute."}
 
@@ -204,7 +208,7 @@ def register(mcp: FastMCP) -> None:
         operation.remove = resource_name
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -262,7 +266,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update keyword '{criterion_id}'. Set confirm=true to execute."}

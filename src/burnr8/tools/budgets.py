@@ -88,7 +88,9 @@ def register(mcp: FastMCP) -> None:
         budget.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
         budget.explicitly_shared = False
 
-        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = budget_service.mutate_campaign_budgets(
+            request=client.get_type("MutateCampaignBudgetsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create budget '{name}'. Set confirm=true to execute."}
 
@@ -126,7 +128,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("amount_micros")
 
         response = budget_service.mutate_campaign_budgets(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateCampaignBudgetsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -188,7 +190,7 @@ def register(mcp: FastMCP) -> None:
             operations.append(op)
 
         response = budget_service.mutate_campaign_budgets(
-            customer_id=customer_id, operations=operations, validate_only=not confirm
+            request=client.get_type("MutateCampaignBudgetsRequest")(customer_id=customer_id, operations=operations, validate_only=not confirm)
         )
         if not confirm:
             return {

@@ -275,7 +275,9 @@ def register(mcp: FastMCP) -> None:
         if path2 is not None:
             ad.responsive_search_ad.path2 = path2
 
-        response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = ad_group_ad_service.mutate_ad_group_ads(
+            request=client.get_type("MutateAdGroupAdsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will create a responsive search ad. Set confirm=true to execute."}
 
@@ -338,7 +340,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = ad_group_ad_service.mutate_ad_group_ads(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateAdGroupAdsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute."}

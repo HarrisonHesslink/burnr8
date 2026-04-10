@@ -23,8 +23,9 @@ INVALID_BUDGET_NAME = [
     ("null", None),
     ("empty", ""),
     ("too_long", "B" * 256),  # Assuming 255 char limit
-    ("special_chars", "Budget!@#")
+    ("special_chars", "Budget!@#"),
 ]
+
 
 def _register_tool(name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
@@ -42,6 +43,7 @@ def _register_tool(name):
     register(cap)
     return captured["func"]
 
+
 class TestCreateCampaign:
     def test_create_campaign_invalid_resource_budget(self, test_customer_id):
         tool = _register_tool("create_campaign")
@@ -50,13 +52,13 @@ class TestCreateCampaign:
         assert result["error"] is True
         assert "status" in result
 
-
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)
     def test_create_campaign_invalid_customer_id(self, label, customer_id):
         tool = _register_tool("create_campaign")
         result = tool(name="Test Campaign", budget_id="123", customer_id=customer_id)
 
         assert result["error"] is True, f"Expected error for {label} but got success"
+
 
 class TestUpdateCampaign:
     def test_update_campaign_invalid_resource_budget(self, test_customer_id):
@@ -72,6 +74,7 @@ class TestUpdateCampaign:
         result = tool(campaign_id="123", budget_id="123", customer_id=customer_id)
 
         assert result["error"] is True, f"Expected error for {label} but got success"
+
 
 class TestSetCampaignStatus:
     def test_set_campaign_status_invalid_resource_no_confirmation(self, test_customer_id):
@@ -95,6 +98,7 @@ class TestSetCampaignStatus:
 
         assert result["error"] is True
         assert "REMOVED" in result.get("message", "") or "status" in result
+
 
 class TestRemoveCampaign:
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)

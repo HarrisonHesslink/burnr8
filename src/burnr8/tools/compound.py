@@ -60,7 +60,7 @@ _INFORMATIONAL_SIGNALS = [
     "review",
     "reviews",
 ]
-_SIGNAL_RE = re.compile(r'\b(?:' + '|'.join(re.escape(s) for s in _INFORMATIONAL_SIGNALS) + r')\b')
+_SIGNAL_RE = re.compile(r"\b(?:" + "|".join(re.escape(s) for s in _INFORMATIONAL_SIGNALS) + r")\b")
 
 
 def register(mcp: FastMCP) -> None:
@@ -333,9 +333,7 @@ def register(mcp: FastMCP) -> None:
 
         # Tracking URL stats
         enabled_campaigns = [c for c in campaigns if c.get("status") == "ENABLED"]
-        campaigns_without_tracking = [
-            c["name"] for c in enabled_campaigns if not c.get("tracking_url_template")
-        ]
+        campaigns_without_tracking = [c["name"] for c in enabled_campaigns if not c.get("tracking_url_template")]
 
         # Save each section to CSV
         files = {}
@@ -428,7 +426,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         target_roas: Annotated[
             float | None,
-            Field(description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)"),
+            Field(
+                description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)"
+            ),
         ] = None,
         max_cpc_bid_ceiling_dollars: Annotated[
             float | None,
@@ -436,7 +436,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         negative_keywords: Annotated[
             list[str] | None,
-            Field(description="Optional list of negative keyword texts to add as PHRASE match campaign-level negatives"),
+            Field(
+                description="Optional list of negative keyword texts to add as PHRASE match campaign-level negatives"
+            ),
         ] = None,
         location_ids: Annotated[
             list[str] | None,
@@ -491,10 +493,22 @@ def register(mcp: FastMCP) -> None:
             }
 
         client = get_client()
-        created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}
+        created = {
+            "budget": None,
+            "campaign": None,
+            "negative_keywords": None,
+            "locations": None,
+            "ad_group": None,
+            "keywords": None,
+            "ad": None,
+        }
 
         if not confirm:
-            return {"warning": True, "validated": False, "message": f"Client-side validation passed (no API call). This will launch a full campaign '{campaign_name}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": False,
+                "message": f"Client-side validation passed (no API call). This will launch a full campaign '{campaign_name}'. Set confirm=true to execute.",
+            }
 
         try:
             return _execute_launch(
@@ -712,7 +726,9 @@ def _execute_launch(
     campaign.campaign_budget = budget_resource_name
     campaign.advertising_channel_type = client.enums.AdvertisingChannelTypeEnum.SEARCH
     _apply_bidding_strategy(
-        client, campaign, bidding_strategy,
+        client,
+        campaign,
+        bidding_strategy,
         target_cpa_dollars=target_cpa_dollars,
         target_roas=target_roas,
         max_cpc_bid_ceiling_dollars=max_cpc_bid_ceiling_dollars,

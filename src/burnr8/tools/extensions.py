@@ -22,7 +22,14 @@ def register(mcp: FastMCP) -> None:
             return "Either campaign_id or ad_group_id is required."
         return None
 
-    def _link_asset(client: Any, customer_id: str, asset_resource_name: str, field_type_enum: Any, campaign_id: str | None = None, ad_group_id: str | None = None) -> str:
+    def _link_asset(
+        client: Any,
+        customer_id: str,
+        asset_resource_name: str,
+        field_type_enum: Any,
+        campaign_id: str | None = None,
+        ad_group_id: str | None = None,
+    ) -> str:
         """Link an asset to a campaign or ad group. Returns the resource name."""
         if campaign_id is None and ad_group_id is None:
             raise ValueError("_link_asset requires either campaign_id or ad_group_id")
@@ -278,10 +285,16 @@ def register(mcp: FastMCP) -> None:
             asset.sitelink_asset.description2 = description2
 
         asset_response = asset_service.mutate_assets(
-            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link a sitelink. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": "Validation succeeded. This will create and link a sitelink. Set confirm=true to execute.",
+            }
 
         asset_resource_name = asset_response.results[0].resource_name
 
@@ -343,10 +356,16 @@ def register(mcp: FastMCP) -> None:
         asset.callout_asset.callout_text = callout_text
 
         asset_response = asset_service.mutate_assets(
-            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link a callout. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": "Validation succeeded. This will create and link a callout. Set confirm=true to execute.",
+            }
 
         asset_resource_name = asset_response.results[0].resource_name
 
@@ -419,10 +438,16 @@ def register(mcp: FastMCP) -> None:
             asset.structured_snippet_asset.values.append(value)
 
         asset_response = asset_service.mutate_assets(
-            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link a structured snippet. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": "Validation succeeded. This will create and link a structured snippet. Set confirm=true to execute.",
+            }
 
         asset_resource_name = asset_response.results[0].resource_name
 
@@ -557,10 +582,16 @@ def register(mcp: FastMCP) -> None:
             asset.name = asset_name
 
         asset_response = asset_service.mutate_assets(
-            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link an image extension. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": "Validation succeeded. This will create and link an image extension. Set confirm=true to execute.",
+            }
 
         asset_resource_name = asset_response.results[0].resource_name
 
@@ -612,14 +643,18 @@ def register(mcp: FastMCP) -> None:
             operation.remove = asset_resource_name
             svc = client.get_service("AdGroupAssetService")
             response = svc.mutate_ad_group_assets(
-                request=build_mutate_request(client, "MutateAdGroupAssetsRequest", customer_id, [operation], validate_only=not confirm)
+                request=build_mutate_request(
+                    client, "MutateAdGroupAssetsRequest", customer_id, [operation], validate_only=not confirm
+                )
             )
         elif "campaignAssets" in asset_resource_name:
             operation = client.get_type("CampaignAssetOperation")
             operation.remove = asset_resource_name
             svc = client.get_service("CampaignAssetService")
             response = svc.mutate_campaign_assets(
-                request=build_mutate_request(client, "MutateCampaignAssetsRequest", customer_id, [operation], validate_only=not confirm)
+                request=build_mutate_request(
+                    client, "MutateCampaignAssetsRequest", customer_id, [operation], validate_only=not confirm
+                )
             )
         else:
             return {

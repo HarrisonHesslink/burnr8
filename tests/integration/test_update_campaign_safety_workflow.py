@@ -7,6 +7,7 @@ import pytest
 def _register_tool(tool_name, module_name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from importlib import import_module
+
     mod = import_module(f"burnr8.tools.{module_name}")
 
     captured = {}
@@ -24,28 +25,32 @@ def _register_tool(tool_name, module_name):
 
 VALID_BIDDING_STRATEGIES = [
     ("Manual CPC", "MANUAL_CPC"),
-    ("Manual CPM",  "MANUAL_CPM"),
+    ("Manual CPM", "MANUAL_CPM"),
     ("Maximize Clicks", "MAXIMIZE_CLICKS"),
     ("Maximize Conversions", "MAXIMIZE_CONVERSIONS"),
     ("Maximize Conversion Value", "MAXIMIZE_CONVERSION_VALUE"),
-    ("Target CPA",  "TARGET_CPA"),
+    ("Target CPA", "TARGET_CPA"),
     ("Target ROAS", "TARGET_ROAS"),
     ("Target Impression Share", "TARGET_IMPRESSION_SHARE"),
-    ("Target Spend", "TARGET_SPEND")
+    ("Target Spend", "TARGET_SPEND"),
 ]
 
 # Goal is to test that new campaigns always start paused, and that duplicate campaign names are handled gracefully with an error message, not by creating a new campaign or mutating an existing one. This is critical to prevent accidental overspending and ensure a safe workflow for users. We will also test the case where no budget ID is provided, which should also result in an error without creating a campaign.
 
-class TestCampaignUpdateSafety:
 
+class TestCampaignUpdateSafety:
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
-        tool =  _register_tool("create_budget", "budgets")
-        result = tool(name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
+        tool = _register_tool("create_budget", "budgets")
+        result = tool(
+            name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=10.0, customer_id=test_customer_id, confirm=True
+        )
         self.__class__.budget_id = result["id"]
 
         second_tool = _register_tool("create_budget", "budgets")
-        second_result = second_tool(name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=20.0, customer_id=test_customer_id, confirm=True)
+        second_result = second_tool(
+            name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=20.0, customer_id=test_customer_id, confirm=True
+        )
         self.__class__.second_budget_id = second_result["id"]
 
         yield
@@ -69,11 +74,13 @@ class TestCampaignUpdateSafety:
         tool = _register_tool("update_campaign", "campaigns")
         result = tool(campaign_id=self.campaign_id, budget_id=self.budget_id, customer_id=test_customer_id)
 
-        assert result['warning'] is True
+        assert result["warning"] is True
 
     def test_update_campaign_budget_id(self, test_customer_id):
         tool = _register_tool("update_campaign", "campaigns")
-        result = tool(campaign_id=self.campaign_id, budget_id=self.second_budget_id, customer_id=test_customer_id, confirm=True)
+        result = tool(
+            campaign_id=self.campaign_id, budget_id=self.second_budget_id, customer_id=test_customer_id, confirm=True
+        )
 
         # Response Asserts
 
@@ -85,20 +92,34 @@ class TestCampaignUpdateSafety:
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
-        assert "campaign_budget" in get_result and get_result["campaign_budget"] == "customers/" + test_customer_id + "/campaignBudgets/" + self.second_budget_id
+        assert (
+            "campaign_budget" in get_result
+            and get_result["campaign_budget"]
+            == "customers/" + test_customer_id + "/campaignBudgets/" + self.second_budget_id
+        )
         assert get_result["campaign_budget"] != "customers/" + test_customer_id + "/campaignBudgets/" + self.budget_id
 
-        self.__class__.budget_id = self.second_budget_id  # Update for potential cleanup if budget ID is used in matching
+        self.__class__.budget_id = (
+            self.second_budget_id
+        )  # Update for potential cleanup if budget ID is used in matching
 
     @pytest.mark.parametrize("label,bidding_strategy", VALID_BIDDING_STRATEGIES)
     def test_update_campaign_change_bidding_strategy_no_sub_fields(self, label, bidding_strategy, test_customer_id):
 
-        if bidding_strategy in ["MANUAL_CPM", "MAXIMIZE_CONVERSIONS", "MAXIMIZE_CONVERSION_VALUE", "TARGET_CPA", "TARGET_ROAS"]:
+        if bidding_strategy in [
+            "MANUAL_CPM",
+            "MAXIMIZE_CONVERSIONS",
+            "MAXIMIZE_CONVERSION_VALUE",
+            "TARGET_CPA",
+            "TARGET_ROAS",
+        ]:
             # These don't have any required sub-fields, so we skip this test for them.
             pytest.skip(f"{label} skipped due to no conversion in Test Account!")
 
         tool = _register_tool("update_campaign", "campaigns")
-        result = tool(campaign_id=self.campaign_id, bidding_strategy=bidding_strategy, customer_id=test_customer_id, confirm=True)
+        result = tool(
+            campaign_id=self.campaign_id, bidding_strategy=bidding_strategy, customer_id=test_customer_id, confirm=True
+        )
 
         if bidding_strategy in ["TARGET_IMPRESSION_SHARE"]:
             # These require subfield values (target_cpa_dollars, target_roas, etc.)
@@ -120,8 +141,12 @@ class TestCampaignUpdateSafety:
 
         tool = _register_tool("update_campaign", "campaigns")
 
-
-        kwargs = {"campaign_id": self.campaign_id, "bidding_strategy": bidding_strategy, "customer_id": test_customer_id, "confirm": True}
+        kwargs = {
+            "campaign_id": self.campaign_id,
+            "bidding_strategy": bidding_strategy,
+            "customer_id": test_customer_id,
+            "confirm": True,
+        }
 
         expected = bidding_strategy
 
@@ -157,7 +182,13 @@ class TestCampaignUpdateSafety:
 
         tool = _register_tool("update_campaign", "campaigns")
 
-        tool(campaign_id=self.campaign_id, bidding_strategy="TARGET_CPA", customer_id=test_customer_id, confirm=True, target_cpa_dollars=5.0)
+        tool(
+            campaign_id=self.campaign_id,
+            bidding_strategy="TARGET_CPA",
+            customer_id=test_customer_id,
+            confirm=True,
+            target_cpa_dollars=5.0,
+        )
 
         result = tool(campaign_id=self.campaign_id, target_cpa_dollars=10.0, customer_id=test_customer_id, confirm=True)
 
@@ -191,7 +222,6 @@ class TestCampaignUpdateSafety:
 
         self.__class__.campaign_name = new_name  # Update for potential cleanup if name is used in matching
 
-
     def test_update_campaign_change_channel(self, test_customer_id):
 
         pytest.skip("can't change channel through update_campaign tool, skipping.")
@@ -221,8 +251,10 @@ class TestCampaignUpdateSafety:
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
-        assert "status" in get_result and get_result["status"] == "PAUSED", f"Expected campaign to remain PAUSED without confirmation, got: {get_result.get('status')}"
+        assert "status" in get_result and get_result["status"] == "PAUSED", (
+            f"Expected campaign to remain PAUSED without confirmation, got: {get_result.get('status')}"
+        )
 
-    #TODO: add test for status enabled with budget = 0
+    # TODO: add test for status enabled with budget = 0
 
-    #TODO: Tracking URL Changes
+    # TODO: Tracking URL Changes

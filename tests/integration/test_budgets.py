@@ -6,14 +6,18 @@ from burnr8.tools.budgets import register as _register_budgets
 
 def _register_tool(name):
     captured = {}
+
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
                 captured["func"] = fn
             return fn
+
     cap = _Capture()
     _register_budgets(cap)
     return captured["func"]
+
+
 # Happy Path
 # Sad Path
 # Boundary & Edge Case
@@ -34,6 +38,7 @@ INVALID_BUDGET_AMOUNTS = [
     ("negative", -10.0),
     ("zero_explicit", 0),
 ]
+
 
 class TestListBudgets:
     def test_list_budget_invalid_active_account(self):
@@ -60,6 +65,7 @@ class TestListBudgets:
             assert "delivery_method" in budget
             assert "shared" in budget
             assert "campaigns_using" in budget
+
 
 class TestBudgetCreation:
     # Create a budget to update, and clean up after tests
@@ -96,7 +102,9 @@ class TestBudgetCreation:
     def test_create_budget_valid_input(self, test_customer_id):
         tool = _register_tool("create_budget")
         result = tool(name="Valid Name", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
-        assert "error" not in result or result["error"] is False, f"Expected success but got error: {result.get('message', '')}"
+        assert "error" not in result or result["error"] is False, (
+            f"Expected success but got error: {result.get('message', '')}"
+        )
         assert "id" in result
         assert "name" in result
         assert result["name"] == "Valid Name"
@@ -105,7 +113,6 @@ class TestBudgetCreation:
 
 
 class TestBudgetUpdates:
-
     # Create a budget to update, and clean up after tests
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
@@ -149,7 +156,7 @@ class TestBudgetUpdates:
         )
         print(result)  # Debug output to inspect the structure
 
-        assert result['warning'] is True
+        assert result["warning"] is True
 
     def test_update_budget_valid_confirm_true(self, test_customer_id):
         tool = _register_tool("update_budget")
@@ -162,9 +169,11 @@ class TestBudgetUpdates:
         )
         print(result)  # Debug output to inspect the structure
 
-        assert "error" not in result or result["error"] is False, f"Expected success but got error: {result.get('message', '')}"
+        assert "error" not in result or result["error"] is False, (
+            f"Expected success but got error: {result.get('message', '')}"
+        )
         assert "resource_name" in result
-        assert result["new_amount_dollars"] == 12.0 # Should update with confirm=True
+        assert result["new_amount_dollars"] == 12.0  # Should update with confirm=True
 
     def test_update_budget_invalid_active_account_confirm_false(self):
         tool = _register_tool("update_budget")
@@ -174,8 +183,8 @@ class TestBudgetUpdates:
         assert result["error"] is True
         assert "no active account" in result["message"].lower()
 
-class TestBudgetOrphans:
 
+class TestBudgetOrphans:
     # Create an orphan budget to update, and clean up after tests
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
@@ -212,12 +221,13 @@ class TestBudgetOrphans:
             assert result["removed"] == 0
             assert "No orphan" in result["message"]
 
-
     def test_remove_orphan_budgets_valid_customer_id_confirm_true(self, test_customer_id):
         tool = _register_tool("remove_orphan_budgets")
         result = tool(customer_id=test_customer_id, confirm=True)
         print(result)  # Debug output to inspect the structure
-        assert "error" not in result or result["error"] is False, f"Expected success but got error: {result.get('message', '')}"
+        assert "error" not in result or result["error"] is False, (
+            f"Expected success but got error: {result.get('message', '')}"
+        )
         assert "removed_budgets" in result
         assert "removed" in result
         if result["removed_budgets"]:

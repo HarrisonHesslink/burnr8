@@ -318,6 +318,7 @@ def _mock_save_report(rows, report_name, top_n=10):
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def mock_ads_client():
     """Patch get_client, run_gaql, save_report, and log_tool_call across ALL tool modules.

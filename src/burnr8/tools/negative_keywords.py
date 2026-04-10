@@ -250,10 +250,16 @@ def register(mcp: FastMCP) -> None:
             operations.append(operation)
 
         response = campaign_criterion_service.mutate_campaign_criteria(
-            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, operations, validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateCampaignCriteriaRequest", customer_id, operations, validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} negative keyword(s). Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will add {len(keywords)} negative keyword(s). Set confirm=true to execute.",
+            }
 
         return {
             "added": len(response.results),
@@ -305,10 +311,16 @@ def register(mcp: FastMCP) -> None:
             operations.append(operation)
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, operations, validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAdGroupCriteriaRequest", customer_id, operations, validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} ad group negative keyword(s). Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will add {len(keywords)} ad group negative keyword(s). Set confirm=true to execute.",
+            }
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
@@ -356,7 +368,9 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("CampaignCriterionOperation")
             operation.remove = resource_name
             response = campaign_criterion_service.mutate_campaign_criteria(
-                request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm)
+                request=build_mutate_request(
+                    client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm
+                )
             )
         else:
             assert ad_group_id is not None
@@ -367,7 +381,9 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("AdGroupCriterionOperation")
             operation.remove = resource_name
             response = ad_group_criterion_service.mutate_ad_group_criteria(
-                request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm)
+                request=build_mutate_request(
+                    client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm
+                )
             )
 
         if not confirm:

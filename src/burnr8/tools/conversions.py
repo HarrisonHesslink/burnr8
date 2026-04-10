@@ -260,10 +260,16 @@ def register(mcp: FastMCP) -> None:
         action.value_settings.always_use_default_value = always_use_default_value
 
         response = conversion_action_service.mutate_conversion_actions(
-            request=build_mutate_request(client, "MutateConversionActionsRequest", customer_id, [operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateConversionActionsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create conversion action '{name}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will create conversion action '{name}'. Set confirm=true to execute.",
+            }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
@@ -361,9 +367,15 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = conversion_action_service.mutate_conversion_actions(
-            request=build_mutate_request(client, "MutateConversionActionsRequest", customer_id, [operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateConversionActionsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update conversion action '{conversion_action_id}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will update conversion action '{conversion_action_id}'. Set confirm=true to execute.",
+            }
 
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}

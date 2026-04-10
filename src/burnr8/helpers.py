@@ -38,11 +38,25 @@ _NUMERIC_RE = re.compile(r"^\d+$")
 
 
 __all__ = [
-    "run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros",
-    "validate_id", "validate_status", "validate_date_range", "validate_budget_amount",
-    "validate_daily_budget", "validate_cpc_bid", "validate_bid_modifier", "validate_target_cpa", "validate_target_roas",
-    "require_customer_id", "escape_gaql_string", "validate_gaql_query",
-    "validate_recent_errors_limit", "build_mutate_request",
+    "run_gaql",
+    "stream_gaql",
+    "proto_to_dict",
+    "micros_to_dollars",
+    "dollars_to_micros",
+    "validate_id",
+    "validate_status",
+    "validate_date_range",
+    "validate_budget_amount",
+    "validate_daily_budget",
+    "validate_cpc_bid",
+    "validate_bid_modifier",
+    "validate_target_cpa",
+    "validate_target_roas",
+    "require_customer_id",
+    "escape_gaql_string",
+    "validate_gaql_query",
+    "validate_recent_errors_limit",
+    "build_mutate_request",
 ]
 
 
@@ -66,7 +80,7 @@ def build_mutate_request(
     client: GoogleAdsClient,
     request_type: str,
     customer_id: str,
-    operations: list,  # type: ignore[type-arg]
+    operations: list[Any],
     validate_only: bool = False,
 ) -> Any:
     """Build a v30 mutate request object.

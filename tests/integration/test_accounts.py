@@ -22,6 +22,7 @@ INVALID_ERROR_COUNTS = [
     ("null", None),
 ]
 
+
 def _register_tool(name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from burnr8.tools.accounts import register
@@ -38,12 +39,13 @@ def _register_tool(name):
     register(cap)
     return captured["func"]
 
+
 class TestListAccounts:
     def test_list_accessible_accounts_returns_valid_structure(self):
         # Real call through your actual client
         tool = _register_tool("list_accessible_accounts")
 
-        result = tool() # Pass a valid customer_id if required by your implementation
+        result = tool()  # Pass a valid customer_id if required by your implementation
 
         # Assert shape/contract, not specific data
         assert isinstance(result, dict)
@@ -53,6 +55,7 @@ class TestListAccounts:
         for account in result["accounts"]:
             assert "customer_id" in account
             assert "name" in account
+
 
 class TestActiveAccountResolution:
     def test_set_active_account(self, test_customer_id):
@@ -73,7 +76,7 @@ class TestActiveAccountResolution:
         assert list_result["active_account"] == test_customer_id
         assert list_result["hint"] is None
 
-        #After setting active account, get_active_account_tool should return the correct active account
+        # After setting active account, get_active_account_tool should return the correct active account
         assert get_result["active_account"] == test_customer_id
 
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)
@@ -112,6 +115,7 @@ class TestGetAccountInfo:
         result = tool(customer_id=customer_id)
         assert result["error"] is True
 
+
 class TestGetApiUsage:
     def test_get_api_usage(self, test_customer_id):
         tool = _register_tool("get_api_usage")
@@ -121,9 +125,10 @@ class TestGetApiUsage:
         assert "ops_limit" in result
         assert "ops_today" in result
         assert "date" in result
-        assert "ops_pct"    in result
+        assert "ops_pct" in result
         assert "errors_today" in result
         assert isinstance(result["recent_calls"], list)
+
 
 class TestGetRecentErrors:
     def test_get_recent_errors(self):

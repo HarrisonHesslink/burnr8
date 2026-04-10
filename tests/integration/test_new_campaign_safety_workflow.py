@@ -7,6 +7,7 @@ import pytest
 def _register_tool(tool_name, module_name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from importlib import import_module
+
     mod = import_module(f"burnr8.tools.{module_name}")
 
     captured = {}
@@ -24,11 +25,11 @@ def _register_tool(tool_name, module_name):
 
 # Goal is to test that new campaigns always start paused, and that duplicate campaign names are handled gracefully with an error message, not by creating a new campaign or mutating an existing one. This is critical to prevent accidental overspending and ensure a safe workflow for users. We will also test the case where no budget ID is provided, which should also result in an error without creating a campaign.
 
-class TestCampaignCreationSafety:
 
+class TestCampaignCreationSafety:
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
-        tool =  _register_tool("create_budget", "budgets")
+        tool = _register_tool("create_budget", "budgets")
         result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
         self.__class__.budget_id = result["id"]
         yield
@@ -59,7 +60,7 @@ class TestCampaignCreationSafety:
     # duplicate campaign case.
     def test_create_duplicate_campaign(self, test_customer_id):
         tool = _register_tool("create_campaign", "campaigns")
-        name = self.campaign_name # Use the same name to trigger duplicate handling
+        name = self.campaign_name  # Use the same name to trigger duplicate handling
 
         result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id, confirm=True)
 
@@ -67,8 +68,7 @@ class TestCampaignCreationSafety:
         assert "errors" in result
         assert "status" in result and result["status"] == "INVALID_ARGUMENT"
 
-
-    #no budget id case.
+    # no budget id case.
     def test_create_campaign_no_budget_id(self, test_customer_id):
         tool = _register_tool("create_campaign", "campaigns")
         name = f"Test Campaign No Budget {uuid.uuid4().hex[:8]}"  # Unique name to avoid duplicates
@@ -76,4 +76,3 @@ class TestCampaignCreationSafety:
         result = tool(name=name, customer_id=test_customer_id)
 
         assert "error" in result and result["error"] is True
-

@@ -90,10 +90,16 @@ def register(mcp: FastMCP) -> None:
         budget.explicitly_shared = False
 
         response = budget_service.mutate_campaign_budgets(
-            request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create budget '{name}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will create budget '{name}'. Set confirm=true to execute.",
+            }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
@@ -129,7 +135,9 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("amount_micros")
 
         response = budget_service.mutate_campaign_budgets(
-            request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
             return {
@@ -191,7 +199,9 @@ def register(mcp: FastMCP) -> None:
             operations.append(op)
 
         response = budget_service.mutate_campaign_budgets(
-            request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, operations, validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateCampaignBudgetsRequest", customer_id, operations, validate_only=not confirm
+            )
         )
         if not confirm:
             return {

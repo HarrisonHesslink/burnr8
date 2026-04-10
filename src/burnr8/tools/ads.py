@@ -107,7 +107,8 @@ def register(mcp: FastMCP) -> None:
                     "final_url_suffix": ad.get("final_url_suffix"),
                     "url_custom_parameters": {
                         p["key"]: p["value"] for p in ad.get("url_custom_parameters", []) if "key" in p
-                    } or None,
+                    }
+                    or None,
                     "headlines": structured_headlines,
                     "descriptions": structured_descriptions,
                     "path1": rsa.get("path1") if rsa else None,
@@ -176,7 +177,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         url_custom_parameters: Annotated[
             dict[str, str] | None,
-            Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
+            Field(
+                description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"
+            ),
         ] = None,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
@@ -187,7 +190,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         pinned_descriptions: Annotated[
             list[int | None] | None,
-            Field(description="Pin positions for descriptions (1-2), parallel to descriptions list. None means unpinned."),
+            Field(
+                description="Pin positions for descriptions (1-2), parallel to descriptions list. None means unpinned."
+            ),
         ] = None,
         path1: Annotated[str | None, Field(description="First display path segment (max 15 chars)")] = None,
         path2: Annotated[str | None, Field(description="Second display path segment (max 15 chars)")] = None,
@@ -283,10 +288,16 @@ def register(mcp: FastMCP) -> None:
             ad.responsive_search_ad.path2 = path2
 
         response = ad_group_ad_service.mutate_ad_group_ads(
-            request=build_mutate_request(client, "MutateAdGroupAdsRequest", customer_id, [operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAdGroupAdsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": "Validation succeeded. This will create a responsive search ad. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": "Validation succeeded. This will create a responsive search ad. Set confirm=true to execute.",
+            }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
@@ -347,9 +358,15 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = ad_group_ad_service.mutate_ad_group_ads(
-            request=build_mutate_request(client, "MutateAdGroupAdsRequest", customer_id, [operation], validate_only=not confirm)
+            request=build_mutate_request(
+                client, "MutateAdGroupAdsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute.",
+            }
 
         return {"resource_name": response.results[0].resource_name, "new_status": status.upper()}

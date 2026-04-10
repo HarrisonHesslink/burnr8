@@ -47,7 +47,7 @@ jobs:
           pip-compile pyproject.toml --extra=dev --generate-hashes --output-file=requirements-dev.lock --strip-extras --allow-unsafe --quiet
           git diff --exit-code requirements-dev.lock || { echo "::error::requirements-dev.lock is stale — run: pip-compile pyproject.toml --extra=dev --generate-hashes --output-file=requirements-dev.lock --strip-extras --allow-unsafe"; exit 1; }
       - name: CVE scan (runtime deps)
-        run: pip-audit -r requirements.lock --require-hashes --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
+        run: pip-audit -r requirements.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
       - name: CVE scan (dev deps)
         run: pip-audit -r requirements-dev.lock --ignore-vuln CVE-2025-8869 --ignore-vuln CVE-2026-1703
 

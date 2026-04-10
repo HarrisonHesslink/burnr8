@@ -14,6 +14,7 @@ from burnr8.helpers import (
     micros_to_dollars,
     require_customer_id,
     run_gaql,
+    validate_cpc_bid,
     validate_id,
     validate_status,
 )
@@ -100,6 +101,7 @@ def register(mcp: FastMCP) -> None:
             dict[str, str] | None,
             Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
         ] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -109,6 +111,8 @@ def register(mcp: FastMCP) -> None:
         if cid_err:
             return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
+            return {"error": True, "message": err}
+        if err := validate_cpc_bid(cpc_bid):
             return {"error": True, "message": err}
         client = get_client()
         ad_group_service = client.get_service("AdGroupService")
@@ -134,7 +138,10 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 ad_group.url_custom_parameters.append(param)
 
-        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
+        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create ad group '{name}'. Set confirm=true to execute."}
+
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         result = {"id": new_id, "resource_name": resource_name, "name": name}
@@ -165,6 +172,7 @@ def register(mcp: FastMCP) -> None:
             dict[str, str] | None,
             Field(description="Custom parameters for tracking URL substitution. Pass empty dict {} to clear all."),
         ] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -187,6 +195,8 @@ def register(mcp: FastMCP) -> None:
             ad_group.name = name
             field_mask.append("name")
         if cpc_bid is not None:
+            if err := validate_cpc_bid(cpc_bid):
+                return {"error": True, "message": err}
             ad_group.cpc_bid_micros = dollars_to_micros(cpc_bid)
             field_mask.append("cpc_bid_micros")
         if status is not None:
@@ -218,5 +228,8 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
+        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update ad group '{ad_group_id}'. Set confirm=true to execute."}
+
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}

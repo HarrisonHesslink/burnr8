@@ -38,7 +38,12 @@ def _register_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
-                captured["func"] = fn
+                def wrapper(*args, **kwargs):
+                    import inspect
+                    if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
+                        kwargs["confirm"] = True
+                    return fn(*args, **kwargs)
+                captured["func"] = wrapper
             return fn
 
     cap = _Capture()
@@ -143,7 +148,7 @@ class TestUpdateBudget:
         set_active_account("1234567890")
 
         tool = _register_tool("update_budget")
-        result = tool(
+        result = tool(confirm=False,
             budget_id="501",
             amount_dollars=75.0,
             customer_id="1234567890",
@@ -200,7 +205,7 @@ class TestRemoveOrphanBudgets:
         )
 
         tool = _register_tool("remove_orphan_budgets")
-        result = tool(customer_id="1234567890")
+        result = tool(confirm=False, customer_id="1234567890")
 
         assert result.get("warning") is True
         assert "2 orphan" in result["message"]

@@ -33,10 +33,10 @@ _CONTROL_CHARS = str.maketrans("", "", "\t\r\n")
 # Only allow safe characters in report names
 _SAFE_NAME = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
-__all__ = ["save_report", "get_storage_stats"]
+__all__ = ["save_report", "get_storage_stats", "sanitize_csv_value"]
 
 
-def _sanitize_cell(value: object) -> object:
+def sanitize_csv_value(value: object) -> object:
     """Prevent CSV formula injection — strips control chars and prefixes dangerous cells."""
     if isinstance(value, str) and value:
         value = value.translate(_CONTROL_CHARS)
@@ -47,7 +47,7 @@ def _sanitize_cell(value: object) -> object:
 
 def _sanitize_row(row: dict) -> dict:
     """Sanitize all string values in a row dict."""
-    return {k: _sanitize_cell(v) for k, v in row.items()}
+    return {k: sanitize_csv_value(v) for k, v in row.items()}
 
 
 def _rows_to_csv_bytes(rows: list[dict], fieldnames: list[str]) -> bytes:
@@ -95,7 +95,7 @@ _last_pruned: float = 0.0
 _prune_lock = threading.Lock()
 
 
-def _maybe_prune():
+def _maybe_prune() -> None:
     global _last_pruned
     now = time.monotonic()
     if now - _last_pruned < 300:  # 5 minutes

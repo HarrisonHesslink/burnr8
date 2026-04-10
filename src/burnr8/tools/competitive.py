@@ -72,7 +72,7 @@ def register(mcp: FastMCP) -> None:
 
         rows = run_gaql(client, customer_id, query)
         results = []
-        total_spend = 0
+        total_spend: float = 0
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
@@ -240,7 +240,7 @@ def register(mcp: FastMCP) -> None:
         return report
 
 
-def _fmt_share(value) -> float | None:
+def _fmt_share(value: float | str | None) -> float | None:
     """Format impression share values — API returns as float (0.0-1.0) or None."""
     if value is None:
         return None

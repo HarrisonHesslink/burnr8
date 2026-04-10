@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_bid_modifier, validate_id
 
 VALID_DEVICE_TYPES = {"MOBILE", "DESKTOP", "TABLET"}
 VALID_PRESENCE_TYPES = {"PRESENCE", "PRESENCE_OR_INTEREST", "SEARCH_INTEREST"}
@@ -30,6 +30,7 @@ def register(mcp: FastMCP) -> None:
     def pause_keyword(
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the keyword")],
         criterion_id: Annotated[str, Field(description="Keyword criterion ID to pause")],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -54,7 +55,10 @@ def register(mcp: FastMCP) -> None:
         criterion.status = client.enums.AdGroupCriterionStatusEnum.PAUSED
         operation.update_mask.paths.append("status")
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=[operation])
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will pause keyword '{criterion_id}'. Set confirm=true to execute."}
+
         return {
             "resource_name": response.results[0].resource_name,
             "new_status": "PAUSED",
@@ -68,6 +72,7 @@ def register(mcp: FastMCP) -> None:
         bid_modifier: Annotated[
             float, Field(description="Bid modifier (0.0 = exclude device, 1.0 = no change, 1.5 = +50%, 0.7 = -30%)")
         ],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -83,6 +88,8 @@ def register(mcp: FastMCP) -> None:
                 "error": True,
                 "message": f"Invalid device_type '{device_type}'. Must be one of: {', '.join(sorted(VALID_DEVICE_TYPES))}",
             }
+        if err := validate_bid_modifier(bid_modifier):
+            return {"error": True, "message": err}
 
         client = get_client()
         campaign_criterion_service = client.get_service("CampaignCriterionService")
@@ -134,7 +141,10 @@ def register(mcp: FastMCP) -> None:
             criterion.bid_modifier = bid_modifier
             action = "created"
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": "Validation succeeded. This will set device bid adjustment. Set confirm=true to execute."}
+
         return {
             "resource_name": response.results[0].resource_name,
             "device_type": device_type.upper(),
@@ -198,6 +208,7 @@ def register(mcp: FastMCP) -> None:
             int, Field(description="End hour (0-24, use 24 for end of day/midnight. Must be greater than start_hour)")
         ],
         bid_modifier: Annotated[float, Field(description="Bid modifier (1.0 = no change, 1.5 = +50%)")] = 1.0,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -219,6 +230,8 @@ def register(mcp: FastMCP) -> None:
             return {"error": True, "message": f"end_hour must be 0-24, got {end_hour}"}
         if end_hour <= start_hour:
             return {"error": True, "message": f"end_hour ({end_hour}) must be greater than start_hour ({start_hour})"}
+        if err := validate_bid_modifier(bid_modifier):
+            return {"error": True, "message": err}
 
         client = get_client()
         campaign_criterion_service = client.get_service("CampaignCriterionService")
@@ -244,7 +257,10 @@ def register(mcp: FastMCP) -> None:
         criterion.ad_schedule.end_minute = client.enums.MinuteOfHourEnum.ZERO
         criterion.bid_modifier = bid_modifier
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": "Validation succeeded. This will set ad schedule. Set confirm=true to execute."}
+
         resource_name = response.results[0].resource_name
         return {
             "resource_name": resource_name,
@@ -320,12 +336,6 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if not confirm:
-            return {
-                "warning": True,
-                "message": f"This will remove ad schedule criterion {criterion_id} from campaign {campaign_id}. "
-                "Set confirm=true to execute.",
-            }
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -338,7 +348,17 @@ def register(mcp: FastMCP) -> None:
         operation = client.get_type("CampaignCriterionOperation")
         operation.remove = resource_name
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
+        )
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will remove ad schedule criterion {criterion_id} from campaign {campaign_id}. "
+                "Set confirm=true to execute.",
+            }
+
         return {"removed": response.results[0].resource_name}
 
     @mcp.tool
@@ -403,6 +423,7 @@ def register(mcp: FastMCP) -> None:
         negative: Annotated[
             bool, Field(description="Set to true to EXCLUDE this location instead of targeting it")
         ] = False,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -414,6 +435,8 @@ def register(mcp: FastMCP) -> None:
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(geo_target_id, "geo_target_id"):
+            return {"error": True, "message": err}
+        if not negative and (err := validate_bid_modifier(bid_modifier)):
             return {"error": True, "message": err}
 
         client = get_client()
@@ -428,7 +451,10 @@ def register(mcp: FastMCP) -> None:
         if not negative:
             criterion.bid_modifier = bid_modifier
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": "Validation succeeded. This will add location target. Set confirm=true to execute."}
+
         return {
             "resource_name": response.results[0].resource_name,
             "geo_target_id": geo_target_id,
@@ -450,12 +476,6 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if not confirm:
-            return {
-                "warning": True,
-                "message": f"This will remove location criterion {criterion_id} from campaign {campaign_id}. "
-                "Set confirm=true to execute.",
-            }
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -467,7 +487,17 @@ def register(mcp: FastMCP) -> None:
         operation = client.get_type("CampaignCriterionOperation")
         operation.remove = resource_name
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=[operation])
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
+        )
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will remove location criterion {criterion_id} from campaign {campaign_id}. "
+                "Set confirm=true to execute.",
+            }
+
         return {"removed": response.results[0].resource_name}
 
     @mcp.tool
@@ -520,6 +550,7 @@ def register(mcp: FastMCP) -> None:
         negative_type: Annotated[
             str, Field(description="Who is excluded: PRESENCE (people IN excluded locations) or PRESENCE_OR_INTEREST")
         ] = "PRESENCE",
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -567,7 +598,10 @@ def register(mcp: FastMCP) -> None:
             ]
         )
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
+        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": "Validation succeeded. This will set geo target type setting. Set confirm=true to execute."}
+
         return {
             "resource_name": response.results[0].resource_name,
             "positive_geo_target_type": positive_type.upper(),

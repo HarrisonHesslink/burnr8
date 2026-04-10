@@ -17,7 +17,7 @@ def format_dollars(val: float) -> str:
     return f"${val:,.2f}"
 
 
-def print_dashboard():
+def print_dashboard() -> None:
     load_dotenv()
 
     from burnr8 import __version__
@@ -44,7 +44,7 @@ def print_dashboard():
     from burnr8.reports import get_storage_stats
 
     storage = get_storage_stats()
-    log_size = 0
+    log_size: float = 0
     log_file = LOG_DIR / "burnr8.log"
     if log_file.exists():
         log_size = log_file.stat().st_size / 1_048_576
@@ -115,13 +115,13 @@ def print_dashboard():
             conv = float(m.get("conversions", 0))
 
             # Find matching budget
-            budget_daily = 0
+            budget_daily: float = 0
             b = budget_map.get(name)
             if b:
                 budget_daily = micros_to_dollars(int(b.get("campaign_budget", {}).get("amount_micros", 0)))
 
             # Find MTD
-            cost_mtd = 0
+            cost_mtd: float = 0
             mr = mtd_map.get(name)
             if mr:
                 cost_mtd = micros_to_dollars(int(mr.get("metrics", {}).get("cost_micros", 0)))
@@ -153,14 +153,14 @@ def _get_customer_id() -> str:
     resp = svc.list_accessible_customers()
     login_id = os.environ.get("GOOGLE_ADS_LOGIN_CUSTOMER_ID", "").replace("-", "")
     for r in resp.resource_names:
-        cid = r.split("/")[-1]
+        cid: str = str(r.split("/")[-1])
         if cid != login_id:
             return cid
     # Fallback to first
-    return resp.resource_names[0].split("/")[-1] if resp.resource_names else ""
+    return str(resp.resource_names[0].split("/")[-1]) if resp.resource_names else ""
 
 
-def main():
+def main() -> None:
     if "--help" in sys.argv or "-h" in sys.argv:
         print("Usage: python -m burnr8.dashboard")
         print("       burnr8")

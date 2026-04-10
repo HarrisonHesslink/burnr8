@@ -30,7 +30,7 @@ def register(mcp: FastMCP) -> None:
             FROM customer LIMIT 1
         """
 
-        def _fetch_account(cid):
+        def _fetch_account(cid: str) -> dict[str, object]:
             try:
                 rows = run_gaql(client, cid, query)
                 if rows:
@@ -122,7 +122,7 @@ def register(mcp: FastMCP) -> None:
         """
         rows = run_gaql(client, customer_id, query)
         if rows:
-            return rows[0].get("customer", {})
+            return dict(rows[0].get("customer", {}))
         return {"error": True, "message": "Account not found"}
 
     @mcp.tool

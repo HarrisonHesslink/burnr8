@@ -12,6 +12,7 @@ from collections import deque
 from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Any
 
 LOG_DIR = Path(os.environ.get("BURNR8_LOG_DIR", os.path.expanduser("~/.burnr8/logs")))
 LOG_LEVEL = os.environ.get("BURNR8_LOG_LEVEL", "INFO").upper()
@@ -93,12 +94,12 @@ def get_logger() -> logging.Logger:
     return _logger
 
 
-def _load_usage() -> dict:
+def _load_usage() -> dict[str, Any]:
     """Load today's usage data from disk."""
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     if USAGE_FILE.exists():
         try:
-            data = json.loads(USAGE_FILE.read_text())
+            data: dict[str, Any] = json.loads(USAGE_FILE.read_text())
             if data.get("date") == today:
                 data["calls"] = deque(data.get("calls", []), maxlen=50)
                 return data
@@ -268,7 +269,7 @@ def _cloud_log_worker() -> None:
     while True:
         row = _cloud_queue.get()
         if row is None:
-            _cloud_queue.task_done()  # type: ignore[union-attr]
+            _cloud_queue.task_done()
             break
         _write_cloud_log(row)
         _cloud_queue.task_done()

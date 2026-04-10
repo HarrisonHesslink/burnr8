@@ -9,7 +9,14 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_id
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_cpc_bid,
+    validate_id,
+)
 from burnr8.reports import save_report
 
 
@@ -126,6 +133,7 @@ def register(mcp: FastMCP) -> None:
     def add_keywords(
         ad_group_id: Annotated[str, Field(description="Ad group ID to add keywords to")],
         keywords: Annotated[list[KeywordInput], Field(description="List of keywords with text and match_type")],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -160,7 +168,10 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations)
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} keyword(s). Set confirm=true to execute."}
+
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
@@ -181,14 +192,6 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if not confirm:
-            return {
-                "warning": True,
-                "criterion_id": criterion_id,
-                "ad_group_id": ad_group_id,
-                "message": f"This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
-                f"Set confirm=true to execute.",
-            }
         if err := validate_id(ad_group_id, "ad_group_id"):
             return {"error": True, "message": err}
         if err := validate_id(criterion_id, "criterion_id"):
@@ -200,7 +203,18 @@ def register(mcp: FastMCP) -> None:
         operation = client.get_type("AdGroupCriterionOperation")
         operation.remove = resource_name
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=[operation])
+        response = ad_group_criterion_service.mutate_ad_group_criteria(
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
+        )
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "criterion_id": criterion_id,
+                "ad_group_id": ad_group_id,
+                "message": f"Validation succeeded. This will remove keyword criterion {criterion_id} from ad group {ad_group_id}. "
+                f"Set confirm=true to execute.",
+            }
         return {"removed": response.results[0].resource_name}
 
     @mcp.tool
@@ -210,6 +224,7 @@ def register(mcp: FastMCP) -> None:
         ad_group_id: Annotated[str, Field(description="Ad group ID containing the keyword")],
         cpc_bid: Annotated[float | None, Field(description="New CPC bid in dollars")] = None,
         final_url_suffix: Annotated[str | None, Field(description="New final URL suffix")] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -233,6 +248,8 @@ def register(mcp: FastMCP) -> None:
 
         field_mask = []
         if cpc_bid is not None:
+            if err := validate_cpc_bid(cpc_bid):
+                return {"error": True, "message": err}
             criterion.cpc_bid_micros = dollars_to_micros(cpc_bid)
             field_mask.append("cpc_bid_micros")
         if final_url_suffix is not None:
@@ -245,8 +262,11 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation]
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
         )
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update keyword '{criterion_id}'. Set confirm=true to execute."}
+
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}
 
     @mcp.tool

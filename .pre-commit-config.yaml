@@ -8,6 +8,18 @@ repos:
 
   - repo: local
     hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy src/
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: pip-audit
+        name: pip-audit
+        entry: pip-audit
+        language: system
+        always_run: true
+        pass_filenames: false
       - id: pytest
         name: pytest
         entry: pytest tests/ -x -q
@@ -15,3 +27,9 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+
+  - repo: https://github.com/semgrep/semgrep
+    rev: v1.100.0
+    hooks:
+      - id: semgrep
+        args: ['--config', '.semgrep.yml', '--config', 'p/python', '--config', 'p/security-audit', '--error']

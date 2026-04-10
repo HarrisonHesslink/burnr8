@@ -116,7 +116,12 @@ def _register_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
-                captured["func"] = fn
+                def wrapper(*args, **kwargs):
+                    import inspect
+                    if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
+                        kwargs["confirm"] = True
+                    return fn(*args, **kwargs)
+                captured["func"] = wrapper
             return fn
 
     cap = _Capture()
@@ -696,7 +701,7 @@ class TestSetCampaignStatus:
         set_active_account("1234567890")
 
         tool = _register_tool("set_campaign_status")
-        result = tool(
+        result = tool(confirm=False,
             campaign_id="100",
             status="ENABLED",
             customer_id="1234567890",
@@ -869,7 +874,7 @@ class TestRemoveCampaign:
         set_active_account("1234567890")
 
         tool = _register_tool("remove_campaign")
-        result = tool(campaign_id="100", customer_id="1234567890")
+        result = tool(confirm=False, campaign_id="100", customer_id="1234567890")
 
         assert result["warning"] is True
         assert "confirm" in result["message"].lower()

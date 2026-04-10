@@ -18,6 +18,8 @@ from burnr8.helpers import (
     run_gaql,
     validate_id,
     validate_status,
+    validate_target_cpa,
+    validate_target_roas,
 )
 
 VALID_BIDDING_STRATEGIES = {
@@ -234,7 +236,7 @@ def register(mcp: FastMCP) -> None:
             c["cost_dollars"] = micros_to_dollars(int(m.get("cost_micros", 0)))
             c["conversions"] = float(m.get("conversions", 0))
             c["conversions_value"] = float(m.get("conversions_value", 0))
-            return c
+            return dict(c)
         return {"error": True, "message": "Campaign not found"}
 
     @mcp.tool
@@ -290,6 +292,7 @@ def register(mcp: FastMCP) -> None:
             dict[str, str] | None,
             Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
         ] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -308,11 +311,11 @@ def register(mcp: FastMCP) -> None:
                 "message": f"Invalid bidding_strategy '{bidding_strategy}'. Must be one of: {', '.join(sorted(VALID_BIDDING_STRATEGIES))}",
             }
 
-        if target_cpa_dollars is not None and (not isinstance(target_cpa_dollars, (int, float)) or target_cpa_dollars <= 0):
-            return {"error": True, "message": f"target_cpa_dollars must be a positive number, got: {target_cpa_dollars}"}
+        if target_cpa_dollars is not None and (err := validate_target_cpa(target_cpa_dollars)):
+            return {"error": True, "message": err}
 
-        if target_roas is not None and (not isinstance(target_roas, (int, float)) or target_roas <= 0):
-            return {"error": True, "message": f"target_roas must be a positive number, got: {target_roas}"}
+        if target_roas is not None and (err := validate_target_roas(target_roas)):
+            return {"error": True, "message": err}
 
         if target_impression_share_fraction is not None and (
             not isinstance(target_impression_share_fraction, (int, float))
@@ -377,7 +380,10 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 campaign.url_custom_parameters.append(param)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
+        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create campaign '{name}'. Set confirm=true to execute."}
+
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         result = {"id": new_id, "resource_name": resource_name, "status": "PAUSED", "name": name}
@@ -436,6 +442,7 @@ def register(mcp: FastMCP) -> None:
             dict[str, str] | None,
             Field(description="Custom parameters for tracking URL substitution. Pass empty dict {} to clear all."),
         ] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -447,11 +454,11 @@ def register(mcp: FastMCP) -> None:
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
 
-        if target_cpa_dollars is not None and (not isinstance(target_cpa_dollars, (int, float)) or target_cpa_dollars <= 0):
-            return {"error": True, "message": f"target_cpa_dollars must be a positive number, got: {target_cpa_dollars}"}
+        if target_cpa_dollars is not None and (err := validate_target_cpa(target_cpa_dollars)):
+            return {"error": True, "message": err}
 
-        if target_roas is not None and (not isinstance(target_roas, (int, float)) or target_roas <= 0):
-            return {"error": True, "message": f"target_roas must be a positive number, got: {target_roas}"}
+        if target_roas is not None and (err := validate_target_roas(target_roas)):
+            return {"error": True, "message": err}
 
         if target_impression_share_fraction is not None and (
             not isinstance(target_impression_share_fraction, (int, float))
@@ -523,7 +530,10 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
+        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update campaign '{campaign_id}'. Set confirm=true to execute."}
+
         result = {
             "campaign_id": campaign_id,
             "resource_name": response.results[0].resource_name,
@@ -558,16 +568,6 @@ def register(mcp: FastMCP) -> None:
             if status.upper() == "REMOVED":
                 msg += ". Use remove_campaign to permanently remove a campaign."
             return {"error": True, "message": msg}
-        if not confirm:
-            return {
-                "warning": True,
-                "campaign_id": campaign_id,
-                "target_status": status.upper(),
-                "message": f"This will set campaign {campaign_id} to {status.upper()}. "
-                f"If ENABLED, the campaign will begin serving ads and spending budget. "
-                f"Call list_campaigns or get_campaign first to verify. Set confirm=true to execute.",
-            }
-
         client = get_client()
         campaign_service = client.get_service("CampaignService")
 
@@ -582,7 +582,20 @@ def register(mcp: FastMCP) -> None:
         campaign.status = status_map[status.upper()]
         operation.update_mask.paths.append("status")
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation])
+        response = campaign_service.mutate_campaigns(
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
+        )
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "campaign_id": campaign_id,
+                "target_status": status.upper(),
+                "message": f"Validation succeeded. This will set campaign {campaign_id} to {status.upper()}. "
+                f"If ENABLED, the campaign will begin serving ads and spending budget. "
+                f"Call list_campaigns or get_campaign first to verify. Set confirm=true to execute.",
+            }
+
         return {"resource_name": response.results[0].resource_name, "new_status": status.upper()}
 
     @mcp.tool
@@ -605,19 +618,21 @@ def register(mcp: FastMCP) -> None:
             return cid_err
         if err := validate_id(campaign_id, "campaign_id"):
             return {"error": True, "message": err}
-        if not confirm:
-            return {
-                "warning": True,
-                "campaign_id": campaign_id,
-                "message": f"This will permanently remove campaign {campaign_id}. "
-                f"Set confirm=true to execute.",
-            }
-
         client = get_client()
         campaign_service = client.get_service("CampaignService")
 
         op = client.get_type("CampaignOperation")
         op.remove = campaign_service.campaign_path(customer_id, campaign_id)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[op])
+        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[op], validate_only=not confirm)
+
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "campaign_id": campaign_id,
+                "message": f"Validation succeeded. This will permanently remove campaign {campaign_id}. "
+                f"Set confirm=true to execute.",
+            }
+
         return {"resource_name": response.results[0].resource_name, "removed": True}

@@ -10,9 +10,11 @@ from unittest.mock import patch
 from burnr8.reports import (
     _prune_old_reports,
     _rows_to_csv_bytes,
-    _sanitize_cell,
     get_storage_stats,
     save_report,
+)
+from burnr8.reports import (
+    sanitize_csv_value as _sanitize_cell,
 )
 
 

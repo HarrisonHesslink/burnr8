@@ -370,8 +370,8 @@ def _reset_session():
     """Reset active account and client singleton between tests to prevent state leakage."""
     import burnr8.client as _client_mod
 
-    _session._active_account = None
+    _session._active_account.set(None)
     _client_mod._client = None
     yield
-    _session._active_account = None
+    _session._active_account.set(None)
     _client_mod._client = None

@@ -18,7 +18,8 @@ def handle_google_ads_errors(fn: Callable[P, R]) -> Callable[P, R | dict]:
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | dict:
         new_correlation_id()
         start = time.monotonic()
-        customer_id = kwargs.get("customer_id") or (args[0] if args else None)
+        _raw_cid = kwargs.get("customer_id") or (args[0] if args else None)
+        customer_id: str | None = str(_raw_cid) if _raw_cid is not None else None
         try:
             result = fn(*args, **kwargs)
             duration = time.monotonic() - start

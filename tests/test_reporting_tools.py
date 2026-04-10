@@ -95,7 +95,12 @@ def _register_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
-                captured["func"] = fn
+                def wrapper(*args, **kwargs):
+                    import inspect
+                    if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
+                        kwargs["confirm"] = True
+                    return fn(*args, **kwargs)
+                captured["func"] = wrapper
             return fn
 
     cap = _Capture()

@@ -105,6 +105,8 @@ Claude: Done. Estimated savings: ~$55/month.
 - All inputs validated (IDs must be numeric, statuses allowlisted, date ranges checked)
 - API usage tracked with 15,000 ops/day rate limit awareness
 - CSV reports saved with formula injection sanitization and `0o600` permissions
+- **Thread Safety**: ContextVars isolate session state per-request, preventing tenant leakage in concurrent environments
+- **Financial Circuit Breakers**: Configurable hard-caps enforced at the point of mutation (budgets, bids, modifiers, ROAS/CPA targets)
 
 ### CSV Report Export
 
@@ -142,10 +144,11 @@ Add to your `~/.claude/settings.json`:
 
 Then run `/plugin` in Claude Code and enable **burnr8**. This auto-configures the MCP server, agents, commands, and audit skill. You still need to `pip install burnr8` and set up credentials (see below).
 
-### Option B: pip install
+### Option B: pip/uv install
 
 ```bash
-pip install burnr8
+uv pip install burnr8
+# or: pip install burnr8
 ```
 
 ### Option C: Docker (no Python needed)
@@ -185,9 +188,9 @@ Set your credentials as environment variables in your shell, or use `--env-file 
 ```bash
 git clone https://github.com/HarrisonHesslink/burnr8.git
 cd burnr8
-python3 -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -e .
+uv pip install -e .
 ```
 
 ### 2. Set Up Credentials
@@ -204,6 +207,13 @@ GOOGLE_ADS_CLIENT_ID=your-oauth-client-id
 GOOGLE_ADS_CLIENT_SECRET=your-oauth-client-secret
 GOOGLE_ADS_REFRESH_TOKEN=your-refresh-token
 GOOGLE_ADS_LOGIN_CUSTOMER_ID=your-mcc-id (optional, for manager accounts)
+
+# Optional: Financial Circuit Breakers
+BURNR8_MAX_DAILY_BUDGET_DOLLARS=10000
+BURNR8_MAX_CPC_BID_DOLLARS=100
+BURNR8_MAX_BID_MODIFIER=5.0
+BURNR8_MAX_TARGET_CPA_DOLLARS=500
+BURNR8_MIN_TARGET_ROAS=0.5
 ```
 
 **Don't have a refresh token?** Run the included OAuth helper:

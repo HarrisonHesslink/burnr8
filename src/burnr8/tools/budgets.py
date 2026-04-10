@@ -9,7 +9,14 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_id
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_daily_budget,
+    validate_id,
+)
 
 
 def register(mcp: FastMCP) -> None:
@@ -59,6 +66,7 @@ def register(mcp: FastMCP) -> None:
     def create_budget(
         name: Annotated[str, Field(description="Budget name")],
         amount_dollars: Annotated[float, Field(description="Daily budget amount in dollars", gt=0)],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -67,6 +75,8 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
+        if err := validate_daily_budget(amount_dollars):
+            return {"error": True, "message": err}
         client = get_client()
         budget_service = client.get_service("CampaignBudgetService")
 
@@ -78,7 +88,10 @@ def register(mcp: FastMCP) -> None:
         budget.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
         budget.explicitly_shared = False
 
-        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[operation])
+        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create budget '{name}'. Set confirm=true to execute."}
+
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         return {"id": new_id, "resource_name": resource_name, "name": name, "amount_dollars": amount_dollars}
@@ -99,13 +112,9 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if not confirm:
-            return {
-                "warning": True,
-                "message": f"This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
-                "Set confirm=true to execute.",
-            }
         if err := validate_id(budget_id, "budget_id"):
+            return {"error": True, "message": err}
+        if err := validate_daily_budget(amount_dollars):
             return {"error": True, "message": err}
         client = get_client()
         budget_service = client.get_service("CampaignBudgetService")
@@ -116,7 +125,17 @@ def register(mcp: FastMCP) -> None:
         budget.amount_micros = dollars_to_micros(amount_dollars)
         operation.update_mask.paths.append("amount_micros")
 
-        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[operation])
+        response = budget_service.mutate_campaign_budgets(
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
+        )
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
+                "Set confirm=true to execute.",
+            }
+
         return {"resource_name": response.results[0].resource_name, "new_amount_dollars": amount_dollars}
 
     @mcp.tool
@@ -161,13 +180,6 @@ def register(mcp: FastMCP) -> None:
         if not orphans:
             return {"message": "No orphan budgets found.", "removed": 0}
 
-        if not confirm:
-            return {
-                "warning": True,
-                "orphan_budgets": orphans,
-                "message": f"Found {len(orphans)} orphan budget(s) not attached to any campaign. Set confirm=true to remove them.",
-            }
-
         budget_service = client.get_service("CampaignBudgetService")
         operations = []
         for orphan in orphans:
@@ -175,7 +187,17 @@ def register(mcp: FastMCP) -> None:
             op.remove = budget_service.campaign_budget_path(customer_id, str(orphan["id"]))
             operations.append(op)
 
-        response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=operations)
+        response = budget_service.mutate_campaign_budgets(
+            customer_id=customer_id, operations=operations, validate_only=not confirm
+        )
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "orphan_budgets": orphans,
+                "message": f"Validation succeeded. Found {len(orphans)} orphan budget(s) not attached to any campaign. Set confirm=true to remove them.",
+            }
+
         return {
             "removed": len(response.results),
             "removed_budgets": orphans,

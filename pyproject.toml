@@ -61,6 +61,8 @@ ignore = [
     "E501",  # line length handled by formatter
     "SIM108",  # ternary operator — walrus pattern is fine
     "S101",  # assert statements are used in tests
+    "S105",  # hardcoded passwords — false positives on test fixtures
+    "S108",  # insecure temp dir — false positives on test mock paths
     "S608",  # GAQL does not support native parameterized queries, so we rely on strict type/ID validators instead.
 ]
 

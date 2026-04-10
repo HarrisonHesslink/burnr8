@@ -1,0 +1,35 @@
+rules:
+  - id: catch-live-mutations-by-default
+    message: "MCP tools that perform mutations must never default to executing live. Ensure `confirm` defaults to False."
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern: |
+          @mcp.tool
+          def $FUNC(..., confirm: Annotated[bool, ...] = True, ...):
+              ...
+
+  - id: ensure-validate-only-guard
+    message: "Google Ads mutations must enforce `validate_only=not confirm`"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-inside: |
+          @mcp.tool
+          def $FUNC(...):
+              ...
+      - pattern-either:
+          - pattern: $SERVICE.mutate_campaigns(..., validate_only=False, ...)
+          - pattern: $SERVICE.mutate_ad_groups(..., validate_only=False, ...)
+          - pattern: $SERVICE.mutate_campaign_budgets(..., validate_only=False, ...)
+          - pattern: $SERVICE.mutate_ad_group_criteria(..., validate_only=False, ...)
+
+  - id: require-validated-gaql
+    message: "Do not pass bare f-strings to `run_gaql`. Ensure variables are statically validated first to prevent injection."
+    languages: [python]
+    severity: WARNING
+    patterns:
+      - pattern: run_gaql($CLIENT, $CUST, f"...{$VAR}...")
+      - pattern-not-inside: |
+          validate_id($VAR, ...)
+          ...

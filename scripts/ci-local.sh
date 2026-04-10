@@ -15,6 +15,13 @@ step() { echo -e "\n${YELLOW}=== $1 ===${NC}"; }
 
 cd "$(dirname "$0")/.."
 
+# Load credentials from .env.local if present (gitignored)
+if [ -f .env.local ]; then
+    set -a
+    source .env.local
+    set +a
+fi
+
 step "Lint (ruff)"
 .venv/bin/ruff check src/ tests/ || fail "ruff found issues"
 pass "ruff check"

@@ -65,15 +65,7 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements-dev.lock') }}
-      - name: Install dependencies
-        run: |
-          if [ "${{ matrix.python-version }}" = "3.12" ]; then
-            # 3.12 (reference): hash-pinned lockfile for reproducible builds
-            pip install -r requirements-dev.lock && pip install -e . --no-deps
-          else
-            # 3.11/3.13: flexible install for compatibility testing
-            pip install -e ".[dev]"
-          fi
+      - run: pip install -r requirements-dev.lock && pip install -e . --no-deps
       - run: pytest tests/ --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"
 

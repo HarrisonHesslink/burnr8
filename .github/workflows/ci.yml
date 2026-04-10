@@ -65,7 +65,13 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements-dev.lock') }}
-      - run: pip install -r requirements-dev.lock && pip install -e . --no-deps
+      - name: Install dependencies
+        run: |
+          if [ "${{ matrix.python-version }}" = "3.12" ]; then
+            pip install -r requirements-dev.lock && pip install -e . --no-deps
+          else
+            pip install -e ".[dev]"
+          fi
       - run: pytest tests/ --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"
 

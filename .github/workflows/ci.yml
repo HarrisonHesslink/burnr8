@@ -17,11 +17,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
       - uses: actions/cache@v5
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements-dev.lock') }}
-      - run: pip install -r requirements-dev.lock && pip install -e . --no-deps
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-lint-${{ hashFiles('requirements-dev.lock') }}
+      - run: uv pip install --system -r requirements-dev.lock && uv pip install --system -e . --no-deps
       - run: ruff check src/ tests/
       - name: Type check (strict)
         run: mypy src/burnr8/ --ignore-missing-imports
@@ -33,11 +34,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
       - uses: actions/cache@v5
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-security-${{ hashFiles('requirements-dev.lock') }}
-      - run: pip install pip-audit "pip-tools>=7.5.0,<8.0.0"
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-security-${{ hashFiles('requirements-dev.lock') }}
+      - run: uv pip install --system pip-audit "pip-tools>=7.5.0,<8.0.0"
       - name: Verify runtime lockfile is up-to-date
         run: |
           pip-compile pyproject.toml --generate-hashes --output-file=requirements.lock --strip-extras --allow-unsafe --quiet
@@ -61,16 +63,17 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v6
       - uses: actions/cache@v5
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements-dev.lock') }}
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ matrix.python-version }}-${{ hashFiles('requirements-dev.lock') }}
       - name: Install dependencies
         run: |
           if [ "${{ matrix.python-version }}" = "3.12" ]; then
-            pip install -r requirements-dev.lock && pip install -e . --no-deps
+            uv pip install --system -r requirements-dev.lock && uv pip install --system -e . --no-deps
           else
-            pip install -e ".[dev]"
+            uv pip install --system -e ".[dev]"
           fi
       - run: pytest tests/ --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"

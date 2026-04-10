@@ -1,5 +1,7 @@
 # Credentials
 .env
+.env.*
+!.env.example
 *.pem
 *.key
 
@@ -35,7 +37,12 @@ Thumbs.db
 .claude/worktrees/
 .pytest_cache/
 
+# Test artifacts
+.coverage
+.hypothesis/
+
 # burnr8 runtime
 reports/
 *.csv
 .next/
+server.json

@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-04-10
+
+### Added
+
+- **Financial circuit breakers**: 5 configurable hard-caps (daily budget, CPC bid, bid modifier, target CPA, target ROAS) with NaN/Inf protection and env-var overrides (`BURNR8_MAX_*`)
+- **Thread-local tenant isolation**: Session state migrated to `contextvars.ContextVar` for safe concurrent request handling
+- **Dry-run validation**: `validate_only=not confirm` pattern across all mutating tools — server-side validation before execution
+- **GAQL injection prevention**: `escape_gaql_string()` and `validate_gaql_query()` with cross-tenant ID detection and DML blocklist
+- **Tracking URL support**: `tracking_url_template`, `final_url_suffix`, `url_custom_parameters` on campaigns, ad groups, ads, keywords (#52)
+- **Keyword power tools**: bulk operations, quality score filtering, bid recommendations (#53)
+- **RSA pinning**: headline/description pin positions, display paths, ad policy details (#54)
+- **Smart Bidding for launch_campaign**: all 9 bidding strategies with target params (#55)
+- **Conversion validation**: goal name resolution, status filtering (#56)
+- **Property-based fuzzing suite**: Hypothesis tests for financial validators, GAQL gatekeeper, CSV sanitization
+- **29 unit tests** for financial circuit breaker validators
+- **Pre-commit hooks**, semgrep security rules, mypy strict mode (0 errors)
+- Internal `remove_campaign` tool for test cleanup (#59)
+
+### Changed
+
+- **CI modernized**: switched to `uv` for ~10x faster installs, pip cache on all jobs, lockfile for 3.12 reproducibility
+- **Setup simplified**: removed OAuth flow, added docs link and cloud CTA (#61)
+- **CWD `.env` loading removed**: credentials only from `~/.burnr8/.env` to prevent injection via malicious repo clones
+- Tool count: 65 → 66 (14 modules)
+
+### Fixed
+
+- `IndexError` handler added to error decorator — protects 34 `response.results[0]` call sites (#60)
+- Null/type validation on `validate_status` and `validate_date_range` (#60)
+- Campaign param validation (`target_cpa_dollars`, `max_cpc_bid_ceiling_dollars`, `target_roas`) (#60)
+- `set_campaign_status` no longer accepts REMOVED (must use `remove_campaign`) (#59)
+- `validate_budget_amount` allows $0 budgets (valid for pausing spend) (#62)
+- `validate_daily_budget` 0 vs 0.0 inconsistency fixed
+- cryptography bumped to 46.0.7 (CVE-2026-39892)
+
+### Security
+
+- Financial validators reject NaN, Infinity, and negative values
+- `set_financial_limits()` validates inputs before storing
+- Env var parsing fails fast with clear error messages on bad values
+- Atomic file writes for credential storage
+
+## [0.6.1] - 2026-04-06
+
+### Fixed
+
+- Reliability and error handling improvements
+- Dashboard exception handling
+- Test hardening and coverage expansion
+- Repository hygiene: version sync, pre-commit config
+
 ## [0.6.0] - 2026-04-05
 
 ### Added
@@ -118,6 +169,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth setup script
 - Google Ads API v23
 
+[0.7.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/harrisonhesslink/burnr8/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.5.0...v0.6.0
 [0.5.1]: https://github.com/harrisonhesslink/burnr8/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.4.0...v0.5.0

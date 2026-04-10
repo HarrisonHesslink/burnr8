@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Tools](https://img.shields.io/badge/MCP_tools-65-green.svg)]()
+[![Tools](https://img.shields.io/badge/MCP_tools-66-green.svg)]()
 [![CI](https://github.com/HarrisonHesslink/burnr8/actions/workflows/ci.yml/badge.svg)](https://github.com/HarrisonHesslink/burnr8/actions)
 [![PyPI](https://img.shields.io/pypi/v/burnr8)](https://pypi.org/project/burnr8/)
 [![Docker](https://img.shields.io/badge/docker-hub-blue?logo=docker)](https://hub.docker.com/r/harrisonhesslink/burnr8)
@@ -25,7 +25,7 @@
 - [FAQ](#faq)
 - [License](#license)
 
-burnr8 is an MCP server that gives [Claude Code](https://claude.ai/code) full control over Google Ads. 65 tools across 14 categories for managing campaigns, keywords, budgets, ads, extensions, conversion tracking, bid adjustments, ad scheduling, conversion goals, competitive insights, and reporting — all from your CLI. Includes 2 custom agents, 9 slash commands, 7 prompt templates, and MCP resources.
+burnr8 is an MCP server that gives [Claude Code](https://claude.ai/code) full control over Google Ads. 66 tools across 14 categories for managing campaigns, keywords, budgets, ads, extensions, conversion tracking, bid adjustments, ad scheduling, conversion goals, competitive insights, and reporting — all from your CLI. Includes 2 custom agents, 9 slash commands, 7 prompt templates, and MCP resources.
 
 > This is an unofficial tool and is not affiliated with or endorsed by Google.
 
@@ -41,7 +41,7 @@ You:    "Add 'free' as a phrase match negative keyword"
 Claude: Done. Estimated savings: ~$55/month.
 ```
 
-### 65 Tools Across 14 Categories
+### 66 Tools Across 14 Categories
 
 | Category | Tools | What They Do |
 |----------|-------|-------------|

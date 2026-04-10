@@ -1,7 +1,7 @@
 {
   "name": "burnr8",
   "description": "Google Ads MCP server for Claude Code",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "author": {
     "name": "Harrison Hesslink"
   },

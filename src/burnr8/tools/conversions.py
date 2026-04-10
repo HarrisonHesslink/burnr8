@@ -189,6 +189,7 @@ def register(mcp: FastMCP) -> None:
         always_use_default_value: Annotated[
             bool, Field(description="If true, always use the default value instead of transaction-specific values")
         ] = False,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -258,7 +259,10 @@ def register(mcp: FastMCP) -> None:
         action.value_settings.default_value = default_value
         action.value_settings.always_use_default_value = always_use_default_value
 
-        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation])
+        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create conversion action '{name}'. Set confirm=true to execute."}
+
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         return {
@@ -287,6 +291,7 @@ def register(mcp: FastMCP) -> None:
             bool | None,
             Field(description="If true, always use the default value instead of transaction-specific values"),
         ] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -353,5 +358,8 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation])
+        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update conversion action '{conversion_action_id}'. Set confirm=true to execute."}
+
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}

@@ -146,6 +146,7 @@ def register(mcp: FastMCP) -> None:
         category: Annotated[str, Field(description="Conversion goal category, e.g. PURCHASE, SIGNUP, LEAD, PAGE_VIEW")],
         origin: Annotated[str, Field(description="Conversion goal origin, e.g. WEBSITE, APP, STORE, CALL_FROM_ADS")],
         biddable: Annotated[bool, Field(description="Whether Smart Bidding should optimize toward this goal")],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -176,8 +177,11 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("biddable")
 
         response = customer_conversion_goal_service.mutate_customer_conversion_goals(
-            customer_id=customer_id, operations=[operation]
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
         )
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will toggle biddable={biddable} for {cat}/{orig}. Set confirm=true to execute."}
+
         return {
             "resource_name": response.results[0].resource_name,
             "category": cat,
@@ -224,6 +228,7 @@ def register(mcp: FastMCP) -> None:
     def set_campaign_conversion_goal(
         campaign_id: Annotated[str, Field(description="Campaign ID")],
         conversion_action_ids: Annotated[list[str], Field(description="Conversion action IDs to optimize toward")],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -253,8 +258,11 @@ def register(mcp: FastMCP) -> None:
                 client.get_service("ConversionActionService").conversion_action_path(customer_id, action_id)
             )
         response = custom_conversion_goal_service.mutate_custom_conversion_goals(
-            customer_id=customer_id, operations=[operation]
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
         )
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set campaign conversion goal targeting {len(conversion_action_ids)} actions. Set confirm=true to execute."}
+
         custom_goal_resource = response.results[0].resource_name
 
         # Step 2: Update campaign config to use campaign-level goals

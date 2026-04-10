@@ -211,6 +211,7 @@ def register(mcp: FastMCP) -> None:
         keywords: Annotated[
             list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")
         ],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -246,7 +247,10 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=operations)
+        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} negative keyword(s). Set confirm=true to execute."}
+
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
@@ -321,13 +325,6 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if not confirm:
-            return {
-                "warning": True,
-                "criterion_id": criterion_id,
-                "level": "CAMPAIGN" if campaign_id else "AD_GROUP" if ad_group_id else "UNKNOWN",
-                "message": f"This will remove negative keyword criterion {criterion_id}. Set confirm=true to execute.",
-            }
         if err := validate_id(criterion_id, "criterion_id"):
             return {"error": True, "message": err}
 
@@ -350,7 +347,7 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("CampaignCriterionOperation")
             operation.remove = resource_name
             response = campaign_criterion_service.mutate_campaign_criteria(
-                customer_id=customer_id, operations=[operation]
+                customer_id=customer_id, operations=[operation], validate_only=not confirm
             )
         else:
             if err := validate_id(ad_group_id, "ad_group_id"):
@@ -360,7 +357,16 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("AdGroupCriterionOperation")
             operation.remove = resource_name
             response = ad_group_criterion_service.mutate_ad_group_criteria(
-                customer_id=customer_id, operations=[operation]
+                customer_id=customer_id, operations=[operation], validate_only=not confirm
             )
+
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "criterion_id": criterion_id,
+                "level": "CAMPAIGN" if campaign_id else "AD_GROUP" if ad_group_id else "UNKNOWN",
+                "message": f"Validation succeeded. This will remove negative keyword criterion {criterion_id}. Set confirm=true to execute.",
+            }
 
         return {"removed": response.results[0].resource_name}

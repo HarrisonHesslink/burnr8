@@ -184,6 +184,7 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         path1: Annotated[str | None, Field(description="First display path segment (max 15 chars)")] = None,
         path2: Annotated[str | None, Field(description="Second display path segment (max 15 chars)")] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
     ) -> dict:
         """Create a responsive search ad in an ad group. Supports optional headline/description pinning and display paths."""
         customer_id, cid_err = require_customer_id(customer_id)
@@ -274,9 +275,14 @@ def register(mcp: FastMCP) -> None:
         if path2 is not None:
             ad.responsive_search_ad.path2 = path2
 
-        response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation])
+        response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": "Validation succeeded. This will create a responsive search ad. Set confirm=true to execute."}
+
         resource_name = response.results[0].resource_name
+        new_id = resource_name.split("/")[-1]
         result = {
+            "id": new_id,
             "resource_name": resource_name,
             "headlines_count": len(headlines),
             "descriptions_count": len(descriptions),
@@ -316,9 +322,6 @@ def register(mcp: FastMCP) -> None:
             return cid_err
         if err := validate_status(status):
             return {"error": True, "message": err}
-        if not confirm:
-            return {"warning": True, "message": f"This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute."}
-
         client = get_client()
         ad_group_ad_service = client.get_service("AdGroupAdService")
 
@@ -334,5 +337,10 @@ def register(mcp: FastMCP) -> None:
         ad_group_ad.status = status_map[status.upper()]
         operation.update_mask.paths.append("status")
 
-        response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[operation])
+        response = ad_group_ad_service.mutate_ad_group_ads(
+            customer_id=customer_id, operations=[operation], validate_only=not confirm
+        )
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute."}
+
         return {"resource_name": response.results[0].resource_name, "new_status": status.upper()}

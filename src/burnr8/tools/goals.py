@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_id
+from burnr8.helpers import build_mutate_request, require_customer_id, run_gaql, validate_id
 from burnr8.logging import get_logger
 
 VALID_CATEGORIES = {
@@ -119,9 +119,7 @@ def register(mcp: FastMCP) -> None:
                 ca = arow.get("conversion_action", {})
                 cat = ca.get("category")
                 if cat:
-                    actions_by_category.setdefault(cat, []).append(
-                        {"id": str(ca.get("id")), "name": ca.get("name")}
-                    )
+                    actions_by_category.setdefault(cat, []).append({"id": str(ca.get("id")), "name": ca.get("name")})
         except Exception:
             get_logger().warning("list_conversion_goals: action name resolution failed", exc_info=True)
             actions_by_category = {}
@@ -177,10 +175,16 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("biddable")
 
         response = customer_conversion_goal_service.mutate_customer_conversion_goals(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=build_mutate_request(
+                client, "MutateCustomerConversionGoalsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will toggle biddable={biddable} for {cat}/{orig}. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will toggle biddable={biddable} for {cat}/{orig}. Set confirm=true to execute.",
+            }
 
         return {
             "resource_name": response.results[0].resource_name,
@@ -258,10 +262,16 @@ def register(mcp: FastMCP) -> None:
                 client.get_service("ConversionActionService").conversion_action_path(customer_id, action_id)
             )
         response = custom_conversion_goal_service.mutate_custom_conversion_goals(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=build_mutate_request(
+                client, "MutateCustomConversionGoalsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set campaign conversion goal targeting {len(conversion_action_ids)} actions. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will set campaign conversion goal targeting {len(conversion_action_ids)} actions. Set confirm=true to execute.",
+            }
 
         custom_goal_resource = response.results[0].resource_name
 
@@ -273,16 +283,22 @@ def register(mcp: FastMCP) -> None:
         config.goal_config_level = client.enums.GoalConfigLevelEnum.CAMPAIGN
         config.custom_conversion_goal = custom_goal_resource
         config_op.update_mask.paths.extend(["goal_config_level", "custom_conversion_goal"])
-        config_service.mutate_conversion_goal_campaign_configs(customer_id=customer_id, operations=[config_op], validate_only=not confirm)
+        config_service.mutate_conversion_goal_campaign_configs(
+            request=build_mutate_request(
+                client,
+                "MutateConversionGoalCampaignConfigsRequest",
+                customer_id,
+                [config_op],
+                validate_only=not confirm,
+            )
+        )
 
         try:
             name_map = _resolve_action_names(client, customer_id, list(conversion_action_ids))
         except Exception:
             get_logger().warning("set_campaign_conversion_goal: action name resolution failed", exc_info=True)
             name_map = {}
-        resolved_actions = [
-            {"id": aid, "name": name_map.get(aid)} for aid in conversion_action_ids
-        ]
+        resolved_actions = [{"id": aid, "name": name_map.get(aid)} for aid in conversion_action_ids]
 
         return {
             "campaign_id": campaign_id,

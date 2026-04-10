@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -179,7 +180,8 @@ def register(mcp: FastMCP) -> None:
                     "final_url_suffix": c.get("final_url_suffix"),
                     "url_custom_parameters": {
                         p["key"]: p["value"] for p in c.get("url_custom_parameters", []) if "key" in p
-                    } or None,
+                    }
+                    or None,
                     "impressions": int(m.get("impressions", 0)),
                     "clicks": int(m.get("clicks", 0)),
                     "cost_dollars": micros_to_dollars(int(m.get("cost_micros", 0))),
@@ -210,8 +212,6 @@ def register(mcp: FastMCP) -> None:
                 campaign.advertising_channel_type,
                 campaign.bidding_strategy_type,
                 campaign.campaign_budget,
-                campaign.start_date,
-                campaign.end_date,
                 campaign.network_settings.target_google_search,
                 campaign.network_settings.target_search_network,
                 campaign.network_settings.target_content_network,
@@ -290,7 +290,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         url_custom_parameters: Annotated[
             dict[str, str] | None,
-            Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
+            Field(
+                description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"
+            ),
         ] = None,
         confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
@@ -321,7 +323,10 @@ def register(mcp: FastMCP) -> None:
             not isinstance(target_impression_share_fraction, (int, float))
             or not (0.0 <= target_impression_share_fraction <= 1.0)
         ):
-            return {"error": True, "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}"}
+            return {
+                "error": True,
+                "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}",
+            }
 
         client = get_client()
         campaign_service = client.get_service("CampaignService")
@@ -380,9 +385,17 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 campaign.url_custom_parameters.append(param)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = campaign_service.mutate_campaigns(
+            request=build_mutate_request(
+                client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm
+            )
+        )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create campaign '{name}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will create campaign '{name}'. Set confirm=true to execute.",
+            }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
@@ -464,7 +477,10 @@ def register(mcp: FastMCP) -> None:
             not isinstance(target_impression_share_fraction, (int, float))
             or not (0.0 <= target_impression_share_fraction <= 1.0)
         ):
-            return {"error": True, "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}"}
+            return {
+                "error": True,
+                "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}",
+            }
 
         client = get_client()
         campaign_service = client.get_service("CampaignService")
@@ -530,9 +546,17 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = campaign_service.mutate_campaigns(
+            request=build_mutate_request(
+                client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm
+            )
+        )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update campaign '{campaign_id}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will update campaign '{campaign_id}'. Set confirm=true to execute.",
+            }
 
         result = {
             "campaign_id": campaign_id,
@@ -583,7 +607,9 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = campaign_service.mutate_campaigns(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=build_mutate_request(
+                client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
             return {
@@ -604,9 +630,7 @@ def register(mcp: FastMCP) -> None:
         campaign_id: Annotated[str, Field(description="Campaign ID to remove")],
         confirm: Annotated[
             bool,
-            Field(
-                description="Must be true to execute. This permanently removes the campaign."
-            ),
+            Field(description="Must be true to execute. This permanently removes the campaign."),
         ] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
@@ -624,7 +648,9 @@ def register(mcp: FastMCP) -> None:
         op = client.get_type("CampaignOperation")
         op.remove = campaign_service.campaign_path(customer_id, campaign_id)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[op], validate_only=not confirm)
+        response = campaign_service.mutate_campaigns(
+            request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [op], validate_only=not confirm)
+        )
 
         if not confirm:
             return {

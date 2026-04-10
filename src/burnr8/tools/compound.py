@@ -12,7 +12,17 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import dollars_to_micros, micros_to_dollars, require_customer_id, run_gaql, validate_date_range
+from burnr8.helpers import (
+    dollars_to_micros,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_cpc_bid,
+    validate_daily_budget,
+    validate_date_range,
+    validate_target_cpa,
+    validate_target_roas,
+)
 from burnr8.reports import save_report
 from burnr8.tools.campaigns import VALID_BIDDING_STRATEGIES, _apply_bidding_strategy
 
@@ -446,6 +456,7 @@ def register(mcp: FastMCP) -> None:
             dict[str, str] | None,
             Field(description="Custom parameters for tracking URL substitution at campaign level"),
         ] = None,
+        confirm: Annotated[bool, Field(description="Must be true to execute the creation.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -462,6 +473,14 @@ def register(mcp: FastMCP) -> None:
             return {"error": True, "message": f"descriptions must have 2-4 items, got {len(descriptions)}"}
         if not keywords:
             return {"error": True, "message": "keywords list cannot be empty"}
+        if err := validate_daily_budget(daily_budget_dollars):
+            return {"error": True, "message": err}
+        if err := validate_cpc_bid(cpc_bid):
+            return {"error": True, "message": err}
+        if target_cpa_dollars is not None and (err := validate_target_cpa(target_cpa_dollars)):
+            return {"error": True, "message": err}
+        if target_roas is not None and (err := validate_target_roas(target_roas)):
+            return {"error": True, "message": err}
 
         strategy = bidding_strategy.upper()
         if strategy not in VALID_BIDDING_STRATEGIES:
@@ -472,6 +491,9 @@ def register(mcp: FastMCP) -> None:
 
         client = get_client()
         created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}
+
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation conceptually succeeded. This will launch a full campaign '{campaign_name}'. Set confirm=true to execute."}
 
         try:
             return _execute_launch(

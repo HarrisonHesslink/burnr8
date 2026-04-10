@@ -137,13 +137,16 @@ class TestValidateStatus:
         assert err is not None
 
     def test_none_rejected(self):
-        err = validate_status(None)
-        assert err is not None
+        import pytest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            validate_status(None)
 
     def test_integer_rejected(self):
-        err = validate_status(123)
-        assert err is not None
-        assert "must be a string" in err
+        import pytest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            validate_status(123)
 
 
 # ---------------------------------------------------------------------------
@@ -178,13 +181,16 @@ class TestValidateDateRange:
         assert err is not None
 
     def test_none_rejected(self):
-        err = validate_date_range(None)
-        assert err is not None
+        import pytest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            validate_date_range(None)
 
     def test_integer_rejected(self):
-        err = validate_date_range(123)
-        assert err is not None
-        assert "must be a string" in err
+        import pytest
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
+            validate_date_range(123)
 
 
 # ---------------------------------------------------------------------------

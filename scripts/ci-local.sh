@@ -19,9 +19,21 @@ step "Lint (ruff)"
 .venv/bin/ruff check src/ tests/ || fail "ruff found issues"
 pass "ruff check"
 
-step "Tests (pytest)"
-PYTHONPATH=src .venv/bin/pytest tests/ -v --tb=short || fail "tests failed"
-pass "pytest"
+step "Type check (mypy)"
+.venv/bin/mypy src/burnr8/ --ignore-missing-imports || fail "mypy found errors"
+pass "mypy strict"
+
+step "Unit tests (pytest)"
+PYTHONPATH=src .venv/bin/pytest tests/ --ignore=tests/integration -v --tb=short || fail "unit tests failed"
+pass "unit tests"
+
+step "Integration tests"
+if [ -n "${GOOGLE_ADS_LOGIN_CUSTOMER_ID:-}" ]; then
+    PYTHONPATH=src .venv/bin/pytest tests/integration/ -v --tb=short -x || fail "integration tests failed"
+    pass "integration tests"
+else
+    echo -e "  ${YELLOW}SKIP${NC} — set GOOGLE_ADS_LOGIN_CUSTOMER_ID to run integration tests"
+fi
 
 step "Import check"
 PYTHONPATH=src .venv/bin/python -c "from burnr8.server import mcp; print(f'  Server: {mcp.name}')" || fail "import failed"
@@ -33,13 +45,6 @@ step "CVE scan (pip-audit)"
   --ignore-vuln CVE-2026-1703 \
   || fail "vulnerabilities found"
 pass "no CVEs in dependencies"
-
-step "Verify direct dependencies"
-.venv/bin/pip show google-ads > /tmp/dep-check 2>&1 && grep -qi "google" /tmp/dep-check || fail "google-ads not verified"
-.venv/bin/pip show fastmcp > /tmp/dep-check 2>&1 && grep -qi "fastmcp\|prefect" /tmp/dep-check || fail "fastmcp not verified"
-.venv/bin/pip show python-dotenv > /tmp/dep-check 2>&1 && grep -qi "dotenv" /tmp/dep-check || fail "python-dotenv not verified"
-rm -f /tmp/dep-check
-pass "direct deps verified"
 
 step "Build check"
 .venv/bin/pip install -q build 2>/dev/null

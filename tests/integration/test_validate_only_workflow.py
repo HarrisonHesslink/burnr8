@@ -235,11 +235,37 @@ class TestKeywordDryRun:
 class TestExtensionDryRun:
     """Verify extension creation with confirm=False validates but doesn't create."""
 
+    @pytest.fixture(autouse=True, scope="class")
+    def setup_campaign(self, test_customer_id):
+        budget_tool = _register_tool("create_budget", "budgets")
+        result = budget_tool(
+            name=f"Ext DryRun Budget {uuid.uuid4().hex[:8]}",
+            amount_dollars=10.0,
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+        self.__class__.budget_id = result["id"]
+
+        campaign_tool = _register_tool("create_campaign", "campaigns")
+        result = campaign_tool(
+            name=f"Ext DryRun Campaign {uuid.uuid4().hex[:8]}",
+            budget_id=self.budget_id,
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+        self.__class__.campaign_id = result["id"]
+        yield
+        remove_tool = _register_tool("remove_campaign", "campaigns")
+        remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
+        cleanup_tool = _register_tool("remove_orphan_budgets", "budgets")
+        cleanup_tool(confirm=True, customer_id=test_customer_id)
+
     def test_create_sitelink_dry_run(self, test_customer_id):
         tool = _register_tool("create_sitelink", "extensions")
         result = tool(
             link_text="DryRun Sitelink",
             final_url="https://example.com",
+            campaign_id=self.campaign_id,
             customer_id=test_customer_id,
             confirm=False,
         )
@@ -252,6 +278,7 @@ class TestExtensionDryRun:
         tool = _register_tool("create_callout", "extensions")
         result = tool(
             callout_text="DryRun Callout",
+            campaign_id=self.campaign_id,
             customer_id=test_customer_id,
             confirm=False,
         )

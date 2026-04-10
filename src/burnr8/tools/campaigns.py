@@ -211,8 +211,6 @@ def register(mcp: FastMCP) -> None:
                 campaign.advertising_channel_type,
                 campaign.bidding_strategy_type,
                 campaign.campaign_budget,
-                campaign.start_date,
-                campaign.end_date,
                 campaign.network_settings.target_google_search,
                 campaign.network_settings.target_search_network,
                 campaign.network_settings.target_content_network,

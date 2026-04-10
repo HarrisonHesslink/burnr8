@@ -701,7 +701,7 @@ class TestSetCampaignStatus:
         set_active_account("1234567890")
 
         tool = _register_tool("set_campaign_status")
-        result = tool(confirm=False, 
+        result = tool(confirm=False,
             campaign_id="100",
             status="ENABLED",
             customer_id="1234567890",

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pydantic import validate_call
 
@@ -68,11 +69,16 @@ def validate_gaql_query(query: str, customer_id: str) -> None:
     if match := re.search(r"\b(" + "|".join(forbidden) + r")\b", upper_query):
         raise ValueError(f"GAQL queries must be read-only. Forbidden keyword found: {match.group(1)}")
 
-    for match in re.finditer(r"(?i)(customer\.id|customer_client\.id)\s+(?:=|IN)\s+[^A-Za-z0-9_]*([\d\s,'\"]+)", query):
-        rhs_digits = re.findall(r"\d+", match.group(2))
+    # Cross-tenant check: ensure customer.id or customer_client.id filters match the active session.
+    # We match: field, optional whitespace/multispace, operator (including !=), RHS (digits, quotes, spaces)
+    pattern = r"(?i)(customer\.id|customer_client\.id)\s*(!=|<>|=|>=|<=|>|<|IN|NOT\s+IN)\s*[^A-Za-z0-9_]*([\d\s,'\"]+)"
+    for match in re.finditer(pattern, query):
+        rhs_digits = re.findall(r"\d+", match.group(3))
         for d in rhs_digits:
             if d != customer_id:
-                raise ValueError(f"GAQL queries cannot explicitly query a customer ID ({d}) that does not match the active session ({customer_id}).")
+                raise ValueError(
+                    f"GAQL queries cannot explicitly query a customer ID ({d}) that does not match the active session ({customer_id})."
+                )
 
 
 def require_customer_id(customer_id: str | None) -> tuple[str, dict | None]:
@@ -127,8 +133,10 @@ def validate_daily_budget(amount: float | int) -> str | None:
 
     Returns an error string if invalid, else None.
     """
-    if set(str(amount)) == {"0"}:
-        return None  # allowed
+    if not math.isfinite(amount):
+        return f"Daily budget must be a finite number, got: {amount}"
+    if amount == 0:
+        return None  # $0 budgets are valid (pause spend without pausing campaign)
     if amount <= 0:
         return f"Daily budget must be greater than zero, got: {amount}"
     limit = get_max_daily_budget()
@@ -146,6 +154,8 @@ def validate_cpc_bid(amount: float | int) -> str | None:
 
     Returns an error string if invalid, else None.
     """
+    if not math.isfinite(amount):
+        return f"CPC bid must be a finite number, got: {amount}"
     if amount < 0:
         return f"CPC bid cannot be negative, got: {amount}"
     limit = get_max_cpc_bid()
@@ -160,6 +170,8 @@ def validate_cpc_bid(amount: float | int) -> str | None:
 @validate_call
 def validate_bid_modifier(amount: float | int) -> str | None:
     """Validates a bid modifier against the configurable hard-cap."""
+    if not math.isfinite(amount):
+        return f"Bid modifier must be a finite number, got: {amount}"
     if amount < 0.1 and amount != 0.0:
         return f"Bid modifier cannot be less than 0.1 (except 0.0 to exclude), got: {amount}"
     limit = get_max_bid_modifier()
@@ -174,6 +186,8 @@ def validate_bid_modifier(amount: float | int) -> str | None:
 @validate_call
 def validate_target_cpa(amount: float | int) -> str | None:
     """Validates a Target CPA against the configurable hard-cap."""
+    if not math.isfinite(amount):
+        return f"Target CPA must be a finite number, got: {amount}"
     if amount <= 0:
         return f"Target CPA must be greater than zero, got: {amount}"
     limit = get_max_target_cpa()
@@ -188,6 +202,8 @@ def validate_target_cpa(amount: float | int) -> str | None:
 @validate_call
 def validate_target_roas(amount: float | int) -> str | None:
     """Validates a Target ROAS against the configurable safety floor."""
+    if not math.isfinite(amount):
+        return f"Target ROAS must be a finite number, got: {amount}"
     limit = get_min_target_roas()
     if amount < limit:
         return (

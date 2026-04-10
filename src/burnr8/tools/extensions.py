@@ -592,14 +592,6 @@ def register(mcp: FastMCP) -> None:
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if not confirm:
-            return {
-                "warning": True,
-                "message": f"This will remove the extension link '{asset_resource_name}'. "
-                "The underlying asset will not be deleted. "
-                "Set confirm=true to execute.",
-            }
-
         client = get_client()
 
         # Auto-detect whether this is a campaign or ad group asset link
@@ -607,17 +599,26 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("AdGroupAssetOperation")
             operation.remove = asset_resource_name
             svc = client.get_service("AdGroupAssetService")
-            response = svc.mutate_ad_group_assets(customer_id=customer_id, operations=[operation])
+            response = svc.mutate_ad_group_assets(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         elif "campaignAssets" in asset_resource_name:
             operation = client.get_type("CampaignAssetOperation")
             operation.remove = asset_resource_name
             svc = client.get_service("CampaignAssetService")
-            response = svc.mutate_campaign_assets(customer_id=customer_id, operations=[operation])
+            response = svc.mutate_campaign_assets(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         else:
             return {
                 "error": True,
                 "message": f"Unrecognized asset link resource name: '{asset_resource_name}'. "
                 "Expected format: 'customers/{{id}}/campaignAssets/...' or 'customers/{{id}}/adGroupAssets/...'",
+            }
+
+        if not confirm:
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will remove the extension link '{asset_resource_name}'. "
+                "The underlying asset will not be deleted. "
+                "Set confirm=true to execute.",
             }
 
         return {

@@ -264,6 +264,7 @@ def register(mcp: FastMCP) -> None:
         keywords: Annotated[
             list[NegativeKeyword], Field(description="List of negative keywords with text and match_type")
         ],
+        confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -299,7 +300,9 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations)
+        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        if not confirm:
+            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} ad group negative keyword(s). Set confirm=true to execute."}
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],

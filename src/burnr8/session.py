@@ -1,15 +1,28 @@
 """Session state — active account management."""
 
 import contextvars
+import math
 import os
 
 _active_account: contextvars.ContextVar[str | None] = contextvars.ContextVar("active_account", default=None)
 
-_default_max_daily_budget = float(os.environ.get("BURNR8_MAX_DAILY_BUDGET_DOLLARS", "10000"))
-_default_max_cpc_bid = float(os.environ.get("BURNR8_MAX_CPC_BID_DOLLARS", "100"))
-_default_max_bid_modifier = float(os.environ.get("BURNR8_MAX_BID_MODIFIER", "5.0"))
-_default_max_target_cpa = float(os.environ.get("BURNR8_MAX_TARGET_CPA_DOLLARS", "500"))
-_default_min_target_roas = float(os.environ.get("BURNR8_MIN_TARGET_ROAS", "0.5"))
+def _parse_float_env(key: str, default: str) -> float:
+    raw = os.environ.get(key, default)
+    try:
+        val = float(raw)
+    except (ValueError, TypeError):
+        raise ValueError(
+            f"Environment variable {key}={raw!r} is not a valid number. Expected a float (e.g., {default})."
+        ) from None
+    if not math.isfinite(val) or val <= 0:
+        raise ValueError(f"Environment variable {key}={raw} must be a finite positive number.")
+    return val
+
+_default_max_daily_budget = _parse_float_env("BURNR8_MAX_DAILY_BUDGET_DOLLARS", "10000")
+_default_max_cpc_bid = _parse_float_env("BURNR8_MAX_CPC_BID_DOLLARS", "100")
+_default_max_bid_modifier = _parse_float_env("BURNR8_MAX_BID_MODIFIER", "5.0")
+_default_max_target_cpa = _parse_float_env("BURNR8_MAX_TARGET_CPA_DOLLARS", "500")
+_default_min_target_roas = _parse_float_env("BURNR8_MIN_TARGET_ROAS", "0.5")
 
 _max_daily_budget = contextvars.ContextVar("max_daily_budget", default=_default_max_daily_budget)
 _max_cpc_bid = contextvars.ContextVar("max_cpc_bid", default=_default_max_cpc_bid)
@@ -56,15 +69,30 @@ def set_financial_limits(
 ) -> None:
     """Dynamically set financial safety limits for the current process/task via proxy."""
     if max_daily_budget is not None:
-        _max_daily_budget.set(float(max_daily_budget))
+        val = float(max_daily_budget)
+        if not math.isfinite(val) or val <= 0:
+            raise ValueError(f"max_daily_budget must be a finite positive number, got: {val}")
+        _max_daily_budget.set(val)
     if max_cpc_bid is not None:
-        _max_cpc_bid.set(float(max_cpc_bid))
+        val = float(max_cpc_bid)
+        if not math.isfinite(val) or val <= 0:
+            raise ValueError(f"max_cpc_bid must be a finite positive number, got: {val}")
+        _max_cpc_bid.set(val)
     if max_bid_modifier is not None:
-        _max_bid_modifier.set(float(max_bid_modifier))
+        val = float(max_bid_modifier)
+        if not math.isfinite(val) or val <= 0:
+            raise ValueError(f"max_bid_modifier must be a finite positive number, got: {val}")
+        _max_bid_modifier.set(val)
     if max_target_cpa is not None:
-        _max_target_cpa.set(float(max_target_cpa))
+        val = float(max_target_cpa)
+        if not math.isfinite(val) or val <= 0:
+            raise ValueError(f"max_target_cpa must be a finite positive number, got: {val}")
+        _max_target_cpa.set(val)
     if min_target_roas is not None:
-        _min_target_roas.set(float(min_target_roas))
+        val = float(min_target_roas)
+        if not math.isfinite(val) or val < 0:
+            raise ValueError(f"min_target_roas must be a finite non-negative number, got: {val}")
+        _min_target_roas.set(val)
 
 
 def get_max_daily_budget() -> float:

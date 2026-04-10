@@ -612,7 +612,7 @@ class TestSetAdStatus:
         set_active_account("1234567890")
 
         tool = _register_tool("set_ad_status")
-        result = tool(confirm=False, 
+        result = tool(confirm=False,
             ad_group_id="333",
             ad_id="555",
             status="PAUSED",

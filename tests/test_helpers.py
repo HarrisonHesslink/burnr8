@@ -3,10 +3,15 @@
 from burnr8.helpers import (
     dollars_to_micros,
     micros_to_dollars,
+    validate_bid_modifier,
     validate_budget_amount,
+    validate_cpc_bid,
+    validate_daily_budget,
     validate_date_range,
     validate_id,
     validate_status,
+    validate_target_cpa,
+    validate_target_roas,
 )
 
 # ---------------------------------------------------------------------------
@@ -232,3 +237,161 @@ class TestValidateBudgetAmount:
         err = validate_budget_amount(True)
         assert err is not None
         assert "must be a number" in err
+
+
+# ---------------------------------------------------------------------------
+# validate_daily_budget
+# ---------------------------------------------------------------------------
+
+
+class TestValidateDailyBudget:
+    def test_valid_amount(self):
+        assert validate_daily_budget(100.0) is None
+
+    def test_zero_int_allowed(self):
+        assert validate_daily_budget(0) is None
+
+    def test_zero_float_allowed(self):
+        assert validate_daily_budget(0.0) is None
+
+    def test_negative_rejected(self):
+        err = validate_daily_budget(-10.0)
+        assert err is not None
+        assert "greater than zero" in err
+
+    def test_exceeds_cap(self):
+        err = validate_daily_budget(999_999.0)
+        assert err is not None
+        assert "exceeds the safety cap" in err
+
+    def test_nan_rejected(self):
+        err = validate_daily_budget(float('nan'))
+        assert err is not None
+        assert "finite" in err
+
+    def test_inf_rejected(self):
+        err = validate_daily_budget(float('inf'))
+        assert err is not None
+        assert "finite" in err
+
+    def test_neg_inf_rejected(self):
+        err = validate_daily_budget(float('-inf'))
+        assert err is not None
+        assert "finite" in err
+
+
+# ---------------------------------------------------------------------------
+# validate_cpc_bid
+# ---------------------------------------------------------------------------
+
+
+class TestValidateCpcBid:
+    def test_valid_amount(self):
+        assert validate_cpc_bid(5.0) is None
+
+    def test_zero_allowed(self):
+        assert validate_cpc_bid(0) is None
+
+    def test_negative_rejected(self):
+        err = validate_cpc_bid(-1.0)
+        assert err is not None
+        assert "negative" in err
+
+    def test_exceeds_cap(self):
+        err = validate_cpc_bid(999.0)
+        assert err is not None
+        assert "exceeds the safety cap" in err
+
+    def test_nan_rejected(self):
+        err = validate_cpc_bid(float('nan'))
+        assert err is not None
+        assert "finite" in err
+
+
+# ---------------------------------------------------------------------------
+# validate_bid_modifier
+# ---------------------------------------------------------------------------
+
+
+class TestValidateBidModifier:
+    def test_valid_amount(self):
+        assert validate_bid_modifier(1.5) is None
+
+    def test_zero_exclusion_allowed(self):
+        assert validate_bid_modifier(0.0) is None
+
+    def test_below_minimum_rejected(self):
+        err = validate_bid_modifier(0.05)
+        assert err is not None
+        assert "less than 0.1" in err
+
+    def test_at_minimum_allowed(self):
+        assert validate_bid_modifier(0.1) is None
+
+    def test_exceeds_cap(self):
+        err = validate_bid_modifier(99.0)
+        assert err is not None
+        assert "exceeds the safety cap" in err
+
+    def test_nan_rejected(self):
+        err = validate_bid_modifier(float('nan'))
+        assert err is not None
+        assert "finite" in err
+
+
+# ---------------------------------------------------------------------------
+# validate_target_cpa
+# ---------------------------------------------------------------------------
+
+
+class TestValidateTargetCpa:
+    def test_valid_amount(self):
+        assert validate_target_cpa(25.0) is None
+
+    def test_zero_rejected(self):
+        err = validate_target_cpa(0)
+        assert err is not None
+        assert "greater than zero" in err
+
+    def test_negative_rejected(self):
+        err = validate_target_cpa(-10.0)
+        assert err is not None
+        assert "greater than zero" in err
+
+    def test_exceeds_cap(self):
+        err = validate_target_cpa(9999.0)
+        assert err is not None
+        assert "exceeds the safety cap" in err
+
+    def test_nan_rejected(self):
+        err = validate_target_cpa(float('nan'))
+        assert err is not None
+        assert "finite" in err
+
+
+# ---------------------------------------------------------------------------
+# validate_target_roas
+# ---------------------------------------------------------------------------
+
+
+class TestValidateTargetRoas:
+    def test_valid_amount(self):
+        assert validate_target_roas(2.0) is None
+
+    def test_below_floor_rejected(self):
+        err = validate_target_roas(0.1)
+        assert err is not None
+        assert "below the safety floor" in err
+
+    def test_at_floor_allowed(self):
+        assert validate_target_roas(0.5) is None
+
+    def test_nan_rejected(self):
+        err = validate_target_roas(float('nan'))
+        assert err is not None
+        assert "finite" in err
+
+    def test_inf_rejected(self):
+        err = validate_target_roas(float('inf'))
+        assert err is not None
+        assert "finite" in err

@@ -273,7 +273,7 @@ def register(mcp: FastMCP) -> None:
         config.goal_config_level = client.enums.GoalConfigLevelEnum.CAMPAIGN
         config.custom_conversion_goal = custom_goal_resource
         config_op.update_mask.paths.extend(["goal_config_level", "custom_conversion_goal"])
-        config_service.mutate_conversion_goal_campaign_configs(customer_id=customer_id, operations=[config_op])
+        config_service.mutate_conversion_goal_campaign_configs(customer_id=customer_id, operations=[config_op], validate_only=not confirm)
 
         try:
             name_map = _resolve_action_names(client, customer_id, list(conversion_action_ids))

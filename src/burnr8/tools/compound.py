@@ -493,7 +493,7 @@ def register(mcp: FastMCP) -> None:
         created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}
 
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation conceptually succeeded. This will launch a full campaign '{campaign_name}'. Set confirm=true to execute."}
+            return {"warning": True, "validated": False, "message": f"Client-side validation passed (no API call). This will launch a full campaign '{campaign_name}'. Set confirm=true to execute."}
 
         try:
             return _execute_launch(

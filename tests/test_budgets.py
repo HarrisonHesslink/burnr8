@@ -148,7 +148,7 @@ class TestUpdateBudget:
         set_active_account("1234567890")
 
         tool = _register_tool("update_budget")
-        result = tool(confirm=False, 
+        result = tool(confirm=False,
             budget_id="501",
             amount_dollars=75.0,
             customer_id="1234567890",

@@ -5,8 +5,8 @@ A FastMCP server with 66 tools for managing Google Ads via Claude Code.
 ## Setup
 
 ```bash
-pip install burnr8
-burnr8-setup          # Interactive wizard — prompts for credentials, runs OAuth, saves to ~/.burnr8/.env
+uv pip install burnr8
+burnr8-setup          # Interactive wizard — prompts for credentials, saves to ~/.burnr8/.env
 ```
 
 ## Running
@@ -19,9 +19,10 @@ PYTHONPATH=src .venv/bin/python -m burnr8.server
 ## Development
 
 ```bash
-pip install -e ".[dev]"       # Install with dev deps
+uv pip install -e ".[dev]"    # Install with dev deps
 pytest tests/ -v              # Run tests
 ruff check src/ tests/        # Lint
+mypy src/burnr8/              # Strict type check
 pip-audit                     # CVE scan
 burnr8                        # Terminal dashboard (API usage + spend)
 ./scripts/ci-local.sh         # Run full CI pipeline locally before pushing

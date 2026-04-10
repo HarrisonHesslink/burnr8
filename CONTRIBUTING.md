@@ -7,9 +7,9 @@ Thanks for your interest in contributing. burnr8 is an open-source Google Ads MC
 ```bash
 git clone https://github.com/HarrisonHesslink/burnr8.git
 cd burnr8
-python3 -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 pre-commit install
 pytest tests/ -v
 ```

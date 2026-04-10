@@ -144,10 +144,11 @@ Add to your `~/.claude/settings.json`:
 
 Then run `/plugin` in Claude Code and enable **burnr8**. This auto-configures the MCP server, agents, commands, and audit skill. You still need to `pip install burnr8` and set up credentials (see below).
 
-### Option B: pip install
+### Option B: pip/uv install
 
 ```bash
-pip install burnr8
+uv pip install burnr8
+# or: pip install burnr8
 ```
 
 ### Option C: Docker (no Python needed)
@@ -187,9 +188,9 @@ Set your credentials as environment variables in your shell, or use `--env-file 
 ```bash
 git clone https://github.com/HarrisonHesslink/burnr8.git
 cd burnr8
-python3 -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -e .
+uv pip install -e .
 ```
 
 ### 2. Set Up Credentials

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -171,7 +172,7 @@ def register(mcp: FastMCP) -> None:
             operations.append(operation)
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=operations, validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, operations, validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} keyword(s). Set confirm=true to execute."}
@@ -208,7 +209,7 @@ def register(mcp: FastMCP) -> None:
         operation.remove = resource_name
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -266,7 +267,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update keyword '{criterion_id}'. Set confirm=true to execute."}

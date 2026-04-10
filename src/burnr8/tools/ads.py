@@ -9,7 +9,14 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import micros_to_dollars, require_customer_id, run_gaql, validate_id, validate_status
+from burnr8.helpers import (
+    build_mutate_request,
+    micros_to_dollars,
+    require_customer_id,
+    run_gaql,
+    validate_id,
+    validate_status,
+)
 from burnr8.reports import save_report
 
 # Maps pin position integers to ServedAssetFieldTypeEnum names
@@ -276,7 +283,7 @@ def register(mcp: FastMCP) -> None:
             ad.responsive_search_ad.path2 = path2
 
         response = ad_group_ad_service.mutate_ad_group_ads(
-            request=client.get_type("MutateAdGroupAdsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupAdsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will create a responsive search ad. Set confirm=true to execute."}
@@ -340,7 +347,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = ad_group_ad_service.mutate_ad_group_ads(
-            request=client.get_type("MutateAdGroupAdsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupAdsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set ad {ad_id} to {status.upper()}. Set confirm=true to execute."}

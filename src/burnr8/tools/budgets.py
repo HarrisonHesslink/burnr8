@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -89,7 +90,7 @@ def register(mcp: FastMCP) -> None:
         budget.explicitly_shared = False
 
         response = budget_service.mutate_campaign_budgets(
-            request=client.get_type("MutateCampaignBudgetsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create budget '{name}'. Set confirm=true to execute."}
@@ -128,7 +129,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("amount_micros")
 
         response = budget_service.mutate_campaign_budgets(
-            request=client.get_type("MutateCampaignBudgetsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -190,7 +191,7 @@ def register(mcp: FastMCP) -> None:
             operations.append(op)
 
         response = budget_service.mutate_campaign_budgets(
-            request=client.get_type("MutateCampaignBudgetsRequest")(customer_id=customer_id, operations=operations, validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, operations, validate_only=not confirm)
         )
         if not confirm:
             return {

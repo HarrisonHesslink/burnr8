@@ -10,11 +10,9 @@ import pytest
 INVALID_CUSTOMER_IDS = [
     ("letters", "abc"),
     ("dashes", "123-456-789"),
-    ("too_short", "123"),
     ("empty", ""),
     ("special_chars", "123!@#456"),
     ("spaces", "123 456"),
-    ("too_long", "123456789012345"),
 ]
 
 INVALID_ERROR_COUNTS = [

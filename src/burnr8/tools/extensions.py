@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_id
+from burnr8.helpers import build_mutate_request, require_customer_id, run_gaql, validate_id
 from burnr8.reports import save_report
 
 
@@ -34,7 +34,7 @@ def register(mcp: FastMCP) -> None:
             link.field_type = field_type_enum
             svc = client.get_service("CampaignAssetService")
             resp = svc.mutate_campaign_assets(
-                request=client.get_type("MutateCampaignAssetsRequest")(customer_id=customer_id, operations=[op])
+                request=build_mutate_request(client, "MutateCampaignAssetsRequest", customer_id, [op])
             )
         else:
             op = client.get_type("AdGroupAssetOperation")
@@ -44,7 +44,7 @@ def register(mcp: FastMCP) -> None:
             link.field_type = field_type_enum
             svc = client.get_service("AdGroupAssetService")
             resp = svc.mutate_ad_group_assets(
-                request=client.get_type("MutateAdGroupAssetsRequest")(customer_id=customer_id, operations=[op])
+                request=build_mutate_request(client, "MutateAdGroupAssetsRequest", customer_id, [op])
             )
         return str(resp.results[0].resource_name)
 
@@ -278,7 +278,7 @@ def register(mcp: FastMCP) -> None:
             asset.sitelink_asset.description2 = description2
 
         asset_response = asset_service.mutate_assets(
-            request=client.get_type("MutateAssetsRequest")(customer_id=customer_id, operations=[asset_operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link a sitelink. Set confirm=true to execute."}
@@ -343,7 +343,7 @@ def register(mcp: FastMCP) -> None:
         asset.callout_asset.callout_text = callout_text
 
         asset_response = asset_service.mutate_assets(
-            request=client.get_type("MutateAssetsRequest")(customer_id=customer_id, operations=[asset_operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link a callout. Set confirm=true to execute."}
@@ -419,7 +419,7 @@ def register(mcp: FastMCP) -> None:
             asset.structured_snippet_asset.values.append(value)
 
         asset_response = asset_service.mutate_assets(
-            request=client.get_type("MutateAssetsRequest")(customer_id=customer_id, operations=[asset_operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link a structured snippet. Set confirm=true to execute."}
@@ -557,7 +557,7 @@ def register(mcp: FastMCP) -> None:
             asset.name = asset_name
 
         asset_response = asset_service.mutate_assets(
-            request=client.get_type("MutateAssetsRequest")(customer_id=customer_id, operations=[asset_operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAssetsRequest", customer_id, [asset_operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will create and link an image extension. Set confirm=true to execute."}
@@ -612,14 +612,14 @@ def register(mcp: FastMCP) -> None:
             operation.remove = asset_resource_name
             svc = client.get_service("AdGroupAssetService")
             response = svc.mutate_ad_group_assets(
-                request=client.get_type("MutateAdGroupAssetsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+                request=build_mutate_request(client, "MutateAdGroupAssetsRequest", customer_id, [operation], validate_only=not confirm)
             )
         elif "campaignAssets" in asset_resource_name:
             operation = client.get_type("CampaignAssetOperation")
             operation.remove = asset_resource_name
             svc = client.get_service("CampaignAssetService")
             response = svc.mutate_campaign_assets(
-                request=client.get_type("MutateCampaignAssetsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+                request=build_mutate_request(client, "MutateCampaignAssetsRequest", customer_id, [operation], validate_only=not confirm)
             )
         else:
             return {

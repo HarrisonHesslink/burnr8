@@ -71,6 +71,7 @@ class TestCampaignDryRun:
             name=f"ValidateOnly Test Budget {uuid.uuid4().hex[:8]}",
             amount_dollars=10.0,
             customer_id=test_customer_id,
+            confirm=True,
         )
         self.__class__.budget_id = result["id"]
 
@@ -79,6 +80,7 @@ class TestCampaignDryRun:
             name=f"ValidateOnly Test Campaign {uuid.uuid4().hex[:8]}",
             budget_id=self.budget_id,
             customer_id=test_customer_id,
+            confirm=True,
         )
         self.__class__.campaign_id = result["id"]
         yield
@@ -169,6 +171,7 @@ class TestKeywordDryRun:
             name=f"KW DryRun Budget {uuid.uuid4().hex[:8]}",
             amount_dollars=10.0,
             customer_id=test_customer_id,
+            confirm=True,
         )
         self.__class__.budget_id = result["id"]
 
@@ -177,6 +180,7 @@ class TestKeywordDryRun:
             name=f"KW DryRun Campaign {uuid.uuid4().hex[:8]}",
             budget_id=self.budget_id,
             customer_id=test_customer_id,
+            confirm=True,
         )
         self.__class__.campaign_id = result["id"]
 
@@ -185,6 +189,7 @@ class TestKeywordDryRun:
             name=f"KW DryRun AdGroup {uuid.uuid4().hex[:8]}",
             campaign_id=self.campaign_id,
             customer_id=test_customer_id,
+            confirm=True,
         )
         self.__class__.ad_group_id = result["id"]
         yield
@@ -233,7 +238,7 @@ class TestExtensionDryRun:
     def test_create_sitelink_dry_run(self, test_customer_id):
         tool = _register_tool("create_sitelink", "extensions")
         result = tool(
-            text="DryRun Sitelink",
+            link_text="DryRun Sitelink",
             final_url="https://example.com",
             customer_id=test_customer_id,
             confirm=False,
@@ -246,7 +251,7 @@ class TestExtensionDryRun:
     def test_create_callout_dry_run(self, test_customer_id):
         tool = _register_tool("create_callout", "extensions")
         result = tool(
-            text="DryRun Callout",
+            callout_text="DryRun Callout",
             customer_id=test_customer_id,
             confirm=False,
         )

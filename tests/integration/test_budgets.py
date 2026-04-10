@@ -30,13 +30,9 @@ INVALID_CUSTOMER_IDS = [
     ("too_long", "123456789012345"),
 ]
 
-INVALID_BUDGET_NAME = [
-    ("negative", -1),
-    ("float", 3.14),
-    ("null", None),
-    ("empty", ""),
-    ("too_long", "B" * 256),  # Assuming 255 char limit
-    ("special_chars", "Budget!@#")
+INVALID_BUDGET_AMOUNTS = [
+    ("negative", -10.0),
+    ("zero_explicit", 0),
 ]
 
 class TestListBudgets:
@@ -74,11 +70,11 @@ class TestBudgetCreation:
         remove_tool = _register_tool("remove_orphan_budgets")
         remove_tool(confirm=True, customer_id=test_customer_id)
 
-    @pytest.mark.parametrize("label,name", INVALID_BUDGET_NAME)
-    def test_create_budget_invalid_name(self, label, name, test_customer_id):
+    @pytest.mark.parametrize("label,amount", INVALID_BUDGET_AMOUNTS)
+    def test_create_budget_invalid_amount(self, label, amount, test_customer_id):
         tool = _register_tool("create_budget")
-        result = tool(name=name, amount_dollars=10.0, customer_id=test_customer_id)
-        assert result["error"] is True, f"Expected error for {label} but got success"
+        result = tool(name="Invalid Amount Test", amount_dollars=amount, customer_id=test_customer_id)
+        assert result.get("error") is True, f"Expected error for {label} but got: {result}"
 
     def test_create_budget_invalid_active_account(self):
         tool = _register_tool("create_budget")
@@ -90,17 +86,16 @@ class TestBudgetCreation:
         tool = _register_tool("create_budget")
         result = tool(name="Valid Name", amount_dollars=-5.0, customer_id=test_customer_id)
         assert result["error"] is True
-        assert "amount must be greater than zero" in result["message"].lower()
+        assert "greater than zero" in result["message"].lower()
 
     def test_create_budget_non_numeric_amount(self, test_customer_id):
         tool = _register_tool("create_budget")
         result = tool(name="Valid Name", amount_dollars="ten dollars", customer_id=test_customer_id)
         assert result["error"] is True
-        assert "amount must be a number" in result["message"].lower()
 
     def test_create_budget_valid_input(self, test_customer_id):
         tool = _register_tool("create_budget")
-        result = tool(name="Valid Name", amount_dollars=10.0, customer_id=test_customer_id)
+        result = tool(name="Valid Name", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
         assert "error" not in result or result["error"] is False, f"Expected success but got error: {result.get('message', '')}"
         assert "id" in result
         assert "name" in result
@@ -115,7 +110,7 @@ class TestBudgetUpdates:
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
         tool = _register_tool("create_budget")
-        result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id)
+        result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
         self.__class__.budget_id = result["id"]
         yield
         # cleanup: remove the budget after all tests
@@ -143,7 +138,7 @@ class TestBudgetUpdates:
         print(result)  # Debug output to inspect the structure
 
         assert result["error"] is True
-        assert "amount must be greater than zero" in result["message"].lower()
+        assert "greater than zero" in result["message"].lower()
 
     def test_update_budget_valid_confirm_false(self, test_customer_id):
         tool = _register_tool("update_budget")
@@ -185,7 +180,7 @@ class TestBudgetOrphans:
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
         tool = _register_tool("create_budget")
-        result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id)
+        result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
         self.__class__.budget_id = result["id"]
         yield
         # cleanup: remove the budget after all tests

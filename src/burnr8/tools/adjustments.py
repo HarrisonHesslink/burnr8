@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_bid_modifier, validate_id
+from burnr8.helpers import build_mutate_request, require_customer_id, run_gaql, validate_bid_modifier, validate_id
 
 VALID_DEVICE_TYPES = {"MOBILE", "DESKTOP", "TABLET"}
 VALID_PRESENCE_TYPES = {"PRESENCE", "PRESENCE_OR_INTEREST", "SEARCH_INTEREST"}
@@ -56,7 +56,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will pause keyword '{criterion_id}'. Set confirm=true to execute."}
@@ -144,7 +144,7 @@ def register(mcp: FastMCP) -> None:
             action = "created"
 
         response = campaign_criterion_service.mutate_campaign_criteria(
-            request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will set device bid adjustment. Set confirm=true to execute."}
@@ -262,7 +262,7 @@ def register(mcp: FastMCP) -> None:
         criterion.bid_modifier = bid_modifier
 
         response = campaign_criterion_service.mutate_campaign_criteria(
-            request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will set ad schedule. Set confirm=true to execute."}
@@ -355,7 +355,7 @@ def register(mcp: FastMCP) -> None:
         operation.remove = resource_name
 
         response = campaign_criterion_service.mutate_campaign_criteria(
-            request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -458,7 +458,7 @@ def register(mcp: FastMCP) -> None:
             criterion.bid_modifier = bid_modifier
 
         response = campaign_criterion_service.mutate_campaign_criteria(
-            request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will add location target. Set confirm=true to execute."}
@@ -496,7 +496,7 @@ def register(mcp: FastMCP) -> None:
         operation.remove = resource_name
 
         response = campaign_criterion_service.mutate_campaign_criteria(
-            request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -607,7 +607,7 @@ def register(mcp: FastMCP) -> None:
         )
 
         response = campaign_service.mutate_campaigns(
-            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": "Validation succeeded. This will set geo target type setting. Set confirm=true to execute."}

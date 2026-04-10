@@ -41,11 +41,11 @@ class TestCampaignUpdateSafety:
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
         tool =  _register_tool("create_budget", "budgets")
-        result = tool(name=f"Test Budget {uuid.uuid4().hex[:8]}"  , amount_dollars=10.0, customer_id=test_customer_id)
+        result = tool(name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
         self.__class__.budget_id = result["id"]
 
-        second_tool =  _register_tool("create_budget", "budgets")
-        second_result = second_tool(name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=20.0, customer_id=test_customer_id)
+        second_tool = _register_tool("create_budget", "budgets")
+        second_result = second_tool(name=f"Test Budget {uuid.uuid4().hex[:8]}", amount_dollars=20.0, customer_id=test_customer_id, confirm=True)
         self.__class__.second_budget_id = second_result["id"]
 
         yield
@@ -57,7 +57,7 @@ class TestCampaignUpdateSafety:
     def setup_campaign(self, test_customer_id):
         tool = _register_tool("create_campaign", "campaigns")
         name = f"Test Campaign {uuid.uuid4().hex[:8]}"  # Unique name to avoid duplicates
-        result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id)
+        result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id, confirm=True)
         self.__class__.campaign_id = result["id"]  # Store for cleanup
         self.__class__.campaign_name = name
         yield

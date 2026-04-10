@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -381,7 +382,7 @@ def register(mcp: FastMCP) -> None:
                 campaign.url_custom_parameters.append(param)
 
         response = campaign_service.mutate_campaigns(
-            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create campaign '{name}'. Set confirm=true to execute."}
@@ -533,7 +534,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = campaign_service.mutate_campaigns(
-            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update campaign '{campaign_id}'. Set confirm=true to execute."}
@@ -587,7 +588,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = campaign_service.mutate_campaigns(
-            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -629,7 +630,7 @@ def register(mcp: FastMCP) -> None:
         op.remove = campaign_service.campaign_path(customer_id, campaign_id)
 
         response = campaign_service.mutate_campaigns(
-            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[op], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [op], validate_only=not confirm)
         )
 
         if not confirm:

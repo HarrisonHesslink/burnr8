@@ -29,7 +29,7 @@ class TestCampaignCreationSafety:
     @pytest.fixture(autouse=True, scope="class")
     def setup_budget(self, test_customer_id):
         tool =  _register_tool("create_budget", "budgets")
-        result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id)
+        result = tool(name="Test Budget", amount_dollars=10.0, customer_id=test_customer_id, confirm=True)
         self.__class__.budget_id = result["id"]
         yield
         # cleanup: remove the budget after all tests
@@ -47,7 +47,7 @@ class TestCampaignCreationSafety:
     def test_create_campaign(self, test_customer_id):
         tool = _register_tool("create_campaign", "campaigns")
         name = f"Test Campaign {uuid.uuid4().hex[:8]}"  # Unique name to avoid duplicates
-        result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id)
+        result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id, confirm=True)
 
         self.__class__.campaign_id = result["id"]  # Store for cleanup
         self.__class__.campaign_name = name
@@ -61,7 +61,7 @@ class TestCampaignCreationSafety:
         tool = _register_tool("create_campaign", "campaigns")
         name = self.campaign_name # Use the same name to trigger duplicate handling
 
-        result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id)
+        result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id, confirm=True)
 
         assert "error" in result and result["error"] is True
         assert "errors" in result

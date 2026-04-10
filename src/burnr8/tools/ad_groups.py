@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -139,7 +140,7 @@ def register(mcp: FastMCP) -> None:
                 ad_group.url_custom_parameters.append(param)
 
         response = ad_group_service.mutate_ad_groups(
-            request=client.get_type("MutateAdGroupsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create ad group '{name}'. Set confirm=true to execute."}
@@ -231,7 +232,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = ad_group_service.mutate_ad_groups(
-            request=client.get_type("MutateAdGroupsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateAdGroupsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update ad group '{ad_group_id}'. Set confirm=true to execute."}

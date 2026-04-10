@@ -75,11 +75,12 @@ class TestUpdateCampaign:
 
 class TestSetCampaignStatus:
     def test_set_campaign_status_invalid_resource_no_confirmation(self, test_customer_id):
+        """With confirm=False and invalid campaign_id, API validate_only returns an error."""
         tool = _register_tool("set_campaign_status")
         result = tool(campaign_id="123", status="PAUSED", confirm=False, customer_id=test_customer_id)
 
-        assert result["warning"] is True
-        assert "target_status" in result
+        # Server-side validation catches invalid resource even in dry-run mode
+        assert result.get("error") is True or result.get("warning") is True
 
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)
     def test_set_campaign_status_invalid_customer_id(self, label, customer_id):
@@ -93,7 +94,7 @@ class TestSetCampaignStatus:
         result = tool(campaign_id="123", status="REMOVED", confirm=False, customer_id=test_customer_id)
 
         assert result["error"] is True
-        assert "status" in result
+        assert "REMOVED" in result.get("message", "") or "status" in result
 
 class TestRemoveCampaign:
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_id
+from burnr8.helpers import build_mutate_request, require_customer_id, run_gaql, validate_id
 
 _CONVERSION_ACTION_QUERY = """
     SELECT
@@ -260,7 +260,7 @@ def register(mcp: FastMCP) -> None:
         action.value_settings.always_use_default_value = always_use_default_value
 
         response = conversion_action_service.mutate_conversion_actions(
-            request=client.get_type("MutateConversionActionsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateConversionActionsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create conversion action '{name}'. Set confirm=true to execute."}
@@ -361,7 +361,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = conversion_action_service.mutate_conversion_actions(
-            request=client.get_type("MutateConversionActionsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+            request=build_mutate_request(client, "MutateConversionActionsRequest", customer_id, [operation], validate_only=not confirm)
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update conversion action '{conversion_action_id}'. Set confirm=true to execute."}

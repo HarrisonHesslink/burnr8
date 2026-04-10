@@ -1,5 +1,6 @@
 # tests/integration/test_destructive_safety_workflow.py
 import pytest
+
 # Happy Path
 # Sad Path
 # Boundary & Edge Case
@@ -12,7 +13,7 @@ DESTRUCTIVE_TOOLS = [
     ("keywords", "remove_keyword", {"criterion_id": "123", "ad_group_id": "456"}),
 ]
 
-def _register_tool(tool_name, module_name):   
+def _register_tool(tool_name, module_name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from importlib import import_module
     mod = import_module(f"burnr8.tools.{module_name}")

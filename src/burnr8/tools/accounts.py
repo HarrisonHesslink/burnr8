@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_id, validate_recent_errors_limit
+from burnr8.helpers import require_customer_id, run_gaql, validate_recent_errors_limit
 from burnr8.logging import LOG_DIR, get_recent_errors, get_usage_stats
 from burnr8.session import get_active_account
 from burnr8.session import set_active_account as _set_active
@@ -147,7 +147,7 @@ def register(mcp: FastMCP) -> None:
 
         if err := validate_recent_errors_limit(limit):
             return {"error": True, "message": err}
-        
+
         errors = get_recent_errors(limit=limit)
         return {
             "error_count": len(errors),

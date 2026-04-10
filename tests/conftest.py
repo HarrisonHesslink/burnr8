@@ -57,8 +57,8 @@ class MockGoogleAdsClient:
 
     def get_type(self, name: str) -> MagicMock:
         """Return a mock operation type with real lists for append-based fields."""
-        # Request types need to store kwargs as attributes (v30 mutate pattern)
-        if name.endswith("Request"):
+        # Mutate request types need to store kwargs as attributes (v30 pattern)
+        if name.startswith("Mutate") and name.endswith("Request"):
             def _request_factory(**kwargs):  # type: ignore[no-untyped-def]
                 obj = MagicMock(name=f"Type:{name}")
                 for k, v in kwargs.items():
@@ -319,18 +319,6 @@ def _mock_save_report(rows, report_name, top_n=10):
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-@pytest.fixture(scope="session")
-def test_customer_id():
-    """A valid customer ID for integration tests that make real API calls."""
-    return "INSERT_TEST_CUSTOMER_ID_HERE"
-
-@pytest.fixture(scope="session")
-def test_account_ads_client():
-    """A real GoogleAdsClient for integration tests that make real API calls."""
-    from burnr8.client import get_client
-
-    return get_client()
 
 @pytest.fixture()
 def mock_ads_client():

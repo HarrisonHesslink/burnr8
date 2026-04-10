@@ -1,5 +1,19 @@
 # tests/integration/test_budgets.py
 import pytest
+
+from burnr8.tools.budgets import register as _register_budgets
+
+
+def _register_tool(name):
+    captured = {}
+    class _Capture:
+        def tool(self, fn):
+            if fn.__name__ == name:
+                captured["func"] = fn
+            return fn
+    cap = _Capture()
+    _register_budgets(cap)
+    return captured["func"]
 # Happy Path
 # Sad Path
 # Boundary & Edge Case
@@ -24,7 +38,7 @@ INVALID_BUDGET_NAME = [
     ("too_long", "B" * 256),  # Assuming 255 char limit
     ("special_chars", "Budget!@#")
 ]
-    
+
 class TestListBudgets:
     def test_list_budget_invalid_active_account(self):
         tool = _register_tool("list_budgets")
@@ -65,7 +79,7 @@ class TestBudgetCreation:
         tool = _register_tool("create_budget")
         result = tool(name=name, amount_dollars=10.0, customer_id=test_customer_id)
         assert result["error"] is True, f"Expected error for {label} but got success"
-    
+
     def test_create_budget_invalid_active_account(self):
         tool = _register_tool("create_budget")
         result = tool(name="Valid Name", amount_dollars=10.0)

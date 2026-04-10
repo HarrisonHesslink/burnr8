@@ -1,8 +1,10 @@
 # tests/integration/test_update_campaign_safety_workflow.py
-import pytest
 import uuid
 
-def _register_tool(tool_name, module_name):   
+import pytest
+
+
+def _register_tool(tool_name, module_name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from importlib import import_module
     mod = import_module(f"burnr8.tools.{module_name}")
@@ -18,7 +20,7 @@ def _register_tool(tool_name, module_name):
     cap = _Capture()
     mod.register(cap)
     return captured["func"]
-    
+
 
 VALID_BIDDING_STRATEGIES = [
     ("Manual CPC", "MANUAL_CPC"),
@@ -59,9 +61,9 @@ class TestCampaignUpdateSafety:
         self.__class__.campaign_id = result["id"]  # Store for cleanup
         self.__class__.campaign_name = name
         yield
-        # cleanup: remove the campaign after all tests        
+        # cleanup: remove the campaign after all tests
         remove_tool = _register_tool("remove_campaign", "campaigns")
-        remove_result = remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
+        remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
 
     def test_update_campaign_no_confirmation(self, test_customer_id):
         tool = _register_tool("update_campaign", "campaigns")
@@ -79,7 +81,7 @@ class TestCampaignUpdateSafety:
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id
         assert "updated_fields" in result and "campaign_budget" in result["updated_fields"]
 
-        # State Asserts 
+        # State Asserts
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
@@ -143,7 +145,7 @@ class TestCampaignUpdateSafety:
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id
         assert "updated_fields" in result
 
-        # State Asserts 
+        # State Asserts
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
@@ -151,12 +153,12 @@ class TestCampaignUpdateSafety:
 
     def test_update_campaign_change_target_cpa(self, test_customer_id):
 
-        pytest.skip(f"skipped due to no conversion in Test Account!")
+        pytest.skip("skipped due to no conversion in Test Account!")
 
         tool = _register_tool("update_campaign", "campaigns")
 
-        bidding_strategy_change = tool(campaign_id=self.campaign_id, bidding_strategy="TARGET_CPA", customer_id=test_customer_id, confirm=True, target_cpa_dollars=5.0)
-        
+        tool(campaign_id=self.campaign_id, bidding_strategy="TARGET_CPA", customer_id=test_customer_id, confirm=True, target_cpa_dollars=5.0)
+
         result = tool(campaign_id=self.campaign_id, target_cpa_dollars=10.0, customer_id=test_customer_id, confirm=True)
 
         assert "resource_name" in result
@@ -165,7 +167,7 @@ class TestCampaignUpdateSafety:
 
     def test_update_campaign_change_target_roas(self, test_customer_id):
 
-        pytest.skip(f"skipped due to no conversion in Test Account!")
+        pytest.skip("skipped due to no conversion in Test Account!")
 
         tool = _register_tool("update_campaign", "campaigns")
         result = tool(campaign_id=self.campaign_id, target_roas=1.5, customer_id=test_customer_id, confirm=True)
@@ -181,7 +183,7 @@ class TestCampaignUpdateSafety:
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id
         assert "name" in result and result["name"] == new_name
 
-        # State Asserts 
+        # State Asserts
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
@@ -192,30 +194,30 @@ class TestCampaignUpdateSafety:
 
     def test_update_campaign_change_channel(self, test_customer_id):
 
-        pytest.skip(f"can't change channel through update_campaign tool, skipping.")
+        pytest.skip("can't change channel through update_campaign tool, skipping.")
 
         tool = _register_tool("update_campaign", "campaigns")
-        result = tool(campaign_id=self.campaign_id, channel="DISPLAY", customer_id=test_customer_id, confirm=True)
+        tool(campaign_id=self.campaign_id, channel="DISPLAY", customer_id=test_customer_id, confirm=True)
 
     def test_set_campaign_status(self, test_customer_id):
         tool = _register_tool("set_campaign_status", "campaigns")
         result = tool(campaign_id=self.campaign_id, status="PAUSED", customer_id=test_customer_id, confirm=True)
-    
+
         assert "new_status" in result and result["new_status"] == "PAUSED"
 
-        # State Asserts 
+        # State Asserts
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 
         assert "status" in get_result and get_result["status"] == "PAUSED"
 
-    def test_set_campaign_status(self, test_customer_id):
+    def test_set_campaign_status_dry_run(self, test_customer_id):
         tool = _register_tool("set_campaign_status", "campaigns")
         result = tool(campaign_id=self.campaign_id, status="ENABLED", customer_id=test_customer_id, confirm=False)
-    
+
         assert result.get("warning") is True
 
-        # State Asserts 
+        # State Asserts
         get_tool = _register_tool("get_campaign", "campaigns")
         get_result = get_tool(campaign_id=self.campaign_id, customer_id=test_customer_id)
 

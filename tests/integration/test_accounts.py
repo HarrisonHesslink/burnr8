@@ -24,7 +24,7 @@ INVALID_ERROR_COUNTS = [
     ("null", None),
 ]
 
-def _register_tool(name):   
+def _register_tool(name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from burnr8.tools.accounts import register
 
@@ -39,14 +39,14 @@ def _register_tool(name):
     cap = _Capture()
     register(cap)
     return captured["func"]
-    
+
 class TestListAccounts:
     def test_list_accessible_accounts_returns_valid_structure(self):
         # Real call through your actual client
         tool = _register_tool("list_accessible_accounts")
 
         result = tool() # Pass a valid customer_id if required by your implementation
-        
+
         # Assert shape/contract, not specific data
         assert isinstance(result, dict)
         assert "accounts" in result
@@ -95,7 +95,7 @@ class TestActiveAccountResolution:
         get_result = get_tool()
         assert list_result["active_account"] is None
         assert get_result["active_account"] is None
-        
+
 
 class TestGetAccountInfo:
     def test_get_account_info(self, test_customer_id):
@@ -116,7 +116,6 @@ class TestGetAccountInfo:
 
 class TestGetApiUsage:
     def test_get_api_usage(self, test_customer_id):
-        from burnr8 import __version__
         tool = _register_tool("get_api_usage")
         result = tool()
 
@@ -139,10 +138,9 @@ class TestGetRecentErrors:
         assert isinstance(result["errors"], list)
         assert len(result["errors"]) <= 5
         assert "log_file" in result
-        
+
     @pytest.mark.parametrize("label,error_count", INVALID_ERROR_COUNTS)
     def test_get_recent_errors_invalid_limit(self, label, error_count):
         tool = _register_tool("get_recent_errors_tool")
         result = tool(limit=error_count)
-
-        print(result)  # For debugging — shows actual API response structure and data
+        assert result.get("error") is True, f"Expected error for {label}, got: {result}"

@@ -1,5 +1,6 @@
 # tests/integration/test_campaigns.py
 import pytest
+
 # Happy Path
 # Sad Path
 # Boundary & Edge Case
@@ -24,8 +25,8 @@ INVALID_BUDGET_NAME = [
     ("too_long", "B" * 256),  # Assuming 255 char limit
     ("special_chars", "Budget!@#")
 ]
-    
-def _register_tool(name):   
+
+def _register_tool(name):
     """Register list_accessible_accounts tools and return the one matching *name*."""
     from burnr8.tools.campaigns import register
 

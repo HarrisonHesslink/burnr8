@@ -108,7 +108,7 @@ class TestValidateId:
 
     def test_zero_is_valid(self):
         assert validate_id("0", "id") is None
-    
+
     def test_long_id_is_valid(self):
         """validate_id is generic — length checks are in require_customer_id."""
         assert validate_id("1" * 20, "some_id") is None

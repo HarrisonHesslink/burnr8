@@ -10,16 +10,18 @@ cd burnr8
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+pre-commit install
 pytest tests/ -v
 ```
 
 ## Code Style
 
-We use [ruff](https://docs.astral.sh/ruff/) for both linting and formatting. CI enforces it.
+We use [ruff](https://docs.astral.sh/ruff/) for linting/formatting and [mypy](https://mypy-lang.org/) for strict type checking.
 
 ```bash
-ruff check src/ tests/        # Lint
+ruff check src/ tests/        # Lint (includes security checks)
 ruff format src/ tests/        # Format
+mypy src/                      # Strict type check
 ```
 
 No manual formatting needed — ruff handles everything. Run it before committing.
@@ -30,17 +32,19 @@ Tools live in `src/burnr8/tools/`. Each module exports a `register(mcp)` functio
 
 ```python
 from typing import Annotated
-from pydantic import Field
+from pydantic import Field, validate_call
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import run_gaql, validate_id
+from burnr8.helpers import run_gaql, validate_id, validate_cpc_bid
 from burnr8.session import resolve_customer_id
 
 def register(mcp):
     @mcp.tool
     @handle_google_ads_errors
+    @validate_call
     def my_new_tool(
         customer_id: Annotated[str | None, Field(description="Google Ads customer ID")] = None,
+        cpc_bid: Annotated[float, Field(description="Max CPC bid")] = 1.0,
     ) -> dict:
         """One-line description of what this tool does."""
         customer_id = resolve_customer_id(customer_id)
@@ -54,8 +58,9 @@ def register(mcp):
 ```
 
 Checklist for new tools:
-- Decorators: `@mcp.tool` then `@handle_google_ads_errors` (order matters)
+- Decorators: `@mcp.tool` → `@handle_google_ads_errors` → `@validate_call` (strict order)
 - Validate IDs with `validate_id(value, name)`
+- Enforce financial circuit breakers with `validate_cpc_bid()`, `validate_daily_budget()`, etc.
 - Use `resolve_customer_id()` for active account fallback
 - Use `Annotated[type, Field(description="...")]` for all parameters
 - Destructive tools: add `confirm: Annotated[bool, Field(...)] = False` guard

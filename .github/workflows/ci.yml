@@ -75,8 +75,37 @@ jobs:
           else
             uv pip install --system -e ".[dev]"
           fi
-      - run: pytest tests/ --cov=burnr8 --cov-report=term-missing
+      - run: pytest tests/ --ignore=tests/integration --cov=burnr8 --cov-report=term-missing
       - run: PYTHONPATH=src python -c "from burnr8.server import mcp; print('Import OK')"
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-integration-${{ hashFiles('requirements-dev.lock') }}
+      - run: uv pip install --system -r requirements-dev.lock && uv pip install --system -e . --no-deps
+      - name: Run integration tests
+        env:
+          GOOGLE_ADS_DEVELOPER_TOKEN: ${{ secrets.GOOGLE_ADS_DEVELOPER_TOKEN }}
+          GOOGLE_ADS_CLIENT_ID: ${{ secrets.GOOGLE_ADS_CLIENT_ID }}
+          GOOGLE_ADS_CLIENT_SECRET: ${{ secrets.GOOGLE_ADS_CLIENT_SECRET }}
+          GOOGLE_ADS_REFRESH_TOKEN: ${{ secrets.GOOGLE_ADS_REFRESH_TOKEN }}
+          GOOGLE_ADS_LOGIN_CUSTOMER_ID: ${{ secrets.GOOGLE_ADS_LOGIN_CUSTOMER_ID }}
+        run: |
+          if [ -z "$GOOGLE_ADS_DEVELOPER_TOKEN" ]; then
+            echo "::warning::Skipping integration tests — Google Ads secrets not configured"
+            exit 0
+          fi
+          pytest tests/integration/ -v --tb=short -x
 
   build:
     runs-on: ubuntu-latest

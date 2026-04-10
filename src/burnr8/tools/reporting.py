@@ -73,8 +73,8 @@ def register(mcp: FastMCP) -> None:
 
         rows = run_gaql(client, customer_id, query)
         results = []
-        total_spend = 0
-        total_conversions = 0
+        total_spend: float = 0
+        total_conversions: float = 0
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
@@ -147,7 +147,7 @@ def register(mcp: FastMCP) -> None:
 
         rows = run_gaql(client, customer_id, query)
         results = []
-        total_spend = 0
+        total_spend: float = 0
         for row in rows:
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
@@ -299,8 +299,8 @@ def register(mcp: FastMCP) -> None:
 
         rows = run_gaql(client, customer_id, query)
         results = []
-        total_spend = 0
-        zero_conv_spend = 0
+        total_spend: float = 0
+        zero_conv_spend: float = 0
         for row in rows:
             st = row.get("search_term_view", {})
             c = row.get("campaign", {})

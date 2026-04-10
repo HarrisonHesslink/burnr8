@@ -95,7 +95,7 @@ _last_pruned: float = 0.0
 _prune_lock = threading.Lock()
 
 
-def _maybe_prune():
+def _maybe_prune() -> None:
     global _last_pruned
     now = time.monotonic()
     if now - _last_pruned < 300:  # 5 minutes

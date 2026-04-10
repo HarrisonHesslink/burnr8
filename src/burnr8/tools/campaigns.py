@@ -236,7 +236,7 @@ def register(mcp: FastMCP) -> None:
             c["cost_dollars"] = micros_to_dollars(int(m.get("cost_micros", 0)))
             c["conversions"] = float(m.get("conversions", 0))
             c["conversions_value"] = float(m.get("conversions_value", 0))
-            return c
+            return dict(c)
         return {"error": True, "message": "Campaign not found"}
 
     @mcp.tool

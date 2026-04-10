@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import BaseModel, Field
 
@@ -147,7 +147,7 @@ def register(mcp: FastMCP) -> None:
                 pos_rows = run_gaql(client, customer_id, pos_query)
 
                 # Build negative lookup: (campaign_id, lowercase text) -> negative info
-                neg_lookup: dict[tuple[str, str], dict] = {}
+                neg_lookup: dict[tuple[str, str], dict[str, Any]] = {}
                 for neg in all_negatives:
                     key = (str(neg["campaign_id"]), (neg["text"] or "").lower())
                     neg_lookup[key] = neg
@@ -161,17 +161,17 @@ def register(mcp: FastMCP) -> None:
                     cid = str(c.get("id"))
 
                     # Check exact text match between negative and positive
-                    neg = neg_lookup.get((cid, pos_text))
-                    if neg is not None:
+                    neg_match = neg_lookup.get((cid, pos_text))
+                    if neg_match is not None:
                         conflicts.append(
                             {
                                 "positive_keyword": kw.get("text"),
                                 "positive_match_type": kw.get("match_type"),
                                 "positive_ad_group_id": ag.get("id"),
                                 "positive_ad_group_name": ag.get("name"),
-                                "negative_keyword": neg["text"],
-                                "negative_match_type": neg["match_type"],
-                                "negative_level": neg["level"],
+                                "negative_keyword": neg_match["text"],
+                                "negative_match_type": neg_match["match_type"],
+                                "negative_level": neg_match["level"],
                                 "campaign_id": cid,
                                 "campaign_name": c.get("name"),
                             }
@@ -353,6 +353,7 @@ def register(mcp: FastMCP) -> None:
                 customer_id=customer_id, operations=[operation], validate_only=not confirm
             )
         else:
+            assert ad_group_id is not None
             if err := validate_id(ad_group_id, "ad_group_id"):
                 return {"error": True, "message": err}
             ad_group_criterion_service = client.get_service("AdGroupCriterionService")

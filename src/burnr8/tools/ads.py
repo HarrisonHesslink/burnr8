@@ -256,16 +256,16 @@ def register(mcp: FastMCP) -> None:
         for i, headline_text in enumerate(headlines):
             headline = client.get_type("AdTextAsset")
             headline.text = headline_text
-            if pinned_headlines is not None and pinned_headlines[i] is not None:
-                enum_name = _HEADLINE_PIN_MAP[pinned_headlines[i]]
+            if pinned_headlines is not None and (pin_pos := pinned_headlines[i]) is not None:
+                enum_name = _HEADLINE_PIN_MAP[pin_pos]
                 headline.pinned_field = getattr(client.enums.ServedAssetFieldTypeEnum, enum_name)
             ad.responsive_search_ad.headlines.append(headline)
 
         for i, desc_text in enumerate(descriptions):
             desc = client.get_type("AdTextAsset")
             desc.text = desc_text
-            if pinned_descriptions is not None and pinned_descriptions[i] is not None:
-                enum_name = _DESCRIPTION_PIN_MAP[pinned_descriptions[i]]
+            if pinned_descriptions is not None and (pin_pos := pinned_descriptions[i]) is not None:
+                enum_name = _DESCRIPTION_PIN_MAP[pin_pos]
                 desc.pinned_field = getattr(client.enums.ServedAssetFieldTypeEnum, enum_name)
             ad.responsive_search_ad.descriptions.append(desc)
 

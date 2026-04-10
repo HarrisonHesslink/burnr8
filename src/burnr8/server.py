@@ -83,8 +83,8 @@ def account_performance(customer_id: str) -> str:
         """,
         )
         campaigns = []
-        total_spend = 0
-        total_conversions = 0
+        total_spend: float = 0
+        total_conversions: float = 0
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import Field
 
@@ -14,7 +14,7 @@ from burnr8.reports import save_report
 
 
 def register(mcp: FastMCP) -> None:
-    def _validate_link_target(campaign_id, ad_group_id):
+    def _validate_link_target(campaign_id: str | None, ad_group_id: str | None) -> str | None:
         """Validate exactly one of campaign_id/ad_group_id is provided."""
         if campaign_id is not None and ad_group_id is not None:
             return "Provide either campaign_id or ad_group_id, not both."
@@ -22,7 +22,7 @@ def register(mcp: FastMCP) -> None:
             return "Either campaign_id or ad_group_id is required."
         return None
 
-    def _link_asset(client, customer_id, asset_resource_name, field_type_enum, campaign_id=None, ad_group_id=None):
+    def _link_asset(client: Any, customer_id: str, asset_resource_name: str, field_type_enum: Any, campaign_id: str | None = None, ad_group_id: str | None = None) -> str:
         """Link an asset to a campaign or ad group. Returns the resource name."""
         if campaign_id is None and ad_group_id is None:
             raise ValueError("_link_asset requires either campaign_id or ad_group_id")
@@ -42,7 +42,7 @@ def register(mcp: FastMCP) -> None:
             link.field_type = field_type_enum
             svc = client.get_service("AdGroupAssetService")
             resp = svc.mutate_ad_group_assets(customer_id=customer_id, operations=[op])
-        return resp.results[0].resource_name
+        return str(resp.results[0].resource_name)
 
     @mcp.tool
     @handle_google_ads_errors

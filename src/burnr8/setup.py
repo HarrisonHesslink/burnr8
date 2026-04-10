@@ -73,7 +73,7 @@ def _save_env(creds: dict[str, str]) -> None:
     print(f"  Permissions: {oct(stat.S_IMODE(os.stat(ENV_FILE).st_mode))}")
 
 
-def _main():
+def _main() -> None:
     print("\n  burnr8 setup")
     print("  " + "-" * 40)
 
@@ -124,7 +124,7 @@ def _main():
     print()
 
 
-def main():
+def main() -> None:
     try:
         _main()
     except KeyboardInterrupt:

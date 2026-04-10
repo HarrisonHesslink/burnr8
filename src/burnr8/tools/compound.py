@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Any
 
 from pydantic import Field
 
@@ -528,10 +528,10 @@ def register(mcp: FastMCP) -> None:
             if isinstance(ex, GoogleAdsException):
                 errors = []
                 for error in ex.failure.errors:
-                    err = {"message": error.message[:200], "code": str(error.error_code)}
+                    err_detail: dict[str, Any] = {"message": error.message[:200], "code": str(error.error_code)}
                     if error.location and error.location.field_path_elements:
-                        err["field_path"] = [el.field_name for el in error.location.field_path_elements]
-                    errors.append(err)
+                        err_detail["field_path"] = [el.field_name for el in error.location.field_path_elements]
+                    errors.append(err_detail)
                 return {
                     "error": True,
                     "partial_failure": True,

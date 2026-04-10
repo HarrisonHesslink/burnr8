@@ -335,7 +335,7 @@ def register(mcp: FastMCP) -> None:
             resolved_actions = []
             for rn in g.get("conversion_actions", []):
                 aid = _extract_action_id(rn)
-                resolved_actions.append({"id": aid, "name": name_map.get(aid)})
+                resolved_actions.append({"id": aid, "name": name_map.get(aid or "")})
             results.append(
                 {
                     "id": g.get("id"),

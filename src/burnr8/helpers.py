@@ -256,4 +256,4 @@ def proto_to_dict(msg: proto.Message) -> dict:
     """Convert a protobuf message to a plain dict."""
     from google.protobuf.json_format import MessageToDict
 
-    return MessageToDict(type(msg).pb(msg), preserving_proto_field_name=True)
+    return dict(MessageToDict(type(msg).pb(msg), preserving_proto_field_name=True))

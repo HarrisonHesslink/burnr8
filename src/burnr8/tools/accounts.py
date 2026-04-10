@@ -141,7 +141,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool
     def get_recent_errors_tool(
-        limit: Annotated[int, Field(description="Max number of recent errors to return")] = 20,
+        limit: Annotated[int, Field(description="Max number of recent errors to return (1-5)")] = 5,
     ) -> dict:
         """Get recent error log entries from burnr8. Useful for diagnosing tool failures."""
 

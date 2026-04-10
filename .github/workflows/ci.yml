@@ -21,7 +21,7 @@ jobs:
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements-dev.lock') }}
-      - run: pip install -e ".[dev]"
+      - run: pip install -r requirements-dev.lock && pip install -e . --no-deps
       - run: ruff check src/ tests/
       - name: Type check (strict)
         run: mypy src/burnr8/ --ignore-missing-imports

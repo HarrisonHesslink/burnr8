@@ -138,7 +138,9 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 ad_group.url_custom_parameters.append(param)
 
-        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = ad_group_service.mutate_ad_groups(
+            request=client.get_type("MutateAdGroupsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create ad group '{name}'. Set confirm=true to execute."}
 
@@ -228,7 +230,9 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = ad_group_service.mutate_ad_groups(
+            request=client.get_type("MutateAdGroupsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update ad group '{ad_group_id}'. Set confirm=true to execute."}
 

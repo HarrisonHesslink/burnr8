@@ -57,6 +57,15 @@ class MockGoogleAdsClient:
 
     def get_type(self, name: str) -> MagicMock:
         """Return a mock operation type with real lists for append-based fields."""
+        # Request types need to store kwargs as attributes (v30 mutate pattern)
+        if name.endswith("Request"):
+            def _request_factory(**kwargs):  # type: ignore[no-untyped-def]
+                obj = MagicMock(name=f"Type:{name}")
+                for k, v in kwargs.items():
+                    setattr(obj, k, v)
+                return obj
+            return _request_factory  # type: ignore[return-value]
+
         mock = MagicMock(name=f"Type:{name}")
         mock.create = MagicMock(name=f"Type:{name}.create")
 

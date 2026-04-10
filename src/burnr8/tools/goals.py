@@ -177,7 +177,9 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("biddable")
 
         response = customer_conversion_goal_service.mutate_customer_conversion_goals(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateCustomerConversionGoalsRequest")(
+                customer_id=customer_id, operations=[operation], validate_only=not confirm
+            )
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will toggle biddable={biddable} for {cat}/{orig}. Set confirm=true to execute."}
@@ -258,7 +260,9 @@ def register(mcp: FastMCP) -> None:
                 client.get_service("ConversionActionService").conversion_action_path(customer_id, action_id)
             )
         response = custom_conversion_goal_service.mutate_custom_conversion_goals(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateCustomConversionGoalsRequest")(
+                customer_id=customer_id, operations=[operation], validate_only=not confirm
+            )
         )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will set campaign conversion goal targeting {len(conversion_action_ids)} actions. Set confirm=true to execute."}
@@ -273,7 +277,11 @@ def register(mcp: FastMCP) -> None:
         config.goal_config_level = client.enums.GoalConfigLevelEnum.CAMPAIGN
         config.custom_conversion_goal = custom_goal_resource
         config_op.update_mask.paths.extend(["goal_config_level", "custom_conversion_goal"])
-        config_service.mutate_conversion_goal_campaign_configs(customer_id=customer_id, operations=[config_op], validate_only=not confirm)
+        config_service.mutate_conversion_goal_campaign_configs(
+            request=client.get_type("MutateConversionGoalCampaignConfigsRequest")(
+                customer_id=customer_id, operations=[config_op], validate_only=not confirm
+            )
+        )
 
         try:
             name_map = _resolve_action_names(client, customer_id, list(conversion_action_ids))

@@ -380,7 +380,9 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 campaign.url_custom_parameters.append(param)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = campaign_service.mutate_campaigns(
+            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create campaign '{name}'. Set confirm=true to execute."}
 
@@ -530,7 +532,9 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = campaign_service.mutate_campaigns(
+            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update campaign '{campaign_id}'. Set confirm=true to execute."}
 
@@ -583,7 +587,7 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.append("status")
 
         response = campaign_service.mutate_campaigns(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
         )
         if not confirm:
             return {
@@ -624,7 +628,9 @@ def register(mcp: FastMCP) -> None:
         op = client.get_type("CampaignOperation")
         op.remove = campaign_service.campaign_path(customer_id, campaign_id)
 
-        response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[op], validate_only=not confirm)
+        response = campaign_service.mutate_campaigns(
+            request=client.get_type("MutateCampaignsRequest")(customer_id=customer_id, operations=[op], validate_only=not confirm)
+        )
 
         if not confirm:
             return {

@@ -319,7 +319,7 @@ class TestSetCampaignConversionGoal:
     def _get_custom_goal_op(self, mock_ads_client):
         svc = mock_ads_client["client"].get_service("CustomConversionGoalService")
         call_args = svc.mutate_custom_conversion_goals.call_args
-        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        ops = call_args.kwargs["request"].operations
         if ops and not isinstance(ops, list):
             ops = [ops]
         return ops[0]
@@ -327,7 +327,7 @@ class TestSetCampaignConversionGoal:
     def _get_config_op(self, mock_ads_client):
         svc = mock_ads_client["client"].get_service("ConversionGoalCampaignConfigService")
         call_args = svc.mutate_conversion_goal_campaign_configs.call_args
-        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        ops = call_args.kwargs["request"].operations
         if ops and not isinstance(ops, list):
             ops = [ops]
         return ops[0]

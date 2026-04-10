@@ -259,7 +259,9 @@ def register(mcp: FastMCP) -> None:
         action.value_settings.default_value = default_value
         action.value_settings.always_use_default_value = always_use_default_value
 
-        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = conversion_action_service.mutate_conversion_actions(
+            request=client.get_type("MutateConversionActionsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create conversion action '{name}'. Set confirm=true to execute."}
 
@@ -358,7 +360,9 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = conversion_action_service.mutate_conversion_actions(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = conversion_action_service.mutate_conversion_actions(
+            request=client.get_type("MutateConversionActionsRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update conversion action '{conversion_action_id}'. Set confirm=true to execute."}
 

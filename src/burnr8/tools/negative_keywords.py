@@ -14,6 +14,8 @@ from burnr8.reports import save_report
 
 
 class NegativeKeyword(BaseModel):
+    """A negative keyword with text and match type to exclude from serving."""
+
     text: str = Field(description="The keyword text")
     match_type: str = Field(default="BROAD", description="Match type: EXACT, PHRASE, or BROAD")
 
@@ -247,7 +249,9 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = campaign_criterion_service.mutate_campaign_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        response = campaign_criterion_service.mutate_campaign_criteria(
+            request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} negative keyword(s). Set confirm=true to execute."}
 
@@ -300,7 +304,9 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        response = ad_group_criterion_service.mutate_ad_group_criteria(
+            request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        )
         if not confirm:
             return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} ad group negative keyword(s). Set confirm=true to execute."}
         return {
@@ -350,7 +356,7 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("CampaignCriterionOperation")
             operation.remove = resource_name
             response = campaign_criterion_service.mutate_campaign_criteria(
-                customer_id=customer_id, operations=[operation], validate_only=not confirm
+                request=client.get_type("MutateCampaignCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
             )
         else:
             assert ad_group_id is not None
@@ -361,7 +367,7 @@ def register(mcp: FastMCP) -> None:
             operation = client.get_type("AdGroupCriterionOperation")
             operation.remove = resource_name
             response = ad_group_criterion_service.mutate_ad_group_criteria(
-                customer_id=customer_id, operations=[operation], validate_only=not confirm
+                request=client.get_type("MutateAdGroupCriteriaRequest")(customer_id=customer_id, operations=[operation], validate_only=not confirm)
             )
 
         if not confirm:

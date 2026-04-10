@@ -89,6 +89,8 @@ src/burnr8/
 - **`end_hour=24` is valid**: Google Ads API uses 24 to mean end of day / midnight.
 - **`tracking_url_template`**: Supported on campaigns, ad groups, ads, and keywords (read-only for keywords). Pass empty string `''` to clear in update operations. ValueTrack parameters like `{lpurl}`, `{campaignid}` are validated server-side by Google.
 - **`url_custom_parameters`**: Accepted as `dict[str, str]` (e.g. `{"season": "winter"}`), converted to `CustomParameter` proto objects. Pass empty dict `{}` to clear in update operations. Keys map to `{_key}` tags in tracking URL templates.
+- **`or` with empty collections**: `container.get("key") or default` silently drops empty lists/dicts/deques (they're falsy). Use `is None` checks.
+- **v30 mutate pattern**: All mutate calls must use request objects: `service.mutate_X(request=build_mutate_request(client, "MutateXRequest", customer_id, operations, validate_only=...))`. Direct kwargs were removed in SDK v30.
 
 ## Bidding Strategies
 

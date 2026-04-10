@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: pre-push-ci
         name: pre-push CI (lint + typecheck + tests)
-        entry: bash -c 'ruff check src/ tests/ && mypy src/burnr8/ --ignore-missing-imports && pytest tests/ -x -q --ignore=tests/integration'
+        entry: bash -c '.venv/bin/ruff check src/ tests/ && .venv/bin/mypy src/burnr8/ --ignore-missing-imports && .venv/bin/pytest tests/ -x -q --ignore=tests/integration'
         language: system
         pass_filenames: false
         always_run: true

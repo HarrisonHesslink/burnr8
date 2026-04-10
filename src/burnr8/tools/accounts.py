@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
-from burnr8.helpers import require_customer_id, run_gaql, validate_id
+from burnr8.helpers import require_customer_id, run_gaql, validate_id, validate_recent_errors_limit
 from burnr8.logging import LOG_DIR, get_recent_errors, get_usage_stats
 from burnr8.session import get_active_account
 from burnr8.session import set_active_account as _set_active
@@ -64,8 +64,11 @@ def register(mcp: FastMCP) -> None:
         customer_id: Annotated[str, Field(description="Google Ads customer ID to set as active (no dashes)")],
     ) -> dict:
         """Set the active Google Ads account for this session. Once set, all tools use this account by default — no need to pass customer_id on every call."""
-        if err := validate_id(customer_id, "customer_id"):
-            return {"error": True, "message": err}
+
+        customer_id, cid_err = require_customer_id(customer_id)
+        if cid_err:
+            return cid_err
+
         _set_active(customer_id)
         # Fetch account name for confirmation
         try:
@@ -141,6 +144,10 @@ def register(mcp: FastMCP) -> None:
         limit: Annotated[int, Field(description="Max number of recent errors to return")] = 20,
     ) -> dict:
         """Get recent error log entries from burnr8. Useful for diagnosing tool failures."""
+
+        if err := validate_recent_errors_limit(limit):
+            return {"error": True, "message": err}
+        
         errors = get_recent_errors(limit=limit)
         return {
             "error_count": len(errors),

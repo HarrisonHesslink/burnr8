@@ -14,6 +14,7 @@ burnr8 is designed to keep your Google Ads credentials safe:
 
 - Credentials are loaded from environment variables (`.env` file)
 - `.env` is in `.gitignore` — never committed to the repo
+- `.env.*` is in `.gitignore` — never committed to the repo
 - No credentials are logged or included in error responses
 - The OAuth setup script only prints the refresh token to stdout
 - Customer IDs are truncated to 6 digits in logs

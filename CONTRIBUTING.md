@@ -106,7 +106,8 @@ Keep PRs focused. One feature or fix per PR.
 - **Display campaigns** — managed placements, responsive display ads
 - **YouTube/Video** — video campaign management
 - **Automated rules** — scheduled bid/budget changes
-- **Test coverage** — unit tests for individual tool modules
+- **Unit Test coverage** — unit tests for individual tool modules
+- **Integration Test coverage** — integration tests for individual tool modules using google ads test accounts
 
 ## Reporting Issues
 

@@ -474,7 +474,7 @@ class TestLaunchBiddingStrategies:
         """Extract the CampaignOperation from the mock CampaignService call_args."""
         svc = mock_ads_client["client"].get_service("CampaignService")
         call_args = svc.mutate_campaigns.call_args
-        operations = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        operations = call_args.kwargs["request"].operations
         if operations and not isinstance(operations, list):
             operations = [operations]
         return operations[0]
@@ -605,7 +605,7 @@ class TestLaunchNegativeKeywords:
         # Verify proto: 2 operations with negative=True and PHRASE match
         svc = client.get_service("CampaignCriterionService")
         call_args = svc.mutate_campaign_criteria.call_args
-        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        ops = call_args.kwargs["request"].operations
         if ops and not isinstance(ops, list):
             ops = [ops]
         assert len(ops) == 2
@@ -658,7 +658,7 @@ class TestLaunchLocationTargeting:
         # Verify proto: geo_target_constant set correctly
         svc = client.get_service("CampaignCriterionService")
         call_args = svc.mutate_campaign_criteria.call_args
-        ops = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        ops = call_args.kwargs["request"].operations
         if ops and not isinstance(ops, list):
             ops = [ops]
         assert len(ops) == 1

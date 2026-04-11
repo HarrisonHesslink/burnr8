@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Iterator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import validate_call
 
@@ -38,10 +38,24 @@ _NUMERIC_RE = re.compile(r"^\d+$")
 
 
 __all__ = [
-    "run_gaql", "stream_gaql", "proto_to_dict", "micros_to_dollars", "dollars_to_micros",
-    "validate_id", "validate_status", "validate_date_range", "validate_budget_amount",
-    "validate_daily_budget", "validate_cpc_bid", "validate_bid_modifier", "validate_target_cpa", "validate_target_roas",
-    "require_customer_id", "escape_gaql_string", "validate_gaql_query",
+    "run_gaql",
+    "stream_gaql",
+    "proto_to_dict",
+    "micros_to_dollars",
+    "dollars_to_micros",
+    "validate_id",
+    "validate_status",
+    "validate_date_range",
+    "validate_budget_amount",
+    "validate_daily_budget",
+    "validate_cpc_bid",
+    "validate_bid_modifier",
+    "validate_target_cpa",
+    "validate_target_roas",
+    "require_customer_id",
+    "escape_gaql_string",
+    "validate_gaql_query",
+    "build_mutate_request",
     "validate_recent_errors_limit",
 ]
 
@@ -60,6 +74,26 @@ def validate_recent_errors_limit(value: int) -> str | None:
     if value > 5:
         return f"limit must be 5 or less to prevent excessive memory usage, got: {value}"
     return None
+
+
+def build_mutate_request(
+    client: GoogleAdsClient,
+    request_type: str,
+    customer_id: str,
+    operations: list[Any],
+    validate_only: bool = False,
+) -> Any:
+    """Build a v30 mutate request object.
+
+    ``client.get_type()`` returns a proto **instance**, not a class — fields
+    must be set via attribute assignment, not constructor kwargs.
+    """
+    request = client.get_type(request_type)
+    request.customer_id = customer_id
+    request.validate_only = validate_only
+    for op in operations:
+        request.operations.append(op)
+    return request
 
 
 def escape_gaql_string(value: str) -> str:

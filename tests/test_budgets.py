@@ -132,7 +132,7 @@ class TestCreateBudget:
         svc.mutate_campaign_budgets.assert_called_once()
         # Verify explicitly_shared=False (critical for Smart Bidding — see CLAUDE.md)
         call_args = svc.mutate_campaign_budgets.call_args
-        ops = call_args.kwargs.get("operations") or call_args[0][1]
+        ops = call_args.kwargs["request"].operations
         if not isinstance(ops, list):
             ops = [ops]
         assert ops[0].create.explicitly_shared is False

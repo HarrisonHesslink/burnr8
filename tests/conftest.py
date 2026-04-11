@@ -57,6 +57,13 @@ class MockGoogleAdsClient:
 
     def get_type(self, name: str) -> MagicMock:
         """Return a mock operation type with real lists for append-based fields."""
+        # Mutate request types: return instance with real operations list (v30 pattern)
+        # build_mutate_request() sets fields via attribute assignment and appends to operations
+        if name.startswith("Mutate") and name.endswith("Request"):
+            mock = MagicMock(name=f"Type:{name}")
+            mock.operations = []
+            return mock
+
         mock = MagicMock(name=f"Type:{name}")
         mock.create = MagicMock(name=f"Type:{name}.create")
 

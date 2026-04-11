@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -59,7 +60,7 @@ _INFORMATIONAL_SIGNALS = [
     "review",
     "reviews",
 ]
-_SIGNAL_RE = re.compile(r'\b(?:' + '|'.join(re.escape(s) for s in _INFORMATIONAL_SIGNALS) + r')\b')
+_SIGNAL_RE = re.compile(r"\b(?:" + "|".join(re.escape(s) for s in _INFORMATIONAL_SIGNALS) + r")\b")
 
 
 def register(mcp: FastMCP) -> None:
@@ -332,9 +333,7 @@ def register(mcp: FastMCP) -> None:
 
         # Tracking URL stats
         enabled_campaigns = [c for c in campaigns if c.get("status") == "ENABLED"]
-        campaigns_without_tracking = [
-            c["name"] for c in enabled_campaigns if not c.get("tracking_url_template")
-        ]
+        campaigns_without_tracking = [c["name"] for c in enabled_campaigns if not c.get("tracking_url_template")]
 
         # Save each section to CSV
         files = {}
@@ -427,7 +426,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         target_roas: Annotated[
             float | None,
-            Field(description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)"),
+            Field(
+                description="Target ROAS as a ratio, e.g. 4.0 means 400% return (for TARGET_ROAS or MAXIMIZE_CONVERSION_VALUE)"
+            ),
         ] = None,
         max_cpc_bid_ceiling_dollars: Annotated[
             float | None,
@@ -435,7 +436,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         negative_keywords: Annotated[
             list[str] | None,
-            Field(description="Optional list of negative keyword texts to add as PHRASE match campaign-level negatives"),
+            Field(
+                description="Optional list of negative keyword texts to add as PHRASE match campaign-level negatives"
+            ),
         ] = None,
         location_ids: Annotated[
             list[str] | None,
@@ -490,10 +493,22 @@ def register(mcp: FastMCP) -> None:
             }
 
         client = get_client()
-        created = {"budget": None, "campaign": None, "negative_keywords": None, "locations": None, "ad_group": None, "keywords": None, "ad": None}
+        created = {
+            "budget": None,
+            "campaign": None,
+            "negative_keywords": None,
+            "locations": None,
+            "ad_group": None,
+            "keywords": None,
+            "ad": None,
+        }
 
         if not confirm:
-            return {"warning": True, "validated": False, "message": f"Client-side validation passed (no API call). This will launch a full campaign '{campaign_name}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": False,
+                "message": f"Client-side validation passed (no API call). This will launch a full campaign '{campaign_name}'. Set confirm=true to execute.",
+            }
 
         try:
             return _execute_launch(
@@ -695,7 +710,9 @@ def _execute_launch(
     budget.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
     budget.explicitly_shared = False
 
-    budget_response = budget_service.mutate_campaign_budgets(customer_id=customer_id, operations=[budget_op])
+    budget_response = budget_service.mutate_campaign_budgets(
+        request=build_mutate_request(client, "MutateCampaignBudgetsRequest", customer_id, [budget_op])
+    )
     budget_resource_name = budget_response.results[0].resource_name
     budget_id = budget_resource_name.split("/")[-1]
     created["budget"] = budget_resource_name
@@ -709,7 +726,9 @@ def _execute_launch(
     campaign.campaign_budget = budget_resource_name
     campaign.advertising_channel_type = client.enums.AdvertisingChannelTypeEnum.SEARCH
     _apply_bidding_strategy(
-        client, campaign, bidding_strategy,
+        client,
+        campaign,
+        bidding_strategy,
         target_cpa_dollars=target_cpa_dollars,
         target_roas=target_roas,
         max_cpc_bid_ceiling_dollars=max_cpc_bid_ceiling_dollars,
@@ -738,7 +757,9 @@ def _execute_launch(
             param.value = value
             campaign.url_custom_parameters.append(param)
 
-    campaign_response = campaign_service.mutate_campaigns(customer_id=customer_id, operations=[campaign_op])
+    campaign_response = campaign_service.mutate_campaigns(
+        request=build_mutate_request(client, "MutateCampaignsRequest", customer_id, [campaign_op])
+    )
     campaign_resource_name = campaign_response.results[0].resource_name
     campaign_id = campaign_resource_name.split("/")[-1]
     created["campaign"] = campaign_resource_name
@@ -757,7 +778,7 @@ def _execute_launch(
             criterion.keyword.match_type = client.enums.KeywordMatchTypeEnum.PHRASE
             neg_ops.append(neg_op)
         neg_response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=neg_ops
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, neg_ops)
         )
         created["negative_keywords"] = [r.resource_name for r in neg_response.results]
 
@@ -773,7 +794,7 @@ def _execute_launch(
             criterion.location.geo_target_constant = f"geoTargetConstants/{loc_id}"
             loc_ops.append(loc_op)
         loc_response = campaign_criterion_service.mutate_campaign_criteria(
-            customer_id=customer_id, operations=loc_ops
+            request=build_mutate_request(client, "MutateCampaignCriteriaRequest", customer_id, loc_ops)
         )
         created["locations"] = [r.resource_name for r in loc_response.results]
 
@@ -787,7 +808,9 @@ def _execute_launch(
     ad_group.type_ = client.enums.AdGroupTypeEnum.SEARCH_STANDARD
     ad_group.cpc_bid_micros = dollars_to_micros(cpc_bid)
 
-    ad_group_response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[ad_group_op])
+    ad_group_response = ad_group_service.mutate_ad_groups(
+        request=build_mutate_request(client, "MutateAdGroupsRequest", customer_id, [ad_group_op])
+    )
     ad_group_resource_name = ad_group_response.results[0].resource_name
     ad_group_id = ad_group_resource_name.split("/")[-1]
     created["ad_group"] = ad_group_resource_name
@@ -805,7 +828,7 @@ def _execute_launch(
         keyword_ops.append(kw_op)
 
     keyword_response = ad_group_criterion_service.mutate_ad_group_criteria(
-        customer_id=customer_id, operations=keyword_ops
+        request=build_mutate_request(client, "MutateAdGroupCriteriaRequest", customer_id, keyword_ops)
     )
     created["keywords"] = [r.resource_name for r in keyword_response.results]
 
@@ -829,7 +852,9 @@ def _execute_launch(
         desc.text = desc_text
         ad.responsive_search_ad.descriptions.append(desc)
 
-    ad_response = ad_group_ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[ad_op])
+    ad_response = ad_group_ad_service.mutate_ad_group_ads(
+        request=build_mutate_request(client, "MutateAdGroupAdsRequest", customer_id, [ad_op])
+    )
     ad_resource_name = ad_response.results[0].resource_name
     created["ad"] = ad_resource_name
 

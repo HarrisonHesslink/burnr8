@@ -73,7 +73,7 @@ class TestCreateResponsiveSearchAd:
         assert result["final_url_suffix"] == "utm_medium=cpc"
         # Verify proto fields were actually set
         call_args = client.get_service("AdGroupAdService").mutate_ad_group_ads.call_args
-        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        operation = call_args.kwargs["request"].operations
         if operation and not isinstance(operation, list):
             operation = [operation]
         if operation:
@@ -99,7 +99,7 @@ class TestCreateResponsiveSearchAd:
         assert result["url_custom_parameters"] == {"season": "winter", "promo": "sale"}
         # Verify url_custom_parameters list was populated with 2 items (real list from conftest)
         call_args = client.get_service("AdGroupAdService").mutate_ad_group_ads.call_args
-        operation = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+        operation = call_args.kwargs["request"].operations
         if operation and not isinstance(operation, list):
             operation = [operation]
         if operation:

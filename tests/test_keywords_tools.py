@@ -172,7 +172,7 @@ def _get_criterion_operation(mock_ads_client):
     """Extract the AdGroupCriterionOperation from the mock mutate call_args."""
     svc = mock_ads_client["client"].get_service("AdGroupCriterionService")
     call_args = svc.mutate_ad_group_criteria.call_args
-    operations = call_args.kwargs.get("operations", call_args[0][1] if len(call_args[0]) > 1 else None)
+    operations = call_args.kwargs["request"].operations
     if operations and not isinstance(operations, list):
         operations = [operations]
     return operations[0]

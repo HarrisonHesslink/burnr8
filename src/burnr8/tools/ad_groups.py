@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -73,7 +74,8 @@ def register(mcp: FastMCP) -> None:
                     "final_url_suffix": ag.get("final_url_suffix"),
                     "url_custom_parameters": {
                         p["key"]: p["value"] for p in ag.get("url_custom_parameters", []) if "key" in p
-                    } or None,
+                    }
+                    or None,
                     "campaign_id": c.get("id"),
                     "campaign_name": c.get("name"),
                     "impressions": int(m.get("impressions", 0)),
@@ -99,7 +101,9 @@ def register(mcp: FastMCP) -> None:
         ] = None,
         url_custom_parameters: Annotated[
             dict[str, str] | None,
-            Field(description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"),
+            Field(
+                description="Custom parameters for tracking URL substitution, e.g. {'season': 'winter'} for {_season} tag"
+            ),
         ] = None,
         confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
@@ -138,9 +142,17 @@ def register(mcp: FastMCP) -> None:
                 param.value = value
                 ad_group.url_custom_parameters.append(param)
 
-        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = ad_group_service.mutate_ad_groups(
+            request=build_mutate_request(
+                client, "MutateAdGroupsRequest", customer_id, [operation], validate_only=not confirm
+            )
+        )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will create ad group '{name}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will create ad group '{name}'. Set confirm=true to execute.",
+            }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
@@ -228,8 +240,16 @@ def register(mcp: FastMCP) -> None:
 
         operation.update_mask.paths.extend(field_mask)
 
-        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation], validate_only=not confirm)
+        response = ad_group_service.mutate_ad_groups(
+            request=build_mutate_request(
+                client, "MutateAdGroupsRequest", customer_id, [operation], validate_only=not confirm
+            )
+        )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update ad group '{ad_group_id}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will update ad group '{ad_group_id}'. Set confirm=true to execute.",
+            }
 
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}

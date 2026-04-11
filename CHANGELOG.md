@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-04-11
+
+### Fixed
+
+- **v30 mutate migration**: all 44 mutate calls now use request objects with `validate_only` on the request proto — fixes silent live mutations when `confirm=False` (#67)
+- **Bidding strategy field masks**: `ManualCpc` uses subfield path `manual_cpc.enhanced_cpc_enabled`; `ManualCpm` correctly uses bare path (empty proto); `TargetSpend`, `MaximizeConversions`, `MaximizeConversionValue` always include subfield paths to avoid zeroing targets
+- **Dict-to-Pydantic coercion**: `add_keywords`, `add_negative_keywords`, `add_ad_group_negative_keywords` now coerce raw dicts to model instances — fixes `AttributeError` when MCP sends JSON
+- **`get_recent_errors_tool`**: validates `limit` param (rejects negative, non-numeric, float, null)
+
+### Added
+
+- **246 integration tests** across 13 files — reporting, negative keywords, ad groups, ads, budgets, campaigns, accounts, validate-only, destructive safety, new campaign safety, update campaign safety (BUR-218 through BUR-222)
+- **Mandatory state verification**: all `confirm=True` mutations read back and assert persisted state
+- **Claude Code dev hooks**: pre-push safety gates for development workflow (#68)
+- **CLAUDE.md gotchas**: documented v30 mutate pattern, `or` with empty collections, `start_date`/`end_date` removal (#69)
+
+### Changed
+
+- **CI**: bumped docker/build-push-action v7, docker/login-action v4, docker/setup-qemu-action v4, docker/setup-buildx-action v4, astral-sh/setup-uv v7 (#72–#76)
+- Integration test infrastructure: shared `register_tool()` helper, `_reset_session` fixture resets active account between tests
+
 ## [0.7.0] - 2026-04-10
 
 ### Added
@@ -169,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OAuth setup script
 - Google Ads API v23
 
+[0.7.1]: https://github.com/harrisonhesslink/burnr8/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/harrisonhesslink/burnr8/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/harrisonhesslink/burnr8/compare/v0.5.0...v0.6.0

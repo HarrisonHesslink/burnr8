@@ -9,7 +9,7 @@
     {
       "name": "burnr8",
       "description": "Google Ads MCP server — self-hosted, 65 tools for audit, optimization, and reporting",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "source": "./",
       "category": "productivity",
       "homepage": "https://burnrate.sh",
@@ -18,7 +18,7 @@
     {
       "name": "burnr8-cloud",
       "description": "Google Ads via burnrate.sh — zero setup, connects via OAuth, no Python needed",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "source": "./plugins/burnr8-cloud",
       "category": "productivity",
       "homepage": "https://burnrate.sh",

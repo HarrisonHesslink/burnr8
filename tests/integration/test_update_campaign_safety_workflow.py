@@ -66,9 +66,10 @@ class TestCampaignUpdateSafety:
         self.__class__.campaign_id = result["id"]  # Store for cleanup
         self.__class__.campaign_name = name
         yield
-        # cleanup: remove the campaign after all tests
-        remove_tool = _register_tool("remove_campaign", "campaigns")
-        remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
+        campaign_id = getattr(self.__class__, "campaign_id", None)
+        if campaign_id:
+            remove_tool = _register_tool("remove_campaign", "campaigns")
+            remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=campaign_id)
 
     def test_update_campaign_no_confirmation(self, test_customer_id):
         tool = _register_tool("update_campaign", "campaigns")

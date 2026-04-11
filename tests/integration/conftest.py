@@ -2,12 +2,41 @@
 
 import logging
 import os
+from importlib import import_module
 
 import pytest
 from dotenv import load_dotenv
 
 logging.getLogger("google.ads.googleads").setLevel(logging.CRITICAL)
 load_dotenv(".env.local")
+
+
+INVALID_CUSTOMER_IDS = [
+    ("letters", "abc"),
+    ("dashes", "123-456-789"),
+    ("empty", ""),
+    ("special_chars", "123!@#456"),
+    ("spaces", "123 456"),
+]
+
+
+def register_tool(tool_name: str, module_name: str):
+    """Register a tool from a burnr8 module and return the callable.
+
+    Usage: tool = register_tool("create_budget", "budgets")
+    """
+    mod = import_module(f"burnr8.tools.{module_name}")
+    captured: dict = {}
+
+    class _Capture:
+        def tool(self, fn):  # type: ignore[no-untyped-def]
+            if fn.__name__ == tool_name:
+                captured["func"] = fn
+            return fn
+
+    cap = _Capture()
+    mod.register(cap)
+    return captured["func"]
 
 
 def pytest_collection_modifyitems(config, items):  # type: ignore[no-untyped-def]
@@ -32,6 +61,12 @@ def pytest_collection_modifyitems(config, items):  # type: ignore[no-untyped-def
                 item.add_marker(pytest.mark.safety)
             elif "destructive_safety_workflow" in filename:
                 item.add_marker(pytest.mark.destructive)
+
+
+@pytest.fixture(autouse=True)
+def _reset_session():
+    """Override root conftest — integration tests use real credentials."""
+    yield
 
 
 @pytest.fixture(scope="session")

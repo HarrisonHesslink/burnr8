@@ -40,9 +40,10 @@ class TestCampaignCreationSafety:
     @pytest.fixture(autouse=True, scope="class")
     def remove_test_campaign(self, test_customer_id):
         yield
-        remove_tool = _register_tool("remove_campaign", "campaigns")
-        result = remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
-        print("Cleanup result:", result)
+        campaign_id = getattr(self.__class__, "campaign_id", None)
+        if campaign_id:
+            remove_tool = _register_tool("remove_campaign", "campaigns")
+            remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=campaign_id)
 
     # non-duplicate campaign case.
     def test_create_campaign(self, test_customer_id):

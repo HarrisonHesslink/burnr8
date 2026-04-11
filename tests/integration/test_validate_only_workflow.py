@@ -84,8 +84,10 @@ class TestCampaignDryRun:
         )
         self.__class__.campaign_id = result["id"]
         yield
-        remove_tool = _register_tool("remove_campaign", "campaigns")
-        remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
+        campaign_id = getattr(self.__class__, "campaign_id", None)
+        if campaign_id:
+            remove_tool = _register_tool("remove_campaign", "campaigns")
+            remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=campaign_id)
         cleanup_tool = _register_tool("remove_orphan_budgets", "budgets")
         cleanup_tool(confirm=True, customer_id=test_customer_id)
 
@@ -193,8 +195,10 @@ class TestKeywordDryRun:
         )
         self.__class__.ad_group_id = result["id"]
         yield
-        remove_tool = _register_tool("remove_campaign", "campaigns")
-        remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
+        campaign_id = getattr(self.__class__, "campaign_id", None)
+        if campaign_id:
+            remove_tool = _register_tool("remove_campaign", "campaigns")
+            remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=campaign_id)
         cleanup_tool = _register_tool("remove_orphan_budgets", "budgets")
         cleanup_tool(confirm=True, customer_id=test_customer_id)
 
@@ -255,8 +259,10 @@ class TestExtensionDryRun:
         )
         self.__class__.campaign_id = result["id"]
         yield
-        remove_tool = _register_tool("remove_campaign", "campaigns")
-        remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=self.campaign_id)
+        campaign_id = getattr(self.__class__, "campaign_id", None)
+        if campaign_id:
+            remove_tool = _register_tool("remove_campaign", "campaigns")
+            remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=campaign_id)
         cleanup_tool = _register_tool("remove_orphan_budgets", "budgets")
         cleanup_tool(confirm=True, customer_id=test_customer_id)
 

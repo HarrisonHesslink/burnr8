@@ -15,3 +15,10 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+
+  - repo: https://github.com/semgrep/semgrep
+    rev: v1.100.0
+    hooks:
+      - id: semgrep
+        args: ['--config', '.semgrep.yml', '--config', 'p/python', '--config', 'p/security-audit', '--error']
+        stages: [pre-push]

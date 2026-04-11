@@ -2,9 +2,15 @@
 # Verify unit tests pass before Claude stops. Blocks if tests fail.
 cd "$CLAUDE_PROJECT_DIR" || exit 0
 
-# Check if any Python source files were modified in the working tree
-if ! git diff --name-only HEAD 2>/dev/null | grep -q '\.py$'; then
-  # No Python changes — skip test verification
+# Check if any Python files changed (uncommitted OR in recent commits on this branch)
+HAS_CHANGES=false
+if git diff --name-only HEAD 2>/dev/null | grep -q '\.py$'; then
+  HAS_CHANGES=true
+elif git diff --name-only main...HEAD 2>/dev/null | grep -q '\.py$'; then
+  HAS_CHANGES=true
+fi
+
+if [ "$HAS_CHANGES" = false ]; then
   exit 0
 fi
 

@@ -1,21 +1,11 @@
 # tests/integration/test_budgets.py
 import pytest
 
-from burnr8.tools.budgets import register as _register_budgets
+from tests.integration.conftest import register_tool
 
 
 def _register_tool(name):
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    _register_budgets(cap)
-    return captured["func"]
+    return register_tool(name, "budgets")
 
 
 # Happy Path

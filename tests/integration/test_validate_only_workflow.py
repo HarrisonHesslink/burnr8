@@ -14,22 +14,7 @@ import uuid
 
 import pytest
 
-
-def _register_tool(tool_name, module_name):
-    from importlib import import_module
-
-    mod = import_module(f"burnr8.tools.{module_name}")
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == tool_name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    mod.register(cap)
-    return captured["func"]
+from tests.integration.conftest import register_tool as _register_tool
 
 
 class TestBudgetDryRun:

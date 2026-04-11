@@ -1,19 +1,7 @@
-# tests/integration/test_list_accounts.py
+# tests/integration/test_accounts.py
 import pytest
 
-# Happy Path
-# Sad Path
-# Boundary & Edge Case
-# Side Effects & State Changes
-
-
-INVALID_CUSTOMER_IDS = [
-    ("letters", "abc"),
-    ("dashes", "123-456-789"),
-    ("empty", ""),
-    ("special_chars", "123!@#456"),
-    ("spaces", "123 456"),
-]
+from tests.integration.conftest import INVALID_CUSTOMER_IDS, register_tool
 
 INVALID_ERROR_COUNTS = [
     ("negative", -1),
@@ -24,20 +12,7 @@ INVALID_ERROR_COUNTS = [
 
 
 def _register_tool(name):
-    """Register list_accessible_accounts tools and return the one matching *name*."""
-    from burnr8.tools.accounts import register
-
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    register(cap)
-    return captured["func"]
+    return register_tool(name, "accounts")
 
 
 class TestListAccounts:

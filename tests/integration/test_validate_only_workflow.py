@@ -235,6 +235,20 @@ class TestKeywordDryRun:
             f"Dry-run created a keyword! Found 'should not exist' in {keyword_texts}"
         )
 
+    def test_add_keywords_dict_coercion(self, test_customer_id):
+        """Verify raw dict inputs are coerced to KeywordInput models (regression test)."""
+        tool = _register_tool("add_keywords", "keywords")
+        result = tool(
+            ad_group_id=self.ad_group_id,
+            keywords=[{"text": "dict coercion kw test", "match_type": "EXACT"}],
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+
+        assert "error" not in result, f"Dict coercion failed: {result}"
+        assert result["added"] == 1
+        assert result["keywords"][0]["text"] == "dict coercion kw test"
+
 
 class TestExtensionDryRun:
     """Verify extension creation with confirm=False validates but doesn't create."""

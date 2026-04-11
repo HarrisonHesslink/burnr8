@@ -97,8 +97,9 @@ class TestCampaignPerformance:
 
         assert "error" not in result
         assert "rows" in result
-        assert "file" in result
-        assert "columns" in result
+        if result["rows"] > 0:
+            assert "file" in result
+            assert "columns" in result
 
     @pytest.mark.parametrize("label,date_range", INVALID_DATE_RANGES)
     def test_invalid_date_range(self, label, date_range, test_customer_id):

@@ -225,11 +225,12 @@ class TestBudgetOrphans:
     def test_remove_orphan_budgets_valid_customer_id_confirm_true(self, test_customer_id):
         tool = _register_tool("remove_orphan_budgets")
         result = tool(customer_id=test_customer_id, confirm=True)
-        print(result)  # Debug output to inspect the structure
         assert "error" not in result or result["error"] is False, (
             f"Expected success but got error: {result.get('message', '')}"
         )
-        assert "removed_budgets" in result
         assert "removed" in result
-        if result["removed_budgets"]:
+        if result["removed"] > 0:
+            assert "removed_budgets" in result
             assert "id" in result["removed_budgets"][0]
+        else:
+            assert "No orphan" in result.get("message", "")

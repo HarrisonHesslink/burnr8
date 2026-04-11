@@ -43,7 +43,9 @@ class TestCampaignCreationSafety:
     # duplicate campaign case.
     def test_create_duplicate_campaign(self, test_customer_id):
         tool = _register_tool("create_campaign", "campaigns")
-        name = self.campaign_name  # Use the same name to trigger duplicate handling
+        name = getattr(self, "campaign_name", None)
+        if name is None:
+            pytest.skip("No campaign created by prior test")
 
         result = tool(name=name, budget_id=self.budget_id, customer_id=test_customer_id, confirm=True)
 

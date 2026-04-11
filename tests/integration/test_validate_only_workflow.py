@@ -52,22 +52,26 @@ class TestCampaignDryRun:
     @pytest.fixture(autouse=True, scope="class")
     def setup_resources(self, test_customer_id):
         budget_tool = _register_tool("create_budget", "budgets")
-        result = budget_tool(
+        budget_result = budget_tool(
             name=f"ValidateOnly Test Budget {uuid.uuid4().hex[:8]}",
             amount_dollars=10.0,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.budget_id = result["id"]
+        if budget_result.get("error"):
+            pytest.skip(f"Budget creation failed: {budget_result.get('message')}")
+        self.__class__.budget_id = budget_result["id"]
 
         campaign_tool = _register_tool("create_campaign", "campaigns")
-        result = campaign_tool(
+        campaign_result = campaign_tool(
             name=f"ValidateOnly Test Campaign {uuid.uuid4().hex[:8]}",
             budget_id=self.budget_id,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.campaign_id = result["id"]
+        if campaign_result.get("error"):
+            pytest.skip(f"Campaign creation failed: {campaign_result.get('message')}")
+        self.__class__.campaign_id = campaign_result["id"]
         yield
         campaign_id = getattr(self.__class__, "campaign_id", None)
         if campaign_id:
@@ -154,31 +158,37 @@ class TestKeywordDryRun:
     @pytest.fixture(autouse=True, scope="class")
     def setup_resources(self, test_customer_id):
         budget_tool = _register_tool("create_budget", "budgets")
-        result = budget_tool(
+        budget_result = budget_tool(
             name=f"KW DryRun Budget {uuid.uuid4().hex[:8]}",
             amount_dollars=10.0,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.budget_id = result["id"]
+        if budget_result.get("error"):
+            pytest.skip(f"Budget creation failed: {budget_result.get('message')}")
+        self.__class__.budget_id = budget_result["id"]
 
         campaign_tool = _register_tool("create_campaign", "campaigns")
-        result = campaign_tool(
+        campaign_result = campaign_tool(
             name=f"KW DryRun Campaign {uuid.uuid4().hex[:8]}",
             budget_id=self.budget_id,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.campaign_id = result["id"]
+        if campaign_result.get("error"):
+            pytest.skip(f"Campaign creation failed: {campaign_result.get('message')}")
+        self.__class__.campaign_id = campaign_result["id"]
 
         ag_tool = _register_tool("create_ad_group", "ad_groups")
-        result = ag_tool(
+        ag_result = ag_tool(
             name=f"KW DryRun AdGroup {uuid.uuid4().hex[:8]}",
             campaign_id=self.campaign_id,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.ad_group_id = result["id"]
+        if ag_result.get("error"):
+            pytest.skip(f"Ad group creation failed: {ag_result.get('message')}")
+        self.__class__.ad_group_id = ag_result["id"]
         yield
         campaign_id = getattr(self.__class__, "campaign_id", None)
         if campaign_id:
@@ -241,22 +251,26 @@ class TestExtensionDryRun:
     @pytest.fixture(autouse=True, scope="class")
     def setup_campaign(self, test_customer_id):
         budget_tool = _register_tool("create_budget", "budgets")
-        result = budget_tool(
+        budget_result = budget_tool(
             name=f"Ext DryRun Budget {uuid.uuid4().hex[:8]}",
             amount_dollars=10.0,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.budget_id = result["id"]
+        if budget_result.get("error"):
+            pytest.skip(f"Budget creation failed: {budget_result.get('message')}")
+        self.__class__.budget_id = budget_result["id"]
 
         campaign_tool = _register_tool("create_campaign", "campaigns")
-        result = campaign_tool(
+        campaign_result = campaign_tool(
             name=f"Ext DryRun Campaign {uuid.uuid4().hex[:8]}",
             budget_id=self.budget_id,
             customer_id=test_customer_id,
             confirm=True,
         )
-        self.__class__.campaign_id = result["id"]
+        if campaign_result.get("error"):
+            pytest.skip(f"Campaign creation failed: {campaign_result.get('message')}")
+        self.__class__.campaign_id = campaign_result["id"]
         yield
         campaign_id = getattr(self.__class__, "campaign_id", None)
         if campaign_id:

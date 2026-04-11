@@ -96,10 +96,15 @@ class TestBudgetCreation:
             f"Expected success but got error: {result.get('message', '')}"
         )
         assert "id" in result
-        assert "name" in result
         assert result["name"] == "Valid Name"
-        assert "amount_dollars" in result
         assert result["amount_dollars"] == 10.0
+
+        # Read-back: verify budget actually persisted
+        list_tool = _register_tool("list_budgets")
+        budgets = list_tool(customer_id=test_customer_id)
+        created = [b for b in budgets if str(b.get("id")) == str(result["id"])]
+        assert len(created) == 1, f"Created budget {result['id']} not found in list"
+        assert created[0]["name"] == "Valid Name"
 
 
 class TestBudgetUpdates:
@@ -157,13 +162,19 @@ class TestBudgetUpdates:
             customer_id=test_customer_id,
             confirm=True,
         )
-        print(result)  # Debug output to inspect the structure
 
         assert "error" not in result or result["error"] is False, (
             f"Expected success but got error: {result.get('message', '')}"
         )
         assert "resource_name" in result
-        assert result["new_amount_dollars"] == 12.0  # Should update with confirm=True
+        assert result["new_amount_dollars"] == 12.0
+
+        # Read-back: verify budget amount actually changed
+        list_tool = _register_tool("list_budgets")
+        budgets = list_tool(customer_id=test_customer_id)
+        updated = [b for b in budgets if str(b.get("id")) == str(self.budget_id)]
+        assert len(updated) == 1, f"Budget {self.budget_id} not found after update"
+        assert updated[0]["amount_dollars"] == 12.0
 
     def test_update_budget_invalid_active_account_confirm_false(self):
         tool = _register_tool("update_budget")

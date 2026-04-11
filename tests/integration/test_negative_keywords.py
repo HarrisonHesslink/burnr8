@@ -130,8 +130,14 @@ class TestAddNegativeKeywordsCampaign:
 
         assert "error" not in result
         assert result["added"] == 2
-        assert len(result["resource_names"]) == 2
         assert result["keywords"][0]["text"] == "cheap junk"
+
+        # Read-back: verify negatives actually persisted
+        list_tool = _register("list_negative_keywords")
+        list_result = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        all_texts = str(list_result)
+        assert "cheap junk" in all_texts
+        assert "free trial" in all_texts
 
     def test_add_dict_coercion(self, test_customer_id):
         """Verify dict inputs are coerced to NegativeKeyword models (bug fix regression)."""
@@ -145,6 +151,11 @@ class TestAddNegativeKeywordsCampaign:
 
         assert "error" not in result
         assert result["added"] == 1
+
+        # Read-back: verify keyword persisted
+        list_tool = _register("list_negative_keywords")
+        list_result = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        assert "dict coercion test" in str(list_result)
 
     def test_invalid_campaign_id(self, test_customer_id):
         tool = _register("add_negative_keywords")
@@ -242,6 +253,11 @@ class TestAddAdGroupNegativeKeywords:
 
         assert "error" not in result
         assert result["added"] == 1
+
+        # Read-back: verify ad group level negative persisted
+        list_tool = _register("list_negative_keywords")
+        list_result = list_tool(customer_id=test_customer_id, ad_group_id=self.ad_group_id)
+        assert "ad group negative test" in str(list_result)
 
     def test_invalid_ad_group_id(self, test_customer_id):
         tool = _register("add_ad_group_negative_keywords")

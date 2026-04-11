@@ -141,6 +141,12 @@ class TestCreateAndManageAd:
         composite_id = result["id"]
         self.__class__.ad_id = composite_id.split("~")[1] if "~" in composite_id else composite_id
 
+        # Read-back: verify ad exists in the ad group
+        list_tool = _register("list_ads")
+        ads_result = list_tool(customer_id=test_customer_id, ad_group_id=self.ad_group_id)
+        ad_ids = [str(a.get("ad_id")) for a in ads_result.get("top", [])]
+        assert self.ad_id in ad_ids, f"Created ad {self.ad_id} not found in list"
+
     def test_create_rsa_with_pinning(self, test_customer_id):
         tool = _register("create_responsive_search_ad")
         result = tool(
@@ -240,6 +246,13 @@ class TestCreateAndManageAd:
 
         assert "error" not in result
         assert result["new_status"] == "PAUSED"
+
+        # Read-back: verify ad status actually changed
+        list_tool = _register("list_ads")
+        ads_result = list_tool(customer_id=test_customer_id, ad_group_id=self.ad_group_id)
+        paused = [a for a in ads_result.get("top", []) if str(a.get("ad_id")) == self.ad_id]
+        assert len(paused) == 1, f"Ad {self.ad_id} not found after status change"
+        assert paused[0]["status"] == "PAUSED"
 
     def test_set_ad_status_invalid_status(self, test_customer_id):
         tool = _register("set_ad_status")

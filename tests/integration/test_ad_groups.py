@@ -118,10 +118,11 @@ class TestCreateAndUpdateAdGroup:
 
     def test_create_with_confirm(self, test_customer_id):
         uid = uuid.uuid4().hex[:8]
+        name = f"test-ad-group-{uid}"
         tool = _register("create_ad_group")
         result = tool(
             campaign_id=self.campaign_id,
-            name=f"test-ad-group-{uid}",
+            name=name,
             cpc_bid=1.50,
             customer_id=test_customer_id,
             confirm=True,
@@ -131,6 +132,14 @@ class TestCreateAndUpdateAdGroup:
         assert "id" in result
         assert "resource_name" in result
         self.__class__.ad_group_id = result["id"]
+
+        # Read-back: verify ad group persisted with correct fields
+        list_tool = _register("list_ad_groups")
+        ad_groups = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        created = [ag for ag in ad_groups if str(ag.get("id")) == str(result["id"])]
+        assert len(created) == 1, f"Ad group {result['id']} not found in list"
+        assert created[0]["name"] == name
+        assert created[0]["cpc_bid_dollars"] == 1.50
 
     def test_create_invalid_campaign_id(self, test_customer_id):
         tool = _register("create_ad_group")
@@ -170,17 +179,23 @@ class TestCreateAndUpdateAdGroup:
         if not self.ad_group_id:
             pytest.skip("No ad group created")
         uid = uuid.uuid4().hex[:8]
+        new_name = f"updated-name-{uid}"
         tool = _register("update_ad_group")
         result = tool(
             ad_group_id=self.ad_group_id,
-            name=f"updated-name-{uid}",
+            name=new_name,
             customer_id=test_customer_id,
             confirm=True,
         )
 
         assert "error" not in result
-        assert "resource_name" in result
         assert "name" in result["updated_fields"]
+
+        # Read-back: verify name actually changed
+        list_tool = _register("list_ad_groups")
+        ad_groups = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        updated = [ag for ag in ad_groups if str(ag.get("id")) == str(self.ad_group_id)]
+        assert updated[0]["name"] == new_name
 
     def test_update_cpc_bid(self, test_customer_id):
         if not self.ad_group_id:
@@ -195,6 +210,12 @@ class TestCreateAndUpdateAdGroup:
 
         assert "error" not in result
         assert "cpc_bid_micros" in result["updated_fields"]
+
+        # Read-back: verify bid actually changed
+        list_tool = _register("list_ad_groups")
+        ad_groups = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        updated = [ag for ag in ad_groups if str(ag.get("id")) == str(self.ad_group_id)]
+        assert updated[0]["cpc_bid_dollars"] == 2.00
 
     def test_update_dry_run(self, test_customer_id):
         if not self.ad_group_id:

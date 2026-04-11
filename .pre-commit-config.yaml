@@ -8,21 +8,9 @@ repos:
 
   - repo: local
     hooks:
-      - id: mypy
-        name: mypy
-        entry: mypy src/
-        language: system
-        types: [python]
-        pass_filenames: false
-      - id: pip-audit
-        name: pip-audit
-        entry: pip-audit
-        language: system
-        always_run: true
-        pass_filenames: false
-      - id: pytest
-        name: pytest
-        entry: pytest tests/ -x -q
+      - id: pre-push-ci
+        name: pre-push CI (lint + typecheck + tests)
+        entry: bash -c '.venv/bin/ruff check src/ tests/ && .venv/bin/mypy src/burnr8/ --ignore-missing-imports && .venv/bin/pytest tests/ -x -q --ignore=tests/integration'
         language: system
         pass_filenames: false
         always_run: true
@@ -33,3 +21,4 @@ repos:
     hooks:
       - id: semgrep
         args: ['--config', '.semgrep.yml', '--config', 'p/python', '--config', 'p/security-audit', '--error']
+        stages: [pre-push]

@@ -53,7 +53,8 @@ def _apply_bidding_strategy(
         paths.append("manual_cpc.enhanced_cpc_enabled")
     elif strategy == "MANUAL_CPM":
         campaign.manual_cpm = client.get_type("ManualCpm")
-        paths.append("manual_cpm.enhanced_cpc_enabled")
+        # ManualCpm is an empty proto — bare path is correct (no subfields to zero out)
+        paths.append("manual_cpm")
     elif strategy == "MAXIMIZE_CLICKS":
         # In API v23+, Maximize Clicks is implemented via target_spend
         ts = client.get_type("TargetSpend")

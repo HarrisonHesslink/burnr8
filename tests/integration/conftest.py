@@ -36,6 +36,8 @@ def register_tool(tool_name: str, module_name: str):
 
     cap = _Capture()
     mod.register(cap)
+    if "func" not in captured:
+        raise ValueError(f"Tool '{tool_name}' not found in burnr8.tools.{module_name}")
     return captured["func"]
 
 
@@ -93,5 +95,5 @@ def test_account_ads_client():
         client = get_client()
         client.get_service("GoogleAdsService")
         return client
-    except Exception as e:
-        pytest.skip(f"Skipping test due to invalid Google Ads credentials: {e}")
+    except (ValueError, OSError) as e:
+        pytest.skip(f"Skipping: invalid/missing Google Ads credentials: {e}")

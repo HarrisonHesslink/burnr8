@@ -28,15 +28,21 @@ class TestBiddingStrategies:
 
     def test_complete_strategy_list(self):
         expected = {
-            "MANUAL_CPC", "MANUAL_CPM", "MAXIMIZE_CLICKS",
-            "MAXIMIZE_CONVERSIONS", "MAXIMIZE_CONVERSION_VALUE",
-            "TARGET_CPA", "TARGET_ROAS", "TARGET_IMPRESSION_SHARE",
+            "MANUAL_CPC",
+            "MANUAL_CPM",
+            "MAXIMIZE_CLICKS",
+            "MAXIMIZE_CONVERSIONS",
+            "MAXIMIZE_CONVERSION_VALUE",
+            "TARGET_CPA",
+            "TARGET_ROAS",
+            "TARGET_IMPRESSION_SHARE",
             "TARGET_SPEND",
         }
         assert expected == VALID_BIDDING_STRATEGIES
 
     def test_strategies_is_a_set(self):
         assert isinstance(VALID_BIDDING_STRATEGIES, set)
+
 
 # ---------------------------------------------------------------------------
 # Helpers — sample GAQL result rows
@@ -116,11 +122,14 @@ def _register_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
+
                 def wrapper(*args, **kwargs):
                     import inspect
+
                     if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
                         kwargs["confirm"] = True
                     return fn(*args, **kwargs)
+
                 captured["func"] = wrapper
             return fn
 
@@ -508,7 +517,7 @@ class TestUpdateCampaign:
         )
 
         assert "error" not in result
-        assert "maximize_conversions" in result["updated_fields"]
+        assert "maximize_conversions.target_cpa_micros" in result["updated_fields"]
 
     def test_update_bidding_strategy_with_target(self, mock_ads_client):
         set_active_account("1234567890")
@@ -701,7 +710,8 @@ class TestSetCampaignStatus:
         set_active_account("1234567890")
 
         tool = _register_tool("set_campaign_status")
-        result = tool(confirm=False,
+        result = tool(
+            confirm=False,
             campaign_id="100",
             status="ENABLED",
             customer_id="1234567890",

@@ -82,8 +82,10 @@ class TestActiveAccountResolution:
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)
     def test_set_active_account_bad_customer_id(self, label, customer_id):
         tool = _register_tool("set_active_account_tool")
-        list_tool = _register_tool("list_accessible_accounts")
         get_tool = _register_tool("get_active_account_tool")
+
+        # Capture current active account before the bad call
+        before = get_tool()["active_account"]
 
         result = tool(customer_id=customer_id)
 
@@ -92,10 +94,8 @@ class TestActiveAccountResolution:
         assert result["error"] is True
 
         # Active account should not change after invalid input
-        list_result = list_tool()
-        get_result = get_tool()
-        assert list_result["active_account"] is None
-        assert get_result["active_account"] is None
+        after = get_tool()["active_account"]
+        assert after == before
 
 
 class TestGetAccountInfo:
@@ -110,7 +110,7 @@ class TestGetAccountInfo:
         assert "resource_name" in result
 
     @pytest.mark.parametrize("label,customer_id", INVALID_CUSTOMER_IDS)
-    def test_get_account_info_no_customer_id(self, label, customer_id):
+    def test_get_account_info_bad_customer_id(self, label, customer_id):
         tool = _register_tool("get_account_info")
         result = tool(customer_id=customer_id)
         assert result["error"] is True

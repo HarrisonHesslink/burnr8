@@ -65,8 +65,12 @@ def pytest_collection_modifyitems(config, items):  # type: ignore[no-untyped-def
 
 @pytest.fixture(autouse=True)
 def _reset_session():
-    """Override root conftest — integration tests use real credentials."""
+    """Reset active account between tests but preserve real client credentials."""
+    from burnr8 import session as _session
+
+    _session._active_account.set(None)
     yield
+    _session._active_account.set(None)
 
 
 @pytest.fixture(scope="session")

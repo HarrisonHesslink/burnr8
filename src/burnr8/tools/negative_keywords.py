@@ -235,8 +235,10 @@ def register(mcp: FastMCP) -> None:
             "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
         }
 
+        parsed = [kw if isinstance(kw, NegativeKeyword) else NegativeKeyword(**kw) for kw in keywords]
+
         operations = []
-        for kw in keywords:
+        for kw in parsed:
             operation = client.get_type("CampaignCriterionOperation")
             criterion = operation.create
             criterion.campaign = campaign_service.campaign_path(customer_id, campaign_id)
@@ -258,13 +260,13 @@ def register(mcp: FastMCP) -> None:
             return {
                 "warning": True,
                 "validated": True,
-                "message": f"Validation succeeded. This will add {len(keywords)} negative keyword(s). Set confirm=true to execute.",
+                "message": f"Validation succeeded. This will add {len(parsed)} negative keyword(s). Set confirm=true to execute.",
             }
 
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
-            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in keywords],
+            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in parsed],
         }
 
     @mcp.tool
@@ -296,8 +298,10 @@ def register(mcp: FastMCP) -> None:
             "BROAD": client.enums.KeywordMatchTypeEnum.BROAD,
         }
 
+        parsed = [kw if isinstance(kw, NegativeKeyword) else NegativeKeyword(**kw) for kw in keywords]
+
         operations = []
-        for kw in keywords:
+        for kw in parsed:
             operation = client.get_type("AdGroupCriterionOperation")
             criterion = operation.create
             criterion.ad_group = ad_group_service.ad_group_path(customer_id, ad_group_id)
@@ -319,12 +323,12 @@ def register(mcp: FastMCP) -> None:
             return {
                 "warning": True,
                 "validated": True,
-                "message": f"Validation succeeded. This will add {len(keywords)} ad group negative keyword(s). Set confirm=true to execute.",
+                "message": f"Validation succeeded. This will add {len(parsed)} ad group negative keyword(s). Set confirm=true to execute.",
             }
         return {
             "added": len(response.results),
             "resource_names": [r.resource_name for r in response.results],
-            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in keywords],
+            "keywords": [{"text": kw.text, "match_type": kw.match_type} for kw in parsed],
         }
 
     @mcp.tool

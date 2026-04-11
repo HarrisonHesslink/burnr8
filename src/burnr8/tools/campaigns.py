@@ -50,34 +50,28 @@ def _apply_bidding_strategy(
     paths = []
     if strategy == "MANUAL_CPC":
         campaign.manual_cpc = client.get_type("ManualCpc")
-        paths.append("manual_cpc")
+        paths.append("manual_cpc.enhanced_cpc_enabled")
     elif strategy == "MANUAL_CPM":
         campaign.manual_cpm = client.get_type("ManualCpm")
-        paths.append("manual_cpm")
+        paths.append("manual_cpm.enhanced_cpc_enabled")
     elif strategy == "MAXIMIZE_CLICKS":
         # In API v23+, Maximize Clicks is implemented via target_spend
         ts = client.get_type("TargetSpend")
         if max_cpc_bid_ceiling_dollars is not None:
             ts.cpc_bid_ceiling_micros = dollars_to_micros(max_cpc_bid_ceiling_dollars)
-            paths.append("target_spend.cpc_bid_ceiling_micros")
-        else:
-            paths.append("target_spend")
+        paths.append("target_spend.cpc_bid_ceiling_micros")
         campaign.target_spend = ts
     elif strategy == "MAXIMIZE_CONVERSIONS":
         mc = client.get_type("MaximizeConversions")
         if target_cpa_dollars is not None:
             mc.target_cpa_micros = dollars_to_micros(target_cpa_dollars)
-            paths.append("maximize_conversions.target_cpa_micros")
-        else:
-            paths.append("maximize_conversions")
+        paths.append("maximize_conversions.target_cpa_micros")
         campaign.maximize_conversions = mc
     elif strategy == "MAXIMIZE_CONVERSION_VALUE":
         mcv = client.get_type("MaximizeConversionValue")
         if target_roas is not None:
             mcv.target_roas = target_roas
-            paths.append("maximize_conversion_value.target_roas")
-        else:
-            paths.append("maximize_conversion_value")
+        paths.append("maximize_conversion_value.target_roas")
         campaign.maximize_conversion_value = mcv
     elif strategy == "TARGET_CPA":
         tcpa = client.get_type("TargetCpa")
@@ -121,9 +115,7 @@ def _apply_bidding_strategy(
         ts = client.get_type("TargetSpend")
         if max_cpc_bid_ceiling_dollars is not None:
             ts.cpc_bid_ceiling_micros = dollars_to_micros(max_cpc_bid_ceiling_dollars)
-            paths.append("target_spend.cpc_bid_ceiling_micros")
-        else:
-            paths.append("target_spend")
+        paths.append("target_spend.cpc_bid_ceiling_micros")
         campaign.target_spend = ts
     return paths
 

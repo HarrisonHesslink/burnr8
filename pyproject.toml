@@ -73,6 +73,14 @@ known-first-party = ["burnr8"]
 testpaths = ["tests"]
 strict_markers = true
 addopts = "--tb=short"
+markers = [
+    "integration: marks tests as integration tests requiring real Google Ads credentials",
+    "campaigns: campaign-related tests",
+    "budgets: budget-related tests",
+    "accounts: account-related tests",
+    "safety: safety workflow tests",
+    "destructive: destructive workflow tests"
+]
 
 [tool.mypy]
 python_version = "3.11"

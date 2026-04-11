@@ -16,11 +16,14 @@ def _register_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
+
                 def wrapper(*args, **kwargs):
                     import inspect
+
                     if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
                         kwargs["confirm"] = True
                     return fn(*args, **kwargs)
+
                 captured["func"] = wrapper
             return fn
 
@@ -106,9 +109,9 @@ class TestListKeywords:
 
     def test_position_estimates(self, mock_ads_client):
         set_active_account("1234567890")
-        mock_ads_client["set_gaql"]({"FROM keyword_view": [
-            _keyword_row(first_page_cpc_micros=500_000, top_of_page_cpc_micros=1_200_000)
-        ]})
+        mock_ads_client["set_gaql"](
+            {"FROM keyword_view": [_keyword_row(first_page_cpc_micros=500_000, top_of_page_cpc_micros=1_200_000)]}
+        )
         fn = _register_tool("list_keywords")
         result = fn()
         row = result["top"][0]
@@ -117,9 +120,9 @@ class TestListKeywords:
 
     def test_converts_micros_to_dollars(self, mock_ads_client):
         set_active_account("1234567890")
-        mock_ads_client["set_gaql"]({"FROM keyword_view": [
-            _keyword_row(cpc_bid_micros=2_500_000, cost_micros=10_000_000)
-        ]})
+        mock_ads_client["set_gaql"](
+            {"FROM keyword_view": [_keyword_row(cpc_bid_micros=2_500_000, cost_micros=10_000_000)]}
+        )
         fn = _register_tool("list_keywords")
         result = fn()
         row = result["top"][0]
@@ -141,10 +144,14 @@ class TestListKeywords:
 
     def test_summary_includes_avg_quality(self, mock_ads_client):
         set_active_account("1234567890")
-        mock_ads_client["set_gaql"]({"FROM keyword_view": [
-            _keyword_row(quality_score=8),
-            _keyword_row(criterion_id="445", quality_score=6),
-        ]})
+        mock_ads_client["set_gaql"](
+            {
+                "FROM keyword_view": [
+                    _keyword_row(quality_score=8),
+                    _keyword_row(criterion_id="445", quality_score=6),
+                ]
+            }
+        )
         fn = _register_tool("list_keywords")
         result = fn()
         assert result["summary"]["keyword_count"] == 2
@@ -176,6 +183,43 @@ def _get_criterion_operation(mock_ads_client):
     if operations and not isinstance(operations, list):
         operations = [operations]
     return operations[0]
+
+
+class TestAddKeywords:
+    def test_dict_coercion(self, mock_ads_client):
+        """Raw dicts should be coerced to KeywordInput models."""
+        set_active_account("1234567890")
+        fn = _register_tool("add_keywords")
+        result = fn(
+            ad_group_id="333",
+            keywords=[{"text": "shoes", "match_type": "EXACT"}],
+        )
+        assert "error" not in result
+        assert "added" in result
+        assert result["keywords"][0]["text"] == "shoes"
+        assert result["keywords"][0]["match_type"] == "EXACT"
+
+    def test_pydantic_model_input(self, mock_ads_client):
+        """KeywordInput models should pass through unchanged."""
+        from burnr8.tools.keywords import KeywordInput
+
+        set_active_account("1234567890")
+        fn = _register_tool("add_keywords")
+        result = fn(
+            ad_group_id="333",
+            keywords=[KeywordInput(text="boots", match_type="PHRASE")],
+        )
+        assert "error" not in result
+        assert result["keywords"][0]["text"] == "boots"
+
+    def test_invalid_ad_group_id(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("add_keywords")
+        result = fn(
+            ad_group_id="bad-id",
+            keywords=[{"text": "test", "match_type": "BROAD"}],
+        )
+        assert result["error"] is True
 
 
 class TestUpdateKeyword:
@@ -285,11 +329,14 @@ def _register_neg_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
+
                 def wrapper(*args, **kwargs):
                     import inspect
+
                     if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
                         kwargs["confirm"] = True
                     return fn(*args, **kwargs)
+
                 captured["func"] = wrapper
             return fn
 

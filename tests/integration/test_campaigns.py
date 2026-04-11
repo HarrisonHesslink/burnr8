@@ -1,11 +1,7 @@
 # tests/integration/test_campaigns.py
 import pytest
 
-# Happy Path
-# Sad Path
-# Boundary & Edge Case
-# Side Effects & State Changes
-
+from tests.integration.conftest import register_tool
 
 INVALID_CUSTOMER_IDS = [
     ("letters", "abc"),
@@ -22,26 +18,13 @@ INVALID_BUDGET_NAME = [
     ("float", 3.14),
     ("null", None),
     ("empty", ""),
-    ("too_long", "B" * 256),  # Assuming 255 char limit
+    ("too_long", "B" * 256),
     ("special_chars", "Budget!@#"),
 ]
 
 
 def _register_tool(name):
-    """Register list_accessible_accounts tools and return the one matching *name*."""
-    from burnr8.tools.campaigns import register
-
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    register(cap)
-    return captured["func"]
+    return register_tool(name, "campaigns")
 
 
 class TestCreateCampaign:

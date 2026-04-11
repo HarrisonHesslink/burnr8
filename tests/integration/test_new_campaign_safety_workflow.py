@@ -1,27 +1,9 @@
-# tests/integration/test_destructive_safety_workflow.py
+# tests/integration/test_new_campaign_safety_workflow.py
 import uuid
 
 import pytest
 
-
-def _register_tool(tool_name, module_name):
-    """Register list_accessible_accounts tools and return the one matching *name*."""
-    from importlib import import_module
-
-    mod = import_module(f"burnr8.tools.{module_name}")
-
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == tool_name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    mod.register(cap)
-    return captured["func"]
-
+from tests.integration.conftest import register_tool as _register_tool
 
 # Goal is to test that new campaigns always start paused, and that duplicate campaign names are handled gracefully with an error message, not by creating a new campaign or mutating an existing one. This is critical to prevent accidental overspending and ensure a safe workflow for users. We will also test the case where no budget ID is provided, which should also result in an error without creating a campaign.
 

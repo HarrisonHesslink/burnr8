@@ -1,21 +1,11 @@
 # tests/integration/test_budgets.py
 import pytest
 
-from burnr8.tools.budgets import register as _register_budgets
+from tests.integration.conftest import register_tool
 
 
 def _register_tool(name):
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    _register_budgets(cap)
-    return captured["func"]
+    return register_tool(name, "budgets")
 
 
 # Happy Path
@@ -106,10 +96,15 @@ class TestBudgetCreation:
             f"Expected success but got error: {result.get('message', '')}"
         )
         assert "id" in result
-        assert "name" in result
         assert result["name"] == "Valid Name"
-        assert "amount_dollars" in result
         assert result["amount_dollars"] == 10.0
+
+        # Read-back: verify budget actually persisted
+        list_tool = _register_tool("list_budgets")
+        budgets = list_tool(customer_id=test_customer_id)
+        created = [b for b in budgets if str(b.get("id")) == str(result["id"])]
+        assert len(created) == 1, f"Created budget {result['id']} not found in list"
+        assert created[0]["name"] == "Valid Name"
 
 
 class TestBudgetUpdates:
@@ -167,13 +162,19 @@ class TestBudgetUpdates:
             customer_id=test_customer_id,
             confirm=True,
         )
-        print(result)  # Debug output to inspect the structure
 
         assert "error" not in result or result["error"] is False, (
             f"Expected success but got error: {result.get('message', '')}"
         )
         assert "resource_name" in result
-        assert result["new_amount_dollars"] == 12.0  # Should update with confirm=True
+        assert result["new_amount_dollars"] == 12.0
+
+        # Read-back: verify budget amount actually changed
+        list_tool = _register_tool("list_budgets")
+        budgets = list_tool(customer_id=test_customer_id)
+        updated = [b for b in budgets if str(b.get("id")) == str(self.budget_id)]
+        assert len(updated) == 1, f"Budget {self.budget_id} not found after update"
+        assert updated[0]["amount_dollars"] == 12.0
 
     def test_update_budget_invalid_active_account_confirm_false(self):
         tool = _register_tool("update_budget")

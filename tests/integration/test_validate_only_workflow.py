@@ -14,22 +14,7 @@ import uuid
 
 import pytest
 
-
-def _register_tool(tool_name, module_name):
-    from importlib import import_module
-
-    mod = import_module(f"burnr8.tools.{module_name}")
-    captured = {}
-
-    class _Capture:
-        def tool(self, fn):
-            if fn.__name__ == tool_name:
-                captured["func"] = fn
-            return fn
-
-    cap = _Capture()
-    mod.register(cap)
-    return captured["func"]
+from tests.integration.conftest import register_tool as _register_tool
 
 
 class TestBudgetDryRun:
@@ -234,6 +219,20 @@ class TestKeywordDryRun:
         assert "should not exist" not in keyword_texts, (
             f"Dry-run created a keyword! Found 'should not exist' in {keyword_texts}"
         )
+
+    def test_add_keywords_dict_coercion(self, test_customer_id):
+        """Verify raw dict inputs are coerced to KeywordInput models (regression test)."""
+        tool = _register_tool("add_keywords", "keywords")
+        result = tool(
+            ad_group_id=self.ad_group_id,
+            keywords=[{"text": "dict coercion kw test", "match_type": "EXACT"}],
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+
+        assert "error" not in result, f"Dict coercion failed: {result}"
+        assert result["added"] == 1
+        assert result["keywords"][0]["text"] == "dict coercion kw test"
 
 
 class TestExtensionDryRun:

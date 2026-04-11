@@ -52,6 +52,7 @@ def validate_id(value: str, name: str) -> str | None:
         return f"{name} must be a numeric string, got: {value}"
     return None
 
+
 def validate_recent_errors_limit(value: int) -> str | None:
     """Return error message if value is not a positive integer <= 5, else None."""
     if not isinstance(value, int) or value <= 0:

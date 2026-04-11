@@ -137,6 +137,7 @@ def register(mcp: FastMCP) -> None:
         return stats
 
     @mcp.tool
+    @handle_google_ads_errors
     def get_recent_errors_tool(
         limit: Annotated[int, Field(description="Max number of recent errors to return (1-5)")] = 5,
     ) -> dict:

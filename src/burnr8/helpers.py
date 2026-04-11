@@ -56,6 +56,7 @@ __all__ = [
     "escape_gaql_string",
     "validate_gaql_query",
     "build_mutate_request",
+    "validate_recent_errors_limit",
 ]
 
 
@@ -63,6 +64,15 @@ def validate_id(value: str, name: str) -> str | None:
     """Return error message if value is not a numeric ID, else None."""
     if not isinstance(value, str) or not _NUMERIC_RE.match(value):
         return f"{name} must be a numeric string, got: {value}"
+    return None
+
+
+def validate_recent_errors_limit(value: int) -> str | None:
+    """Return error message if value is not a positive integer <= 5, else None."""
+    if not isinstance(value, int) or value <= 0:
+        return f"limit must be a positive integer, got: {value}"
+    if value > 5:
+        return f"limit must be 5 or less to prevent excessive memory usage, got: {value}"
     return None
 
 

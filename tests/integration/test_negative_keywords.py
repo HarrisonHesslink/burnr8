@@ -315,3 +315,81 @@ class TestRemoveNegativeKeyword:
         )
 
         assert result["error"] is True
+
+
+# ---------------------------------------------------------------------------
+# Full lifecycle: add → verify → remove → verify gone
+# ---------------------------------------------------------------------------
+
+
+class TestNegativeKeywordLifecycle:
+    """Add a negative keyword, verify it exists, remove it, verify it's gone."""
+
+    campaign_id = None
+    budget_id = None
+
+    @pytest.fixture(autouse=True, scope="class")
+    def _setup_campaign(self, test_customer_id):
+        uid = uuid.uuid4().hex[:8]
+
+        budget_tool = _register_other("create_budget", "budgets")
+        budget_result = budget_tool(
+            name=f"lifecycle-neg-kw-budget-{uid}",
+            amount_dollars=1.0,
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+        self.__class__.budget_id = budget_result.get("id")
+
+        campaign_tool = _register_other("create_campaign", "campaigns")
+        campaign_result = campaign_tool(
+            name=f"lifecycle-neg-kw-campaign-{uid}",
+            budget_id=self.__class__.budget_id,
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+        self.__class__.campaign_id = campaign_result.get("id")
+        yield
+
+        campaign_id = getattr(self.__class__, "campaign_id", None)
+        if campaign_id:
+            remove_tool = _register_other("remove_campaign", "campaigns")
+            remove_tool(confirm=True, customer_id=test_customer_id, campaign_id=campaign_id)
+        cleanup_tool = _register_other("remove_orphan_budgets", "budgets")
+        cleanup_tool(confirm=True, customer_id=test_customer_id)
+
+    def test_add_verify_remove_verify(self, test_customer_id):
+        # 1. Add a negative keyword
+        add_tool = _register("add_negative_keywords")
+        add_result = add_tool(
+            campaign_id=self.campaign_id,
+            keywords=[{"text": "lifecycle removal test", "match_type": "EXACT"}],
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+        assert "error" not in add_result
+        assert add_result["added"] == 1
+
+        # Extract criterion ID from resource name (format: customers/X/campaignCriteria/Y~Z)
+        resource_name = add_result["resource_names"][0]
+        criterion_id = resource_name.split("~")[-1]
+
+        # 2. Verify it appears in list
+        list_tool = _register("list_negative_keywords")
+        list_result = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        assert "lifecycle removal test" in str(list_result)
+
+        # 3. Remove it
+        remove_tool = _register("remove_negative_keyword")
+        remove_result = remove_tool(
+            criterion_id=criterion_id,
+            campaign_id=self.campaign_id,
+            customer_id=test_customer_id,
+            confirm=True,
+        )
+        assert "error" not in remove_result
+        assert "removed" in remove_result
+
+        # 4. Verify it's gone
+        list_result_after = list_tool(customer_id=test_customer_id, campaign_id=self.campaign_id)
+        assert "lifecycle removal test" not in str(list_result_after)

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 from burnr8.client import get_client
 from burnr8.errors import handle_google_ads_errors
 from burnr8.helpers import (
+    build_mutate_request,
     dollars_to_micros,
     micros_to_dollars,
     require_customer_id,
@@ -21,6 +22,8 @@ from burnr8.reports import save_report
 
 
 class KeywordInput(BaseModel):
+    """A keyword with text and match type to add to an ad group."""
+
     text: str = Field(description="The keyword text")
     match_type: str = Field(default="BROAD", description="Match type: EXACT, PHRASE, or BROAD")
 
@@ -101,7 +104,8 @@ def register(mcp: FastMCP) -> None:
                     "final_url_suffix": cr.get("final_url_suffix"),
                     "url_custom_parameters": {
                         p["key"]: p["value"] for p in cr.get("url_custom_parameters", []) if "key" in p
-                    } or None,
+                    }
+                    or None,
                     "ad_group_id": ag.get("id"),
                     "ad_group_name": ag.get("name"),
                     "campaign_id": c.get("id"),
@@ -168,9 +172,17 @@ def register(mcp: FastMCP) -> None:
             )
             operations.append(operation)
 
-        response = ad_group_criterion_service.mutate_ad_group_criteria(customer_id=customer_id, operations=operations, validate_only=not confirm)
+        response = ad_group_criterion_service.mutate_ad_group_criteria(
+            request=build_mutate_request(
+                client, "MutateAdGroupCriteriaRequest", customer_id, operations, validate_only=not confirm
+            )
+        )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will add {len(keywords)} keyword(s). Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will add {len(keywords)} keyword(s). Set confirm=true to execute.",
+            }
 
         return {
             "added": len(response.results),
@@ -204,7 +216,9 @@ def register(mcp: FastMCP) -> None:
         operation.remove = resource_name
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=build_mutate_request(
+                client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
             return {
@@ -262,10 +276,16 @@ def register(mcp: FastMCP) -> None:
         operation.update_mask.paths.extend(field_mask)
 
         response = ad_group_criterion_service.mutate_ad_group_criteria(
-            customer_id=customer_id, operations=[operation], validate_only=not confirm
+            request=build_mutate_request(
+                client, "MutateAdGroupCriteriaRequest", customer_id, [operation], validate_only=not confirm
+            )
         )
         if not confirm:
-            return {"warning": True, "validated": True, "message": f"Validation succeeded. This will update keyword '{criterion_id}'. Set confirm=true to execute."}
+            return {
+                "warning": True,
+                "validated": True,
+                "message": f"Validation succeeded. This will update keyword '{criterion_id}'. Set confirm=true to execute.",
+            }
 
         return {"resource_name": response.results[0].resource_name, "updated_fields": field_mask}
 

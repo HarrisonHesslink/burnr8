@@ -201,7 +201,7 @@ class TestAddNegativeKeywords:
         svc = client.get_service("CampaignCriterionService")
         svc.mutate_campaign_criteria.assert_called_once()
         call_kwargs = svc.mutate_campaign_criteria.call_args
-        operations = call_kwargs.kwargs.get("operations") or call_kwargs[1].get("operations")
+        operations = call_kwargs.kwargs["request"].operations
         assert len(operations) == 2
 
     def test_default_match_type_is_broad(self, mock_ads_client):
@@ -221,7 +221,7 @@ class TestAddNegativeKeywords:
         svc.mutate_campaign_criteria.assert_called_once()
         # Verify the operation's match_type was set to BROAD (the default)
         call_args = svc.mutate_campaign_criteria.call_args
-        ops = call_args.kwargs.get("operations") or call_args[1].get("operations")
+        ops = call_args.kwargs["request"].operations
         assert ops[0].create.keyword.match_type == "BROAD"
 
     def test_no_active_account(self, mock_ads_client):
@@ -259,7 +259,7 @@ class TestAddAdGroupNegativeKeywords:
         svc = client.get_service("AdGroupCriterionService")
         svc.mutate_ad_group_criteria.assert_called_once()
         call_kwargs = svc.mutate_ad_group_criteria.call_args
-        operations = call_kwargs.kwargs.get("operations") or call_kwargs[1].get("operations")
+        operations = call_kwargs.kwargs["request"].operations
         assert len(operations) == 2
 
     def test_no_active_account(self, mock_ads_client):

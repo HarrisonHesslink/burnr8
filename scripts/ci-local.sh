@@ -36,7 +36,7 @@ pass "unit tests"
 
 step "Integration tests"
 if [ -n "${GOOGLE_ADS_LOGIN_CUSTOMER_ID:-}" ]; then
-    PYTHONPATH=src .venv/bin/pytest tests/integration/ -v --tb=short -x || fail "integration tests failed"
+    PYTHONPATH=src .venv/bin/pytest tests/integration/ -v --tb=short || fail "integration tests failed"
     pass "integration tests"
 else
     echo -e "  ${YELLOW}SKIP${NC} — set GOOGLE_ADS_LOGIN_CUSTOMER_ID to run integration tests"

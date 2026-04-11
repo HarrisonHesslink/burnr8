@@ -4,6 +4,7 @@ import uuid
 import pytest
 
 from tests.integration.conftest import register_tool as _register_tool
+from tests.integration.conftest import retry_on_concurrent
 
 VALID_BIDDING_STRATEGIES = [
     ("Manual CPC", "MANUAL_CPC"),
@@ -61,8 +62,12 @@ class TestCampaignUpdateSafety:
 
     def test_update_campaign_budget_id(self, test_customer_id):
         tool = _register_tool("update_campaign", "campaigns")
-        result = tool(
-            campaign_id=self.campaign_id, budget_id=self.second_budget_id, customer_id=test_customer_id, confirm=True
+        result = retry_on_concurrent(
+            tool,
+            campaign_id=self.campaign_id,
+            budget_id=self.second_budget_id,
+            customer_id=test_customer_id,
+            confirm=True,
         )
 
         # Response Asserts
@@ -100,8 +105,12 @@ class TestCampaignUpdateSafety:
             pytest.skip(f"{label} skipped due to no conversion in Test Account!")
 
         tool = _register_tool("update_campaign", "campaigns")
-        result = tool(
-            campaign_id=self.campaign_id, bidding_strategy=bidding_strategy, customer_id=test_customer_id, confirm=True
+        result = retry_on_concurrent(
+            tool,
+            campaign_id=self.campaign_id,
+            bidding_strategy=bidding_strategy,
+            customer_id=test_customer_id,
+            confirm=True,
         )
 
         if bidding_strategy in ["TARGET_IMPRESSION_SHARE"]:
@@ -147,7 +156,7 @@ class TestCampaignUpdateSafety:
                 kwargs["target_impression_share_fraction"] = 0.5
                 kwargs["max_cpc_bid_ceiling_dollars"] = 2.0
 
-        result = tool(**kwargs)
+        result = retry_on_concurrent(tool, **kwargs)
 
         assert "resource_name" in result
         assert "campaign_id" in result and result["campaign_id"] == self.campaign_id

@@ -2,7 +2,9 @@
 
 import logging
 import os
+import time
 from importlib import import_module
+from typing import Any
 
 import pytest
 from dotenv import load_dotenv
@@ -39,6 +41,22 @@ def register_tool(tool_name: str, module_name: str):
     if "func" not in captured:
         raise ValueError(f"Tool '{tool_name}' not found in burnr8.tools.{module_name}")
     return captured["func"]
+
+
+def retry_on_concurrent(fn, *args: Any, retries: int = 3, delay: float = 1.0, **kwargs: Any) -> dict:
+    """Retry a tool call if Google Ads returns CONCURRENT_MODIFICATION.
+
+    This happens when a validate_only (dry-run) request and a real mutate
+    hit the same resource back-to-back before the API releases its lock.
+    """
+    for attempt in range(retries):
+        result = fn(*args, **kwargs)
+        is_concurrent = isinstance(result, dict) and "CONCURRENT_MODIFICATION" in str(result.get("errors", ""))
+        if is_concurrent and attempt < retries - 1:
+            time.sleep(delay * (attempt + 1))
+            continue
+        return result
+    return result
 
 
 def pytest_collection_modifyitems(config, items):  # type: ignore[no-untyped-def]

@@ -35,6 +35,44 @@ def _campaign_row(
     }
 
 
+def _ad_group_row(
+    ag_id="10",
+    ag_name="AG1",
+    status="ENABLED",
+    cid="1",
+    cname="Campaign A",
+    impressions=1000,
+    clicks=50,
+    ctr=0.05,
+    average_cpc=500_000,
+    cost_micros=25_000_000,
+    conversions=5.0,
+    conversions_value=100.0,
+    device=None,
+    day_of_week=None,
+):
+    row = {
+        "ad_group": {"id": ag_id, "name": ag_name, "status": status},
+        "campaign": {"id": cid, "name": cname},
+        "metrics": {
+            "impressions": impressions,
+            "clicks": clicks,
+            "ctr": ctr,
+            "average_cpc": average_cpc,
+            "cost_micros": cost_micros,
+            "conversions": conversions,
+            "conversions_value": conversions_value,
+        },
+    }
+    if device is not None or day_of_week is not None:
+        row["segments"] = {}
+        if device is not None:
+            row["segments"]["device"] = device
+        if day_of_week is not None:
+            row["segments"]["day_of_week"] = day_of_week
+    return row
+
+
 def _keyword_row(
     text="buy shoes",
     match_type="BROAD",
@@ -45,6 +83,7 @@ def _keyword_row(
     average_cpc=500_000,
     cost_micros=15_000_000,
     conversions=3.0,
+    conversions_value=60.0,
 ):
     return {
         "ad_group_criterion": {
@@ -61,6 +100,7 @@ def _keyword_row(
             "average_cpc": average_cpc,
             "cost_micros": cost_micros,
             "conversions": conversions,
+            "conversions_value": conversions_value,
         },
     }
 
@@ -72,6 +112,8 @@ def _search_term_row(
     conversions=2.0,
     impressions=200,
     clicks=20,
+    ctr=0.10,
+    conversions_value=40.0,
 ):
     return {
         "search_term_view": {"search_term": search_term, "status": status},
@@ -80,8 +122,10 @@ def _search_term_row(
         "metrics": {
             "impressions": impressions,
             "clicks": clicks,
+            "ctr": ctr,
             "cost_micros": cost_micros,
             "conversions": conversions,
+            "conversions_value": conversions_value,
         },
     }
 
@@ -309,3 +353,313 @@ class TestNoActiveAccount:
         tool = _register_tool("run_gaql_query")
         result = tool(query="SELECT campaign.id FROM campaign")
         assert result["error"] is True
+
+
+# ---------------------------------------------------------------------------
+# Computed metrics — cost_per_conversion, conversion_rate
+# ---------------------------------------------------------------------------
+
+
+class TestComputedMetrics:
+    def test_campaign_computed_metrics_present(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign": [
+                    _campaign_row(cost_micros=25_000_000, conversions=5.0, clicks=50),
+                ],
+            }
+        )
+        tool = _register_tool("get_campaign_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        # cost = 25.0, conversions = 5.0 -> cost_per_conversion_computed = 5.0
+        assert row["cost_per_conversion_computed"] == 5.0
+        # conversions / clicks * 100 = 5.0 / 50 * 100 = 10.0
+        assert row["conversion_rate"] == 10.0
+        # conversions_value = 100.0, cost = 25.0 -> roas = 4.0
+        assert row["roas"] == 4.0
+
+    def test_campaign_computed_metrics_none_when_zero(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign": [
+                    _campaign_row(cost_micros=10_000_000, conversions=0.0, clicks=0),
+                ],
+            }
+        )
+        tool = _register_tool("get_campaign_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        assert row["cost_per_conversion_computed"] is None
+        assert row["conversion_rate"] is None
+
+    def test_ad_group_computed_metrics_present(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM ad_group": [
+                    _ad_group_row(cost_micros=20_000_000, conversions=4.0, clicks=40, conversions_value=80.0),
+                ],
+            }
+        )
+        tool = _register_tool("get_ad_group_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        # cost = 20.0, conv = 4.0 -> cost_per_conversion = 5.0
+        assert row["cost_per_conversion"] == 5.0
+        # conv / clicks * 100 = 4.0 / 40 * 100 = 10.0
+        assert row["conversion_rate"] == 10.0
+        # conversions_value = 80.0, cost = 20.0 -> roas = 4.0
+        assert row["roas"] == 4.0
+        assert row["conversions_value"] == 80.0
+
+    def test_keyword_computed_metrics_present(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM keyword_view": [
+                    _keyword_row(cost_micros=15_000_000, conversions=3.0, clicks=30, conversions_value=60.0),
+                ],
+            }
+        )
+        tool = _register_tool("get_keyword_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        # cost = 15.0, conv = 3.0 -> cost_per_conversion = 5.0
+        assert row["cost_per_conversion"] == 5.0
+        # conv / clicks * 100 = 3.0 / 30 * 100 = 10.0
+        assert row["conversion_rate"] == 10.0
+        # conv_value = 60.0, cost = 15.0 -> roas = 4.0
+        assert row["roas"] == 4.0
+        assert row["conversions_value"] == 60.0
+
+    def test_search_terms_computed_metrics_and_new_fields(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM search_term_view": [
+                    _search_term_row(
+                        cost_micros=10_000_000,
+                        conversions=2.0,
+                        clicks=20,
+                        ctr=0.10,
+                        conversions_value=40.0,
+                    ),
+                ],
+            }
+        )
+        tool = _register_tool("get_search_terms_report")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        assert row["ctr"] == 0.1
+        assert row["conversions_value"] == 40.0
+        # cost = 10.0, conv = 2.0 -> cost_per_conversion = 5.0
+        assert row["cost_per_conversion"] == 5.0
+        # conv / clicks * 100 = 2.0 / 20 * 100 = 10.0
+        assert row["conversion_rate"] == 10.0
+        # conversions_value = 40.0, cost = 10.0 -> roas = 4.0
+        assert row["roas"] == 4.0
+
+
+# ---------------------------------------------------------------------------
+# Segment validation — both segments returns error
+# ---------------------------------------------------------------------------
+
+
+class TestSegmentValidation:
+    def test_campaign_both_segments_error(self, mock_ads_client):
+        set_active_account("1234567890")
+        tool = _register_tool("get_campaign_performance")
+        result = tool(customer_id="1234567890", segment_by_device=True, segment_by_day_of_week=True)
+        assert result["error"] is True
+        assert "one segment" in result["message"].lower()
+
+    def test_ad_group_both_segments_error(self, mock_ads_client):
+        set_active_account("1234567890")
+        tool = _register_tool("get_ad_group_performance")
+        result = tool(customer_id="1234567890", segment_by_device=True, segment_by_day_of_week=True)
+        assert result["error"] is True
+        assert "one segment" in result["message"].lower()
+
+    def test_keyword_both_segments_error(self, mock_ads_client):
+        set_active_account("1234567890")
+        tool = _register_tool("get_keyword_performance")
+        result = tool(customer_id="1234567890", segment_by_device=True, segment_by_day_of_week=True)
+        assert result["error"] is True
+        assert "one segment" in result["message"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Default behavior — no segments, output unchanged
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultBehaviorUnchanged:
+    def test_campaign_no_segment_fields_by_default(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign": [
+                    _campaign_row(),
+                ],
+            }
+        )
+        tool = _register_tool("get_campaign_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        assert "device" not in row
+        assert "day_of_week" not in row
+
+    def test_ad_group_no_segment_fields_by_default(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM ad_group": [
+                    _ad_group_row(),
+                ],
+            }
+        )
+        tool = _register_tool("get_ad_group_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        assert "device" not in row
+        assert "day_of_week" not in row
+
+    def test_keyword_no_segment_fields_by_default(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM keyword_view": [
+                    _keyword_row(),
+                ],
+            }
+        )
+        tool = _register_tool("get_keyword_performance")
+        result = tool(customer_id="1234567890")
+
+        assert "error" not in result
+        row = result["top"][0]
+        assert "device" not in row
+        assert "day_of_week" not in row
+
+
+# ---------------------------------------------------------------------------
+# Device segmentation — device field present when segment_by_device=True
+# ---------------------------------------------------------------------------
+
+
+class TestDeviceSegmentation:
+    def test_campaign_device_segment(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign": [
+                    {
+                        "campaign": {"id": "1", "name": "Campaign A", "status": "ENABLED"},
+                        "segments": {"device": "MOBILE"},
+                        "metrics": {
+                            "impressions": 500,
+                            "clicks": 25,
+                            "ctr": 0.05,
+                            "average_cpc": 500_000,
+                            "cost_micros": 12_500_000,
+                            "conversions": 2.0,
+                            "conversions_value": 50.0,
+                            "cost_per_conversion": 6_250_000,
+                        },
+                    },
+                    {
+                        "campaign": {"id": "1", "name": "Campaign A", "status": "ENABLED"},
+                        "segments": {"device": "DESKTOP"},
+                        "metrics": {
+                            "impressions": 500,
+                            "clicks": 25,
+                            "ctr": 0.05,
+                            "average_cpc": 500_000,
+                            "cost_micros": 12_500_000,
+                            "conversions": 3.0,
+                            "conversions_value": 50.0,
+                            "cost_per_conversion": 4_166_667,
+                        },
+                    },
+                ],
+            }
+        )
+        tool = _register_tool("get_campaign_performance")
+        result = tool(customer_id="1234567890", segment_by_device=True)
+
+        assert "error" not in result
+        assert len(result["top"]) == 2
+        devices = {row["device"] for row in result["top"]}
+        assert devices == {"MOBILE", "DESKTOP"}
+
+    def test_ad_group_device_segment(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM ad_group": [
+                    _ad_group_row(device="MOBILE"),
+                    _ad_group_row(device="DESKTOP"),
+                ],
+            }
+        )
+        tool = _register_tool("get_ad_group_performance")
+        result = tool(customer_id="1234567890", segment_by_device=True)
+
+        assert "error" not in result
+        assert len(result["top"]) == 2
+        devices = {row["device"] for row in result["top"]}
+        assert devices == {"MOBILE", "DESKTOP"}
+
+
+# ---------------------------------------------------------------------------
+# Day-of-week segmentation
+# ---------------------------------------------------------------------------
+
+
+class TestDayOfWeekSegmentation:
+    def test_campaign_day_of_week_segment(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign": [
+                    {
+                        "campaign": {"id": "1", "name": "Campaign A", "status": "ENABLED"},
+                        "segments": {"day_of_week": "MONDAY"},
+                        "metrics": {
+                            "impressions": 500,
+                            "clicks": 25,
+                            "ctr": 0.05,
+                            "average_cpc": 500_000,
+                            "cost_micros": 12_500_000,
+                            "conversions": 2.0,
+                            "conversions_value": 50.0,
+                            "cost_per_conversion": 6_250_000,
+                        },
+                    },
+                ],
+            }
+        )
+        tool = _register_tool("get_campaign_performance")
+        result = tool(customer_id="1234567890", segment_by_day_of_week=True)
+
+        assert "error" not in result
+        row = result["top"][0]
+        assert row["day_of_week"] == "MONDAY"
+        assert "device" not in row

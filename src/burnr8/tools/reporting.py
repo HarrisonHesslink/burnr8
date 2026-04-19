@@ -38,6 +38,12 @@ def register(mcp: FastMCP) -> None:
             str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, THIS_MONTH, LAST_MONTH, etc.")
         ] = "LAST_30_DAYS",
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
+        segment_by_device: Annotated[
+            bool, Field(description="Break down metrics by device (MOBILE, DESKTOP, TABLET)")
+        ] = False,
+        segment_by_day_of_week: Annotated[
+            bool, Field(description="Break down metrics by day of week for dayparting analysis")
+        ] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -50,12 +56,22 @@ def register(mcp: FastMCP) -> None:
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
+        if segment_by_device and segment_by_day_of_week:
+            return {"error": True, "message": "Only one segment at a time is supported. Choose either segment_by_device or segment_by_day_of_week."}
         client = get_client()
+
+        segment_field = ""
+        if segment_by_device:
+            segment_field = "segments.device,"
+        elif segment_by_day_of_week:
+            segment_field = "segments.day_of_week,"
+
         query = f"""
             SELECT
                 campaign.id,
                 campaign.name,
                 campaign.status,
+                {segment_field}
                 metrics.impressions,
                 metrics.clicks,
                 metrics.ctr,
@@ -78,25 +94,33 @@ def register(mcp: FastMCP) -> None:
         for row in rows:
             c = row.get("campaign", {})
             m = row.get("metrics", {})
+            s = row.get("segments", {})
             cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
+            clicks = int(m.get("clicks", 0))
             total_spend += cost
             total_conversions += conv
-            results.append(
-                {
-                    "campaign_id": c.get("id"),
-                    "campaign_name": c.get("name"),
-                    "status": c.get("status"),
-                    "impressions": int(m.get("impressions", 0)),
-                    "clicks": int(m.get("clicks", 0)),
-                    "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
-                    "cost_dollars": round(cost, 2),
-                    "conversions": round(conv, 1),
-                    "conversions_value": round(float(m.get("conversions_value", 0)), 2),
-                    "cost_per_conversion": round(micros_to_dollars(int(m.get("cost_per_conversion", 0))), 2),
-                }
-            )
+            entry = {
+                "campaign_id": c.get("id"),
+                "campaign_name": c.get("name"),
+                "status": c.get("status"),
+                "impressions": int(m.get("impressions", 0)),
+                "clicks": clicks,
+                "ctr": round(float(m.get("ctr", 0)), 4),
+                "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
+                "cost_dollars": round(cost, 2),
+                "conversions": round(conv, 1),
+                "conversions_value": round(float(m.get("conversions_value", 0)), 2),
+                "cost_per_conversion": round(micros_to_dollars(int(m.get("cost_per_conversion", 0))), 2),
+                "cost_per_conversion_computed": round(cost / conv, 2) if conv > 0 else None,
+                "conversion_rate": round(conv / clicks * 100, 2) if clicks > 0 else None,
+                "roas": round(float(m.get("conversions_value", 0)) / cost, 2) if cost > 0 else None,
+            }
+            if segment_by_device:
+                entry["device"] = s.get("device")
+            if segment_by_day_of_week:
+                entry["day_of_week"] = s.get("day_of_week")
+            results.append(entry)
 
         report = save_report(results, "campaign_performance")
         report["summary"] = {
@@ -112,6 +136,12 @@ def register(mcp: FastMCP) -> None:
     def get_ad_group_performance(
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
+        segment_by_device: Annotated[
+            bool, Field(description="Break down metrics by device (MOBILE, DESKTOP, TABLET)")
+        ] = False,
+        segment_by_day_of_week: Annotated[
+            bool, Field(description="Break down metrics by day of week for dayparting analysis")
+        ] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -124,7 +154,16 @@ def register(mcp: FastMCP) -> None:
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
+        if segment_by_device and segment_by_day_of_week:
+            return {"error": True, "message": "Only one segment at a time is supported. Choose either segment_by_device or segment_by_day_of_week."}
         client = get_client()
+
+        segment_field = ""
+        if segment_by_device:
+            segment_field = "segments.device,"
+        elif segment_by_day_of_week:
+            segment_field = "segments.day_of_week,"
+
         query = f"""
             SELECT
                 ad_group.id,
@@ -132,12 +171,14 @@ def register(mcp: FastMCP) -> None:
                 ad_group.status,
                 campaign.id,
                 campaign.name,
+                {segment_field}
                 metrics.impressions,
                 metrics.clicks,
                 metrics.ctr,
                 metrics.average_cpc,
                 metrics.cost_micros,
-                metrics.conversions
+                metrics.conversions,
+                metrics.conversions_value
             FROM ad_group
             WHERE segments.date DURING {date_range.upper()}
         """
@@ -152,23 +193,34 @@ def register(mcp: FastMCP) -> None:
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
+            s = row.get("segments", {})
             cost = round(micros_to_dollars(int(m.get("cost_micros", 0))), 2)
+            conv = round(float(m.get("conversions", 0)), 1)
+            clicks = int(m.get("clicks", 0))
+            conv_value = round(float(m.get("conversions_value", 0)), 2)
             total_spend += cost
-            results.append(
-                {
-                    "ad_group_id": ag.get("id"),
-                    "ad_group_name": ag.get("name"),
-                    "status": ag.get("status"),
-                    "campaign_id": c.get("id"),
-                    "campaign_name": c.get("name"),
-                    "impressions": int(m.get("impressions", 0)),
-                    "clicks": int(m.get("clicks", 0)),
-                    "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
-                    "cost_dollars": cost,
-                    "conversions": round(float(m.get("conversions", 0)), 1),
-                }
-            )
+            entry = {
+                "ad_group_id": ag.get("id"),
+                "ad_group_name": ag.get("name"),
+                "status": ag.get("status"),
+                "campaign_id": c.get("id"),
+                "campaign_name": c.get("name"),
+                "impressions": int(m.get("impressions", 0)),
+                "clicks": clicks,
+                "ctr": round(float(m.get("ctr", 0)), 4),
+                "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
+                "cost_dollars": cost,
+                "conversions": conv,
+                "conversions_value": conv_value,
+                "cost_per_conversion": round(cost / conv, 2) if conv > 0 else None,
+                "conversion_rate": round(conv / clicks * 100, 2) if clicks > 0 else None,
+                "roas": round(conv_value / cost, 2) if cost > 0 else None,
+            }
+            if segment_by_device:
+                entry["device"] = s.get("device")
+            if segment_by_day_of_week:
+                entry["day_of_week"] = s.get("day_of_week")
+            results.append(entry)
 
         report = save_report(results, "ad_group_performance")
         report["summary"] = {
@@ -183,6 +235,12 @@ def register(mcp: FastMCP) -> None:
     def get_keyword_performance(
         campaign_id: Annotated[str | None, Field(description="Filter to a specific campaign ID")] = None,
         date_range: Annotated[str, Field(description="Date range: LAST_7_DAYS, LAST_30_DAYS, etc.")] = "LAST_30_DAYS",
+        segment_by_device: Annotated[
+            bool, Field(description="Break down metrics by device (MOBILE, DESKTOP, TABLET)")
+        ] = False,
+        segment_by_day_of_week: Annotated[
+            bool, Field(description="Break down metrics by day of week for dayparting analysis")
+        ] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
@@ -195,7 +253,16 @@ def register(mcp: FastMCP) -> None:
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
+        if segment_by_device and segment_by_day_of_week:
+            return {"error": True, "message": "Only one segment at a time is supported. Choose either segment_by_device or segment_by_day_of_week."}
         client = get_client()
+
+        segment_field = ""
+        if segment_by_device:
+            segment_field = "segments.device,"
+        elif segment_by_day_of_week:
+            segment_field = "segments.day_of_week,"
+
         query = f"""
             SELECT
                 ad_group_criterion.criterion_id,
@@ -206,12 +273,14 @@ def register(mcp: FastMCP) -> None:
                 ad_group.name,
                 campaign.id,
                 campaign.name,
+                {segment_field}
                 metrics.impressions,
                 metrics.clicks,
                 metrics.ctr,
                 metrics.average_cpc,
                 metrics.cost_micros,
-                metrics.conversions
+                metrics.conversions,
+                metrics.conversions_value
             FROM keyword_view
             WHERE segments.date DURING {date_range.upper()}
         """
@@ -229,25 +298,37 @@ def register(mcp: FastMCP) -> None:
             ag = row.get("ad_group", {})
             c = row.get("campaign", {})
             m = row.get("metrics", {})
+            s = row.get("segments", {})
             qs = qi.get("quality_score")
             if qs is not None and int(qs) > 0:
                 quality_scores.append(int(qs))
-            results.append(
-                {
-                    "keyword": kw.get("text"),
-                    "match_type": kw.get("match_type"),
-                    "quality_score": qs,
-                    "ad_group_id": ag.get("id"),
-                    "campaign_id": c.get("id"),
-                    "campaign_name": c.get("name"),
-                    "impressions": int(m.get("impressions", 0)),
-                    "clicks": int(m.get("clicks", 0)),
-                    "ctr": round(float(m.get("ctr", 0)), 4),
-                    "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
-                    "cost_dollars": round(micros_to_dollars(int(m.get("cost_micros", 0))), 2),
-                    "conversions": round(float(m.get("conversions", 0)), 1),
-                }
-            )
+            cost = round(micros_to_dollars(int(m.get("cost_micros", 0))), 2)
+            conv = round(float(m.get("conversions", 0)), 1)
+            clicks = int(m.get("clicks", 0))
+            conv_value = round(float(m.get("conversions_value", 0)), 2)
+            entry = {
+                "keyword": kw.get("text"),
+                "match_type": kw.get("match_type"),
+                "quality_score": qs,
+                "ad_group_id": ag.get("id"),
+                "campaign_id": c.get("id"),
+                "campaign_name": c.get("name"),
+                "impressions": int(m.get("impressions", 0)),
+                "clicks": clicks,
+                "ctr": round(float(m.get("ctr", 0)), 4),
+                "avg_cpc_dollars": round(micros_to_dollars(int(m.get("average_cpc", 0))), 2),
+                "cost_dollars": cost,
+                "conversions": conv,
+                "conversions_value": conv_value,
+                "cost_per_conversion": round(cost / conv, 2) if conv > 0 else None,
+                "conversion_rate": round(conv / clicks * 100, 2) if clicks > 0 else None,
+                "roas": round(conv_value / cost, 2) if cost > 0 else None,
+            }
+            if segment_by_device:
+                entry["device"] = s.get("device")
+            if segment_by_day_of_week:
+                entry["day_of_week"] = s.get("day_of_week")
+            results.append(entry)
 
         report = save_report(results, "keyword_performance")
         report["summary"] = {
@@ -288,8 +369,10 @@ def register(mcp: FastMCP) -> None:
                 ad_group.name,
                 metrics.impressions,
                 metrics.clicks,
+                metrics.ctr,
                 metrics.cost_micros,
-                metrics.conversions
+                metrics.conversions,
+                metrics.conversions_value
             FROM search_term_view
             WHERE segments.date DURING {date_range.upper()}
         """
@@ -308,6 +391,8 @@ def register(mcp: FastMCP) -> None:
             m = row.get("metrics", {})
             cost = micros_to_dollars(int(m.get("cost_micros", 0)))
             conv = float(m.get("conversions", 0))
+            clicks = int(m.get("clicks", 0))
+            conv_value = round(float(m.get("conversions_value", 0)), 2)
             total_spend += cost
             if conv == 0 and cost > 0:
                 zero_conv_spend += cost
@@ -319,9 +404,14 @@ def register(mcp: FastMCP) -> None:
                     "campaign_name": c.get("name"),
                     "ad_group_id": ag.get("id"),
                     "impressions": int(m.get("impressions", 0)),
-                    "clicks": int(m.get("clicks", 0)),
+                    "clicks": clicks,
+                    "ctr": round(float(m.get("ctr", 0)), 4),
                     "cost_dollars": round(cost, 2),
                     "conversions": round(conv, 1),
+                    "conversions_value": conv_value,
+                    "cost_per_conversion": round(cost / conv, 2) if conv > 0 else None,
+                    "conversion_rate": round(conv / clicks * 100, 2) if clicks > 0 else None,
+                    "roas": round(conv_value / cost, 2) if cost > 0 else None,
                 }
             )
 

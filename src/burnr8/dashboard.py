@@ -87,7 +87,8 @@ def print_dashboard() -> None:
               AND segments.date DURING THIS_MONTH
         """
         budget_query = """
-            SELECT campaign_budget.amount_micros, campaign_budget.status, campaign.name, campaign.status
+            SELECT campaign_budget.amount_micros, campaign_budget.total_amount_micros,
+                   campaign_budget.period, campaign_budget.status, campaign.name, campaign.status
             FROM campaign_budget
             WHERE campaign.status = 'ENABLED'
         """
@@ -115,10 +116,15 @@ def print_dashboard() -> None:
             conv = float(m.get("conversions", 0))
 
             # Find matching budget
-            budget_daily: float = 0
+            budget_str = ""
             b = budget_map.get(name)
             if b:
-                budget_daily = micros_to_dollars(int(b.get("campaign_budget", {}).get("amount_micros", 0)))
+                budget = b.get("campaign_budget", {})
+                total_budget = budget.get("period") == "CUSTOM_PERIOD"
+                amount_field = "total_amount_micros" if total_budget else "amount_micros"
+                budget_amount = micros_to_dollars(int(budget.get(amount_field, 0)))
+                budget_label = "campaign total" if total_budget else "daily"
+                budget_str = f"  |  {format_dollars(budget_amount)} {budget_label} budget"
 
             # Find MTD
             cost_mtd: float = 0
@@ -126,7 +132,6 @@ def print_dashboard() -> None:
             if mr:
                 cost_mtd = micros_to_dollars(int(mr.get("metrics", {}).get("cost_micros", 0)))
 
-            budget_str = f" / {format_dollars(budget_daily)} budget" if budget_daily else ""
             print(f"    {name}:")
             print(f"      Today:  {format_dollars(cost_today)}{budget_str}  |  {clicks} clicks  |  {conv:.0f} conv")
             print(f"      MTD:    {format_dollars(cost_mtd)}")

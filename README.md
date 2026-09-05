@@ -108,6 +108,26 @@ Claude: Done. Estimated savings: ~$55/month.
 - **Thread Safety**: ContextVars isolate session state per-request, preventing tenant leakage in concurrent environments
 - **Financial Circuit Breakers**: Configurable hard-caps enforced at the point of mutation (budgets, bids, modifiers, ROAS/CPA targets)
 
+### Total budgets for a bounded campaign
+
+`create_budget` defaults to an average daily budget. Set `period="CUSTOM_PERIOD"`
+to make `amount_dollars` the total campaign budget instead. Total budgets are
+not shared, and a new Search campaign must supply `start_date_time` and
+`end_date_time` in `YYYY-MM-DD HH:MM:SS` format in the account timezone.
+`create_campaign` still starts PAUSED. Validate each operation with
+`confirm=false` before executing it.
+
+`list_budgets` reports the amount together with its `period`; a total amount is
+not a daily allowance. `update_budget` accepts the same period to select the
+correct amount field, but cannot convert an existing campaign's budget type.
+The existing configured mutation safety cap also applies to total amounts.
+`update_campaign` supports changing campaign dates with individual field masks.
+
+Google's [total-budget guidance](https://support.google.com/google-ads/answer/10486938)
+states that total-budget campaigns have no daily spending limit and will not
+charge more than the campaign total. Supported duration and account eligibility
+are checked by Google; creating or approving a paused campaign does not start it.
+
 ### CSV Report Export
 
 All reporting tools save full results to `~/.burnr8/reports/` as CSV files and return a compact summary to Claude's context instead of dumping thousands of rows. Claude can `Read` the CSV for deeper analysis when needed.

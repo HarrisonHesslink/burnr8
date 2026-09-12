@@ -1,19 +1,19 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "burnr8",
-  "description": "Google Ads MCP server — manage campaigns, keywords, budgets, and reporting from Claude Code",
+  "description": "Google Ads, Meta Ads, Reddit Ads, and SEO intelligence MCP server for Claude Code",
   "owner": {
     "name": "Harrison Hesslink"
   },
   "plugins": [
     {
       "name": "burnr8",
-      "description": "Google Ads MCP server — self-hosted, 65 tools for audit, optimization, and reporting",
+      "description": "Self-hosted Google Ads, Meta Ads, Reddit Ads, and SEO intelligence MCP server with 115 tools",
       "version": "0.7.1",
       "source": "./",
       "category": "productivity",
       "homepage": "https://burnrate.sh",
-      "tags": ["google-ads", "mcp", "ppc", "advertising", "self-hosted"]
+      "tags": ["google-ads", "meta-ads", "reddit-ads", "seo", "search-console", "mcp", "ppc", "advertising", "self-hosted"]
     },
     {
       "name": "burnr8-cloud",

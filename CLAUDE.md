@@ -1,6 +1,6 @@
-# burnr8 — Google Ads MCP Server
+# burnr8 — Advertising and SEO MCP Server
 
-A FastMCP server with 66 tools for managing Google Ads via Claude Code.
+A FastMCP server with 115 tools: 66 Google Ads, 14 Meta Ads, 12 SEO intelligence, and 23 Reddit Ads tools.
 
 ## Setup
 
@@ -39,10 +39,13 @@ src/burnr8/
 ├── logging.py      # File logger + daily usage counter (~/.burnr8/logs/)
 ├── reports.py      # CSV export (save_report, get_storage_stats); ~/.burnr8/reports/; formula sanitization; 7-day auto-prune
 ├── dashboard.py    # Terminal dashboard (burnr8 command)
-└── tools/          # 14 modules, 66 tools
+├── meta/           # Request-local Meta API client, media validation and management helpers
+├── reddit/         # Reddit OAuth, account checks, previews and verified writes
+├── seo/            # Google SEO clients and a crawler with public-address connections
+└── tools/          # 19 modules, 115 exposed tools
 ```
 
-## Tool Categories (66 tools)
+## Google Ads Tool Categories (66 tools)
 
 | Category | Tools | Key Operations |
 |----------|-------|---------------|
@@ -54,12 +57,19 @@ src/burnr8/
 | Negative Keywords | 4 | list/add (campaign + ad group level)/remove |
 | Budgets | 4 | list/create/update + remove_orphan_budgets |
 | Reporting | 5 | campaign/ad group/keyword perf, search terms, raw GAQL (all save CSV to ~/.burnr8/reports/) |
-| Extensions | 6 | sitelinks, callouts, snippets, images (campaign + ad group level) |
+| Extensions | 6 | list account/campaign/ad-group assets; create account-level sitelinks; remove links |
 | Conversions | 4 | list/get/create/update conversion actions |
 | Compound | 3 | quick_audit, launch_campaign, cleanup_wasted_spend |
 | Adjustments | 11 | device bids, ad schedules, location targets, geo presence |
 | Goals | 5 | conversion goals, campaign-level goal overrides |
 | Competitive | 2 | impression share metrics, auction insights |
+
+## Other Providers
+
+- Meta tools cover account assets, paused Reels creation, inventory, Insights, previews, and verified status/budget changes.
+- SEO tools cover Search Console, URL Inspection, sitemaps, PageSpeed/CrUX, public-site crawling, and paid/organic demand gaps. The crawler validates DNS when opening each connection and preserves the original TLS hostname.
+- Reddit tools cover OAuth setup, reports, media/ad creation, budget/status changes and `reddit_get_pixel_health`. See [docs/reddit-ads.md](docs/reddit-ads.md). Pixel receipt is separate from campaign attribution.
+- The setup wizard preserves existing provider credentials and settings, including `REDDIT_CAPI_ACCESS_TOKEN`, using an atomic 0600 update. Secret prompts are hidden. Provider clients do not follow redirects, and redact credentials from error metadata before truncating it.
 
 ## Common Workflows
 

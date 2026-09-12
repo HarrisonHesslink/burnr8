@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import burnr8.session as _session
+from burnr8.meta import session as _meta_session
+from burnr8.seo import session as _seo_session
 
 # Every tool module that does `from burnr8.client import get_client`
 # and `from burnr8.helpers import run_gaql` binds those names into its
@@ -251,6 +253,10 @@ def _build_service(name: str) -> MagicMock:
             "mutate_ad_group_assets",
             ["customers/1234567890/adGroupAssets/333~800"],
         ),
+        "CustomerAssetService": (
+            "mutate_customer_assets",
+            ["customers/1234567890/customerAssets/800~SITELINK"],
+        ),
         "CustomerConversionGoalService": (
             "mutate_customer_conversion_goals",
             ["customers/1234567890/customerConversionGoals/700"],
@@ -351,6 +357,7 @@ def mock_ads_client():
 
     # Suppress logging and usage stat side-effects
     patches.append(patch("burnr8.errors.log_tool_call"))
+    patches.append(patch("burnr8.meta.errors.log_tool_call"))
     patches.append(
         patch(
             "burnr8.tools.accounts.get_usage_stats",
@@ -378,7 +385,11 @@ def _reset_session():
     import burnr8.client as _client_mod
 
     _session._active_account.set(None)
+    _meta_session._active_meta_ad_account.set(None)
+    _seo_session._active_search_console_property.set(None)
     _client_mod._client = None
     yield
     _session._active_account.set(None)
+    _meta_session._active_meta_ad_account.set(None)
+    _seo_session._active_search_console_property.set(None)
     _client_mod._client = None

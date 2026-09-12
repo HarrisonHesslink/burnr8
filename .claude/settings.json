@@ -97,7 +97,22 @@
       "mcp__burnr8__set_campaign_conversion_goal",
       "mcp__burnr8__add_location_target",
       "mcp__burnr8__remove_location_target",
-      "mcp__burnr8__set_geo_target_type_setting"
+      "mcp__burnr8__set_geo_target_type_setting",
+      "mcp__burnr8__meta_upload_image",
+      "mcp__burnr8__meta_create_reels_campaign",
+      "mcp__burnr8__meta_set_campaign_status",
+      "mcp__burnr8__meta_set_ad_set_status",
+      "mcp__burnr8__meta_set_ad_status",
+      "mcp__burnr8__meta_update_ad_set_budget",
+      "mcp__burnr8__gsc_submit_sitemap",
+      "mcp__burnr8__reddit_create_campaign",
+      "mcp__burnr8__reddit_create_ad_group",
+      "mcp__burnr8__reddit_upload_media",
+      "mcp__burnr8__reddit_create_ad_post",
+      "mcp__burnr8__reddit_create_ad",
+      "mcp__burnr8__reddit_set_status",
+      "mcp__burnr8__reddit_update_ad_group_budget",
+      "mcp__burnr8__reddit_update_campaign_spend_cap"
     ]
   }
 }

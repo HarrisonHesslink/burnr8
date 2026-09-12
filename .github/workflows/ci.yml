@@ -39,7 +39,7 @@ jobs:
         with:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-security-${{ hashFiles('requirements-dev.lock') }}
-      - run: uv pip install --system pip-audit "pip-tools>=7.5.0,<8.0.0"
+      - run: uv pip install --system pip-audit "pip-tools>=7.6.1,<8.0.0"
       - name: Verify runtime lockfile is up-to-date
         run: |
           pip-compile pyproject.toml --generate-hashes --output-file=requirements.lock --strip-extras --allow-unsafe --quiet

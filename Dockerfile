@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 LABEL org.opencontainers.image.source="https://github.com/HarrisonHesslink/burnr8" \
-      org.opencontainers.image.description="Google Ads MCP server" \
+      org.opencontainers.image.description="Google Ads, Meta Ads, Reddit Ads, and SEO intelligence MCP server" \
       org.opencontainers.image.licenses="MIT"
 
 ENV PYTHONUNBUFFERED=1 \

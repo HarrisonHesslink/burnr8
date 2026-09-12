@@ -2,27 +2,24 @@
 
 ## System Architecture
 
+The server exposes 115 tools: 66 for Google Ads, 14 for Meta Ads, 12 for SEO intelligence, and 23 for Reddit Ads.
+
+```mermaid
+flowchart TD
+    Client[MCP client] --> Server[Burnr8 / FastMCP]
+    Server --> Google[Google Ads tools / API]
+    Server --> Meta[Meta Ads tools / Graph API]
+    Server --> Reddit[Reddit Ads tools / API v3]
+    Server --> SEO[Search Console / PageSpeed / CrUX / public-site crawler]
+    Server --> Context[MCP resources and seven prompts]
 ```
-                          Claude Code
-                              |
-                         MCP Protocol (stdio)
-                              |
-                    +---------+---------+
-                    |    burnr8 Server  |
-                    |   (FastMCP 3.x)  |
-                    +---------+---------+
-                              |
-            +-----------------+-----------------+
-            |                 |                 |
-        60 Tools        5 Resources       3 Prompts
-            |                 |                 |
-            v                 v                 v
-    +---------------+   burnr8://...    audit, optimize,
-    | Google Ads    |                   new_campaign
-    | API v23       |
-    | (gRPC)        |
-    +---------------+
-```
+
+Meta and Reddit clients keep credentials local to each request and require explicit confirmation for writes. New campaigns and ads start paused. Account ownership, currency, budget limits and read-back checks protect delivery changes. Reddit pixel health reports receipt timestamps; it does not establish campaign attribution.
+
+SEO crawling checks public DNS addresses at socket creation to prevent DNS rebinding while retaining normal TLS verification. Provider API clients disable redirects and redact credentials from error responses. Setup updates preserve other provider settings and save credentials atomically with mode 0600.
+
+See [Reddit setup and operations](docs/reddit-ads.md) and the [current complete tool inventory](README.md#115-tools-across-17-categories). The detailed request flow below describes the Google Ads path.
+
 
 ## Core Modules
 
@@ -155,12 +152,12 @@ Tool call from Claude
 
 | Tool | Type | Description |
 |------|------|-------------|
-| `list_extensions` | Read | Sitelinks, callouts, snippets, images on campaigns |
-| `create_sitelink` | Write | Two-step: create asset + link to campaign |
+| `list_extensions` | Read | Sitelinks, callouts, snippets, images on accounts, campaigns, and ad groups |
+| `create_sitelink` | Write | Two-step: create asset + link to account, campaign, or ad group |
 | `create_callout` | Write | Two-step: create asset + link to campaign |
 | `create_structured_snippet` | Write | Two-step: create asset + link to campaign |
 | `create_image_extension` | Write | Downloads image from URL, creates asset, links to campaign |
-| `remove_extension` | Write | Remove campaign-asset link. Requires `confirm=true`. |
+| `remove_extension` | Write | Remove account-, campaign-, or ad-group asset link. Requires `confirm=true`. |
 
 ### 10. Conversions (`conversions.py` — 250 lines, 4 tools)
 

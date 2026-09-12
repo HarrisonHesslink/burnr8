@@ -1,4 +1,4 @@
-"""Tests for burnr8.tools.extensions — campaign and ad group level asset linking."""
+"""Tests for burnr8.tools.extensions asset linking at all supported levels."""
 
 from burnr8.session import set_active_account
 
@@ -16,11 +16,14 @@ def _register_tool(name):
     class _Capture:
         def tool(self, fn):
             if fn.__name__ == name:
+
                 def wrapper(*args, **kwargs):
                     import inspect
+
                     if "confirm" in inspect.signature(fn).parameters and "confirm" not in kwargs:
                         kwargs["confirm"] = True
                     return fn(*args, **kwargs)
+
                 captured["func"] = wrapper
             return fn
 
@@ -66,6 +69,25 @@ def _ad_group_asset_row(field_type="SITELINK", asset_id="801", ad_group_id="333"
             "structured_snippet_asset": {"header": "Brands", "values": ["X"]},
         },
         "ad_group": {"id": ad_group_id, "name": "Ad Group A"},
+    }
+
+
+def _customer_asset_row(field_type="SITELINK", asset_id="802"):
+    return {
+        "customer_asset": {
+            "resource_name": f"customers/1234567890/customerAssets/{asset_id}~{field_type}",
+            "field_type": field_type,
+            "status": "ENABLED",
+        },
+        "asset": {
+            "id": asset_id,
+            "name": "Account Asset",
+            "type": field_type,
+            "final_urls": ["https://example.com/account"],
+            "sitelink_asset": {"link_text": "Account Link", "description1": "D1", "description2": "D2"},
+            "callout_asset": {"callout_text": "Account Callout"},
+            "structured_snippet_asset": {"header": "Types", "values": ["A"]},
+        },
     }
 
 
@@ -116,15 +138,26 @@ class TestListExtensions:
 
     def test_both_levels_when_no_filter(self, mock_ads_client):
         set_active_account("1234567890")
-        mock_ads_client["set_gaql"]({
-            "FROM campaign_asset": [_campaign_asset_row()],
-            "FROM ad_group_asset": [_ad_group_asset_row()],
-        })
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign_asset": [_campaign_asset_row()],
+                "FROM ad_group_asset": [_ad_group_asset_row()],
+            }
+        )
         fn = _register_tool("list_extensions")
         result = fn()
         assert result["summary"]["total_extensions"] == 2
         levels = {r["level"] for r in result["top"]}
         assert levels == {"campaign", "ad_group"}
+
+    def test_account_level_when_no_filter(self, mock_ads_client):
+        set_active_account("1234567890")
+        mock_ads_client["set_gaql"]({"FROM customer_asset": [_customer_asset_row()]})
+        fn = _register_tool("list_extensions")
+        result = fn()
+        assert result["summary"]["total_extensions"] == 1
+        assert result["top"][0]["level"] == "account"
+        assert result["top"][0]["resource_name"] == "customers/1234567890/customerAssets/802~SITELINK"
 
     def test_field_type_filter(self, mock_ads_client):
         set_active_account("1234567890")
@@ -159,6 +192,13 @@ class TestListExtensions:
 
 
 class TestCreateSitelink:
+    def test_account_level(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_sitelink")
+        result = fn(link_text="Shop Now", final_url="https://shop.com", account_level=True)
+        assert result["level"] == "account"
+        assert result["customer_asset_resource_name"] == "customers/1234567890/customerAssets/800~SITELINK"
+
     def test_campaign_level(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("create_sitelink")
@@ -181,8 +221,10 @@ class TestCreateSitelink:
         set_active_account("1234567890")
         fn = _register_tool("create_sitelink")
         result = fn(
-            link_text="Shop", final_url="https://shop.com",
-            description1="Desc 1", description2="Desc 2",
+            link_text="Shop",
+            final_url="https://shop.com",
+            description1="Desc 1",
+            description2="Desc 2",
             campaign_id="222",
         )
         assert result["link_text"] == "Shop"
@@ -191,6 +233,17 @@ class TestCreateSitelink:
     def test_no_customer_id(self):
         fn = _register_tool("create_sitelink")
         result = fn(link_text="X", final_url="https://x.com", campaign_id="222")
+        assert result["error"] is True
+
+    def test_account_level_rejects_campaign_id(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_sitelink")
+        result = fn(
+            link_text="Shop Now",
+            final_url="https://shop.com",
+            account_level=True,
+            campaign_id="222",
+        )
         assert result["error"] is True
 
 
@@ -296,6 +349,15 @@ class TestCreateImageExtension:
 
 
 class TestRemoveExtension:
+    def test_customer_asset_removal(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("remove_extension")
+        result = fn(
+            asset_resource_name="customers/1234567890/customerAssets/800~SITELINK",
+            confirm=True,
+        )
+        assert result["removed_resource_name"] == "customers/1234567890/customerAssets/800~SITELINK"
+
     def test_campaign_asset_removal(self, mock_ads_client):
         set_active_account("1234567890")
         fn = _register_tool("remove_extension")
@@ -339,7 +401,7 @@ class TestRemoveExtension:
 
 
 class TestLinkAssetHelper:
-    """Verify the correct Google Ads service is called based on campaign_id vs ad_group_id."""
+    """Verify the correct Google Ads service is used for each link level."""
 
     def test_campaign_link_uses_campaign_service(self, mock_ads_client):
         set_active_account("1234567890")
@@ -347,6 +409,13 @@ class TestLinkAssetHelper:
         fn(callout_text="Test", campaign_id="222")
         svc = mock_ads_client["client"].get_service("CampaignAssetService")
         svc.mutate_campaign_assets.assert_called_once()
+
+    def test_account_link_uses_customer_service(self, mock_ads_client):
+        set_active_account("1234567890")
+        fn = _register_tool("create_sitelink")
+        fn(link_text="Test", final_url="https://example.com", account_level=True)
+        svc = mock_ads_client["client"].get_service("CustomerAssetService")
+        svc.mutate_customer_assets.assert_called_once()
 
     def test_ad_group_link_uses_ad_group_service(self, mock_ads_client):
         set_active_account("1234567890")
@@ -379,10 +448,12 @@ class TestListExtensionsEdgeCases:
     def test_campaign_filter_does_not_run_ad_group_query(self, mock_ads_client):
         """When campaign_id is specified, ad group query should NOT run."""
         set_active_account("1234567890")
-        mock_ads_client["set_gaql"]({
-            "FROM campaign_asset": [_campaign_asset_row()],
-            "FROM ad_group_asset": [_ad_group_asset_row()],
-        })
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign_asset": [_campaign_asset_row()],
+                "FROM ad_group_asset": [_ad_group_asset_row()],
+            }
+        )
         fn = _register_tool("list_extensions")
         result = fn(campaign_id="222")
         assert result["summary"]["total_extensions"] == 1
@@ -391,10 +462,12 @@ class TestListExtensionsEdgeCases:
     def test_ad_group_filter_does_not_run_campaign_query(self, mock_ads_client):
         """When ad_group_id is specified, campaign query should NOT run."""
         set_active_account("1234567890")
-        mock_ads_client["set_gaql"]({
-            "FROM campaign_asset": [_campaign_asset_row()],
-            "FROM ad_group_asset": [_ad_group_asset_row()],
-        })
+        mock_ads_client["set_gaql"](
+            {
+                "FROM campaign_asset": [_campaign_asset_row()],
+                "FROM ad_group_asset": [_ad_group_asset_row()],
+            }
+        )
         fn = _register_tool("list_extensions")
         result = fn(ad_group_id="333")
         assert result["summary"]["total_extensions"] == 1

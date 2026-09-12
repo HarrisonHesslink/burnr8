@@ -18,8 +18,36 @@ if [[ "$TOOL_NAME" != mcp__burnr8__* ]]; then
     exit 0
 fi
 
+# Public technical SEO and PageSpeed calls do not require local credentials.
+if [[ "$TOOL_NAME" == "mcp__burnr8__seo_audit_url" ]] || \
+   [[ "$TOOL_NAME" == "mcp__burnr8__seo_crawl_site" ]] || \
+   [[ "$TOOL_NAME" == "mcp__burnr8__pagespeed_analyze" ]]; then
+    exit 0
+fi
+
 # Check if credentials are available
 if [[ -f "$HOME/.burnr8/.env" ]]; then
+    exit 0
+fi
+
+if [[ "$TOOL_NAME" == "mcp__burnr8__meta_"* ]] && [[ -n "${META_ACCESS_TOKEN:-}" ]]; then
+    exit 0
+fi
+
+if [[ "$TOOL_NAME" == "mcp__burnr8__reddit_"* ]] && \
+   { [[ -n "${REDDIT_ACCESS_TOKEN:-}" ]] || \
+     { [[ -n "${REDDIT_CLIENT_ID:-}" ]] && [[ -n "${REDDIT_CLIENT_SECRET:-}" ]] && [[ -n "${REDDIT_REFRESH_TOKEN:-}" ]]; }; }; then
+    exit 0
+fi
+
+if [[ "$TOOL_NAME" == "mcp__burnr8__gsc_"* ]] && \
+   [[ -n "${GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN:-}" ]]; then
+    exit 0
+fi
+
+if [[ "$TOOL_NAME" == "mcp__burnr8__search_demand_gap" ]] && \
+   [[ -n "${GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN:-}" ]] && \
+   [[ -n "${GOOGLE_ADS_DEVELOPER_TOKEN:-}" ]] && [[ -n "${GOOGLE_ADS_REFRESH_TOKEN:-}" ]]; then
     exit 0
 fi
 

@@ -1,11 +1,11 @@
 {
   "name": "burnr8",
-  "description": "Google Ads MCP server for Claude Code",
+  "description": "Google Ads, Meta Ads, Reddit Ads, and SEO intelligence MCP server for Claude Code",
   "version": "0.7.1",
   "author": {
     "name": "Harrison Hesslink"
   },
   "homepage": "https://burnrate.sh",
   "repository": "https://github.com/HarrisonHesslink/burnr8",
-  "keywords": ["google-ads", "mcp", "ppc", "advertising"]
+  "keywords": ["google-ads", "meta-ads", "reddit-ads", "seo", "search-console", "mcp", "ppc", "advertising"]
 }

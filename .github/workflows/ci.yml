@@ -39,12 +39,16 @@ jobs:
         with:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-security-${{ hashFiles('requirements-dev.lock') }}
-      - run: uv pip install --system pip-audit "pip-tools>=7.5.0,<8.0.0"
+      - run: uv pip install --system pip-audit "pip-tools>=7.6.1,<8.0.0"
       - name: Verify runtime lockfile is up-to-date
+        env:
+          CUSTOM_COMPILE_COMMAND: pip-compile --allow-unsafe --generate-hashes --output-file=requirements.lock --strip-extras pyproject.toml
         run: |
           pip-compile pyproject.toml --generate-hashes --output-file=requirements.lock --strip-extras --allow-unsafe --quiet
           git diff --exit-code requirements.lock || { echo "::error::requirements.lock is stale — run: pip-compile pyproject.toml --generate-hashes --output-file=requirements.lock --strip-extras --allow-unsafe"; exit 1; }
       - name: Verify dev lockfile is up-to-date
+        env:
+          CUSTOM_COMPILE_COMMAND: pip-compile --allow-unsafe --extra=dev --generate-hashes --output-file=requirements-dev.lock --strip-extras pyproject.toml
         run: |
           pip-compile pyproject.toml --extra=dev --generate-hashes --output-file=requirements-dev.lock --strip-extras --allow-unsafe --quiet
           git diff --exit-code requirements-dev.lock || { echo "::error::requirements-dev.lock is stale — run: pip-compile pyproject.toml --extra=dev --generate-hashes --output-file=requirements-dev.lock --strip-extras --allow-unsafe"; exit 1; }

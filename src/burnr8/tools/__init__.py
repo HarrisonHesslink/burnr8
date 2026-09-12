@@ -17,8 +17,13 @@ from burnr8.tools.conversions import register as register_conversions
 from burnr8.tools.extensions import register as register_extensions
 from burnr8.tools.goals import register as register_goals
 from burnr8.tools.keywords import register as register_keywords
+from burnr8.tools.meta_ads import register as register_meta_ads
+from burnr8.tools.meta_management import register as register_meta_management
 from burnr8.tools.negative_keywords import register as register_negative_keywords
+from burnr8.tools.reddit_ads import register as register_reddit_ads
+from burnr8.tools.reddit_creation import register as register_reddit_creation
 from burnr8.tools.reporting import register as register_reporting
+from burnr8.tools.seo import register as register_seo
 
 # Tools registered with @mcp.tool but hidden from MCP exposure.
 # Used for internal/test purposes only (e.g. cleaning up test campaigns).
@@ -40,6 +45,11 @@ def register_all_tools(mcp: FastMCP) -> None:
     register_adjustments(mcp)
     register_goals(mcp)
     register_competitive(mcp)
+    register_meta_ads(mcp)
+    register_meta_management(mcp)
+    register_seo(mcp)
+    register_reddit_ads(mcp)
+    register_reddit_creation(mcp)
 
     # Hide internal-only tools from MCP clients while keeping them importable
     for name in _INTERNAL_TOOLS:

@@ -29,11 +29,19 @@ def register(mcp: FastMCP) -> None:
         field_type_enum: Any,
         campaign_id: str | None = None,
         ad_group_id: str | None = None,
+        account_level: bool = False,
     ) -> str:
-        """Link an asset to a campaign or ad group. Returns the resource name."""
-        if campaign_id is None and ad_group_id is None:
-            raise ValueError("_link_asset requires either campaign_id or ad_group_id")
-        if campaign_id is not None:
+        """Link an asset at the requested account, campaign, or ad group level."""
+        if account_level:
+            op = client.get_type("CustomerAssetOperation")
+            link = op.create
+            link.asset = asset_resource_name
+            link.field_type = field_type_enum
+            svc = client.get_service("CustomerAssetService")
+            resp = svc.mutate_customer_assets(
+                request=build_mutate_request(client, "MutateCustomerAssetsRequest", customer_id, [op])
+            )
+        elif campaign_id is not None:
             op = client.get_type("CampaignAssetOperation")
             link = op.create
             link.campaign = client.get_service("CampaignService").campaign_path(customer_id, campaign_id)
@@ -43,7 +51,7 @@ def register(mcp: FastMCP) -> None:
             resp = svc.mutate_campaign_assets(
                 request=build_mutate_request(client, "MutateCampaignAssetsRequest", customer_id, [op])
             )
-        else:
+        elif ad_group_id is not None:
             op = client.get_type("AdGroupAssetOperation")
             link = op.create
             link.ad_group = client.get_service("AdGroupService").ad_group_path(customer_id, ad_group_id)
@@ -53,6 +61,8 @@ def register(mcp: FastMCP) -> None:
             resp = svc.mutate_ad_group_assets(
                 request=build_mutate_request(client, "MutateAdGroupAssetsRequest", customer_id, [op])
             )
+        else:
+            raise ValueError("_link_asset requires an account, campaign, or ad group target")
         return str(resp.results[0].resource_name)
 
     @mcp.tool
@@ -80,7 +90,7 @@ def register(mcp: FastMCP) -> None:
             ),
         ] = None,
     ) -> dict:
-        """List all asset-based extensions (sitelinks, callouts, structured snippets, images) linked to campaigns and/or ad groups. Saves full results to CSV, returns summary + top rows."""
+        """List account-, campaign-, and ad-group-level asset extensions. Saves full results to CSV, returns summary + top rows."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
@@ -100,10 +110,59 @@ def register(mcp: FastMCP) -> None:
 
         # Determine which queries to run based on parameters
         no_filter = campaign_id is None and ad_group_id is None
+        run_account_query = no_filter
         run_campaign_query = campaign_id is not None or no_filter
         run_ad_group_query = ad_group_id is not None or no_filter
 
         results = []
+
+        if run_account_query:
+            account_query = """
+                SELECT
+                    customer_asset.resource_name,
+                    customer_asset.field_type,
+                    customer_asset.status,
+                    asset.id,
+                    asset.name,
+                    asset.type,
+                    asset.final_urls,
+                    asset.sitelink_asset.description1,
+                    asset.sitelink_asset.description2,
+                    asset.sitelink_asset.link_text,
+                    asset.callout_asset.callout_text,
+                    asset.structured_snippet_asset.header,
+                    asset.structured_snippet_asset.values
+                FROM customer_asset
+            """
+            if field_type is not None:
+                account_query += f" WHERE customer_asset.field_type = '{field_type.upper()}'"
+
+            for row in run_gaql(client, customer_id, account_query):
+                customer_asset = row.get("customer_asset", {})
+                asset = row.get("asset", {})
+                entry = {
+                    "level": "account",
+                    "resource_name": customer_asset.get("resource_name"),
+                    "field_type": customer_asset.get("field_type"),
+                    "status": customer_asset.get("status"),
+                    "asset_id": asset.get("id"),
+                    "asset_name": asset.get("name"),
+                    "asset_type": asset.get("type"),
+                }
+                sitelink = asset.get("sitelink_asset", {})
+                if sitelink:
+                    entry["sitelink_link_text"] = sitelink.get("link_text")
+                    entry["sitelink_description1"] = sitelink.get("description1")
+                    entry["sitelink_description2"] = sitelink.get("description2")
+                    entry["sitelink_final_urls"] = "|".join(asset.get("final_urls", []))
+                callout = asset.get("callout_asset", {})
+                if callout:
+                    entry["callout_text"] = callout.get("callout_text")
+                snippet = asset.get("structured_snippet_asset", {})
+                if snippet:
+                    entry["snippet_header"] = snippet.get("header")
+                    entry["snippet_values"] = "|".join(snippet.get("values", []))
+                results.append(entry)
 
         if run_campaign_query:
             campaign_query = """
@@ -255,16 +314,29 @@ def register(mcp: FastMCP) -> None:
         ad_group_id: Annotated[
             str | None, Field(description="Ad group ID to link to. Provide either this or campaign_id.")
         ] = None,
+        account_level: Annotated[
+            bool,
+            Field(description="Link across the account. Cannot be combined with campaign_id or ad_group_id."),
+        ] = False,
         confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> dict:
-        """Create a sitelink extension asset and link it to a campaign or ad group."""
+        """Create and link a sitelink at account, campaign, or ad group level.
+
+        Google Ads asset content cannot be edited in place. Create the replacement first,
+        then remove the old link with remove_extension.
+        """
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
-        if err := _validate_link_target(campaign_id, ad_group_id):
+        if account_level and (campaign_id is not None or ad_group_id is not None):
+            return {
+                "error": True,
+                "message": "Set account_level=true without campaign_id or ad_group_id.",
+            }
+        if not account_level and (err := _validate_link_target(campaign_id, ad_group_id)):
             return {"error": True, "message": err}
         if campaign_id is not None and (err := validate_id(campaign_id, "campaign_id")):
             return {"error": True, "message": err}
@@ -298,7 +370,7 @@ def register(mcp: FastMCP) -> None:
 
         asset_resource_name = asset_response.results[0].resource_name
 
-        # Step 2: Link the asset to the campaign or ad group
+        # Step 2: Link the asset at the requested level
         link_resource_name = _link_asset(
             client,
             customer_id,
@@ -306,6 +378,7 @@ def register(mcp: FastMCP) -> None:
             client.enums.AssetFieldTypeEnum.SITELINK,
             campaign_id=campaign_id,
             ad_group_id=ad_group_id,
+            account_level=account_level,
         )
 
         result = {
@@ -319,6 +392,9 @@ def register(mcp: FastMCP) -> None:
             result["campaign_asset_resource_name"] = link_resource_name
         if ad_group_id is not None:
             result["ad_group_id"] = ad_group_id
+        if account_level:
+            result["level"] = "account"
+            result["customer_asset_resource_name"] = link_resource_name
         return result
 
     @mcp.tool
@@ -623,7 +699,7 @@ def register(mcp: FastMCP) -> None:
         asset_resource_name: Annotated[
             str,
             Field(
-                description="Full resource name of the asset link to remove (e.g. 'customers/123/campaignAssets/456~789~SITELINK' or 'customers/123/adGroupAssets/456~789~SITELINK')"
+                description="Full resource name of the asset link to remove (customerAssets, campaignAssets, or adGroupAssets)"
             ),
         ],
         confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
@@ -631,14 +707,23 @@ def register(mcp: FastMCP) -> None:
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
     ) -> dict:
-        """Remove an extension link from a campaign or ad group. Requires confirm=true for safety. This removes the link between the asset and the campaign/ad group, not the asset itself."""
+        """Remove an account, campaign, or ad group extension link. The underlying asset is retained."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
         client = get_client()
 
-        # Auto-detect whether this is a campaign or ad group asset link
-        if "adGroupAssets" in asset_resource_name:
+        # Auto-detect the asset link level from its resource name.
+        if "customerAssets" in asset_resource_name:
+            operation = client.get_type("CustomerAssetOperation")
+            operation.remove = asset_resource_name
+            svc = client.get_service("CustomerAssetService")
+            response = svc.mutate_customer_assets(
+                request=build_mutate_request(
+                    client, "MutateCustomerAssetsRequest", customer_id, [operation], validate_only=not confirm
+                )
+            )
+        elif "adGroupAssets" in asset_resource_name:
             operation = client.get_type("AdGroupAssetOperation")
             operation.remove = asset_resource_name
             svc = client.get_service("AdGroupAssetService")
@@ -660,7 +745,7 @@ def register(mcp: FastMCP) -> None:
             return {
                 "error": True,
                 "message": f"Unrecognized asset link resource name: '{asset_resource_name}'. "
-                "Expected format: 'customers/{{id}}/campaignAssets/...' or 'customers/{{id}}/adGroupAssets/...'",
+                "Expected a customerAssets, campaignAssets, or adGroupAssets resource name.",
             }
 
         if not confirm:

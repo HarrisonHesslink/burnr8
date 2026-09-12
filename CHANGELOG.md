@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Refresh vulnerable runtime/development locks and update the lockfile compiler and security scanner for the patched toolchain.
+- Keep all existing provider credentials and financial settings when rerunning setup, including the Reddit conversion token; quote values correctly and hide secret prompts.
+- Redact credentials from Meta and Google SEO error metadata before truncation and refuse provider redirects.
+- Connect the SEO crawler only to validated public IPs, including after DNS changes, while retaining TLS hostname verification.
+- Align plugin metadata and documentation with 115 exposed tools, including Reddit pixel-health diagnostics.
+
+### Added
+
+- Twenty-three Reddit Ads v3 tools for business/account/profile/pixel discovery and health diagnostics, inventory, community targeting search, paginated CSV reports, paused campaigns/ad groups/ads, reversible status controls, and USD budget/spend-cap updates
+- Explicit account-level Google sitelink creation, listing, and link removal alongside existing campaign and ad-group scopes
+- Reddit image/video imports from hosted HTTPS URLs, asynchronous upload/post status checks, structured ad-post creation, and placement preview links; every new campaign/ad group/ad starts paused and every write defaults to preview
+- Reddit OAuth setup (`burnr8-reddit-setup`) with local callback state validation, automatic token refresh, secret-safe errors, and atomic credential storage preserving existing providers
+- Reddit writes require explicit confirmation, validate account ownership/currency, enforce spend limits, and report read-back verification separately from write acknowledgement
+- Five Meta Ads MCP tools for account discovery, Page/Instagram asset discovery, guarded photo upload, and creation of paused Facebook + Instagram Reels traffic campaigns
+- Nine Meta operations tools for campaign/ad-set/ad inventory, bounded Insights reporting, ad previews, reversible delivery controls, and guarded ad-set budget updates
+- Meta management safety checks for object ownership, cursor URL sanitization, reversible status allowlists, budget caps, explicit confirmation, and read-after-write verification
+- Local media sandbox (`BURNR8_MEDIA_ROOT`), JPEG/PNG validation, 30 MB upload cap, and 9:16 creative warnings
+- Meta Graph API v25 client with bearer authentication, optional App Secret Proof, sanitized errors, and partial-failure reporting
+- Twelve SEO Intelligence MCP tools spanning Search Console performance/comparisons/opportunities, URL Inspection, guarded sitemap submission, PageSpeed/CrUX, bounded on-page crawling, and paid/organic demand-gap analysis
+- Dedicated Search Console OAuth configuration with request-local property selection, sanitized REST errors, and CSV exports
+- Same-host static crawler with public-IP checks, manual redirect validation, robots.txt support, response/page/depth caps, duplicate metadata detection, and explicit client-rendered schema limitations
+
 ## [0.7.1] - 2026-04-11
 
 ### Fixed

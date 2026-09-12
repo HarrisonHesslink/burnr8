@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 
-from tests.integration.conftest import INVALID_CUSTOMER_IDS, register_tool
+from tests.integration.conftest import INVALID_CUSTOMER_IDS, register_tool, retry_on_concurrent
 
 
 def _register(name: str, module: str = "ads"):
@@ -236,7 +236,9 @@ class TestCreateAndManageAd:
         if not self.ad_id:
             pytest.skip("No ad created")
         tool = _register("set_ad_status")
-        result = tool(
+        # The preceding validate-only request can briefly retain Google's lock.
+        result = retry_on_concurrent(
+            tool,
             ad_group_id=self.ad_group_id,
             ad_id=self.ad_id,
             status="PAUSED",

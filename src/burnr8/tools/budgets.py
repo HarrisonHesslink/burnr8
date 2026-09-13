@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import Field
 
@@ -38,6 +38,8 @@ def register(mcp: FastMCP) -> None:
                 campaign_budget.id,
                 campaign_budget.name,
                 campaign_budget.amount_micros,
+                campaign_budget.total_amount_micros,
+                campaign_budget.period,
                 campaign_budget.status,
                 campaign_budget.delivery_method,
                 campaign_budget.explicitly_shared,
@@ -53,7 +55,10 @@ def register(mcp: FastMCP) -> None:
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
+                    "amount_dollars": micros_to_dollars(
+                        int(b.get("total_amount_micros" if b.get("period") == "CUSTOM_PERIOD" else "amount_micros", 0))
+                    ),
+                    "period": b.get("period", "DAILY"),
                     "status": b.get("status"),
                     "delivery_method": b.get("delivery_method"),
                     "shared": b.get("explicitly_shared"),
@@ -66,16 +71,25 @@ def register(mcp: FastMCP) -> None:
     @handle_google_ads_errors
     def create_budget(
         name: Annotated[str, Field(description="Budget name")],
-        amount_dollars: Annotated[float, Field(description="Daily budget amount in dollars", gt=0)],
+        amount_dollars: Annotated[float, Field(description="Budget amount in dollars for the selected period", gt=0)],
         confirm: Annotated[bool, Field(description="Must be true to execute.")] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        period: Annotated[
+            Literal["DAILY", "CUSTOM_PERIOD"],
+            Field(
+                description="DAILY is an average daily budget; CUSTOM_PERIOD is a total campaign budget. Budget type cannot change after creation."
+            ),
+        ] = "DAILY",
     ) -> dict:
-        """Create a new daily campaign budget."""
+        """Create a daily or total budget. Total-budget campaigns require start/end dates."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
+        if period not in ("DAILY", "CUSTOM_PERIOD"):
+            return {"error": True, "message": "period must be DAILY or CUSTOM_PERIOD."}
+        # Retain the configured mutation cap for total budgets too.
         if err := validate_daily_budget(amount_dollars):
             return {"error": True, "message": err}
         client = get_client()
@@ -85,7 +99,9 @@ def register(mcp: FastMCP) -> None:
         budget = operation.create
 
         budget.name = name
-        budget.amount_micros = dollars_to_micros(amount_dollars)
+        budget.period = getattr(client.enums.BudgetPeriodEnum, period)
+        amount_field = "total_amount_micros" if period == "CUSTOM_PERIOD" else "amount_micros"
+        setattr(budget, amount_field, dollars_to_micros(amount_dollars))
         budget.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
         budget.explicitly_shared = False
 
@@ -98,31 +114,49 @@ def register(mcp: FastMCP) -> None:
             return {
                 "warning": True,
                 "validated": True,
+                "amount_dollars": amount_dollars,
+                "period": period,
                 "message": f"Validation succeeded. This will create budget '{name}'. Set confirm=true to execute.",
             }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
-        return {"id": new_id, "resource_name": resource_name, "name": name, "amount_dollars": amount_dollars}
+        return {
+            "id": new_id,
+            "resource_name": resource_name,
+            "name": name,
+            "amount_dollars": amount_dollars,
+            "period": period,
+        }
 
     @mcp.tool
     @handle_google_ads_errors
     def update_budget(
         budget_id: Annotated[str, Field(description="Budget ID to update")],
-        amount_dollars: Annotated[float, Field(description="New daily budget amount in dollars", gt=0)],
+        amount_dollars: Annotated[
+            float, Field(description="New budget amount in dollars for the existing budget period", gt=0)
+        ],
         confirm: Annotated[
             bool, Field(description="Must be true to execute. Changing budget affects ad spend.")
         ] = False,
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        period: Annotated[
+            Literal["DAILY", "CUSTOM_PERIOD"],
+            Field(
+                description="DAILY is an average daily budget; CUSTOM_PERIOD is a total campaign budget. Budget type cannot change after creation."
+            ),
+        ] = "DAILY",
     ) -> dict:
-        """Update a campaign budget amount. Requires confirm=true."""
+        """Update a budget amount using its existing period. Does not change budget type."""
         customer_id, cid_err = require_customer_id(customer_id)
         if cid_err:
             return cid_err
         if err := validate_id(budget_id, "budget_id"):
             return {"error": True, "message": err}
+        if period not in ("DAILY", "CUSTOM_PERIOD"):
+            return {"error": True, "message": "period must be DAILY or CUSTOM_PERIOD."}
         if err := validate_daily_budget(amount_dollars):
             return {"error": True, "message": err}
         client = get_client()
@@ -131,23 +165,31 @@ def register(mcp: FastMCP) -> None:
         operation = client.get_type("CampaignBudgetOperation")
         budget = operation.update
         budget.resource_name = budget_service.campaign_budget_path(customer_id, budget_id)
-        budget.amount_micros = dollars_to_micros(amount_dollars)
-        operation.update_mask.paths.append("amount_micros")
+        amount_field = "total_amount_micros" if period == "CUSTOM_PERIOD" else "amount_micros"
+        setattr(budget, amount_field, dollars_to_micros(amount_dollars))
+        operation.update_mask.paths.append(amount_field)
 
         response = budget_service.mutate_campaign_budgets(
             request=build_mutate_request(
                 client, "MutateCampaignBudgetsRequest", customer_id, [operation], validate_only=not confirm
             )
         )
+        period_label = "/day" if period == "DAILY" else " total"
         if not confirm:
             return {
                 "warning": True,
                 "validated": True,
-                "message": f"Validation succeeded. This will change budget {budget_id} to ${amount_dollars:.2f}/day. "
+                "amount_dollars": amount_dollars,
+                "period": period,
+                "message": f"Validation succeeded. This will change budget {budget_id} to ${amount_dollars:.2f}{period_label}. "
                 "Set confirm=true to execute.",
             }
 
-        return {"resource_name": response.results[0].resource_name, "new_amount_dollars": amount_dollars}
+        return {
+            "resource_name": response.results[0].resource_name,
+            "new_amount_dollars": amount_dollars,
+            "period": period,
+        }
 
     @mcp.tool
     @handle_google_ads_errors
@@ -169,6 +211,8 @@ def register(mcp: FastMCP) -> None:
                 campaign_budget.id,
                 campaign_budget.name,
                 campaign_budget.amount_micros,
+                campaign_budget.total_amount_micros,
+                campaign_budget.period,
                 campaign_budget.reference_count,
                 campaign_budget.status
             FROM campaign_budget
@@ -184,7 +228,10 @@ def register(mcp: FastMCP) -> None:
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
+                    "amount_dollars": micros_to_dollars(
+                        int(b.get("total_amount_micros" if b.get("period") == "CUSTOM_PERIOD" else "amount_micros", 0))
+                    ),
+                    "period": b.get("period", "DAILY"),
                 }
             )
 

@@ -203,7 +203,8 @@ def account_structure(customer_id: str) -> str:
             SELECT
                 campaign.id, campaign.name, campaign.status,
                 campaign.advertising_channel_type, campaign.bidding_strategy_type,
-                campaign_budget.amount_micros
+                campaign_budget.amount_micros,
+                campaign_budget.total_amount_micros, campaign_budget.period
             FROM campaign
             WHERE campaign.status != 'REMOVED'
             ORDER BY campaign.name
@@ -233,7 +234,15 @@ def account_structure(customer_id: str) -> str:
                     "status": c.get("status"),
                     "channel_type": c.get("advertising_channel_type"),
                     "bidding_strategy": c.get("bidding_strategy_type"),
-                    "daily_budget": round(micros_to_dollars(int(b.get("amount_micros", 0))), 2),
+                    "budget_period": b.get("period", "DAILY"),
+                    "daily_budget": (
+                        None if b.get("period") == "CUSTOM_PERIOD"
+                        else round(micros_to_dollars(int(b.get("amount_micros", 0))), 2)
+                    ),
+                    "total_budget": (
+                        round(micros_to_dollars(int(b.get("total_amount_micros", 0))), 2)
+                        if b.get("period") == "CUSTOM_PERIOD" else None
+                    ),
                     "ad_group_count": ag_count,
                 }
             )

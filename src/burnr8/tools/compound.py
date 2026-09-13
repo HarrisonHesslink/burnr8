@@ -174,6 +174,8 @@ def register(mcp: FastMCP) -> None:
                 campaign_budget.id,
                 campaign_budget.name,
                 campaign_budget.amount_micros,
+                campaign_budget.total_amount_micros,
+                campaign_budget.period,
                 campaign_budget.status,
                 campaign_budget.delivery_method,
                 campaign_budget.explicitly_shared,
@@ -318,7 +320,10 @@ def register(mcp: FastMCP) -> None:
                 {
                     "id": b.get("id"),
                     "name": b.get("name"),
-                    "amount_dollars": micros_to_dollars(int(b.get("amount_micros", 0))),
+                    "amount_dollars": micros_to_dollars(
+                        int(b.get("total_amount_micros" if b.get("period") == "CUSTOM_PERIOD" else "amount_micros", 0))
+                    ),
+                    "period": b.get("period", "DAILY"),
                     "status": b.get("status"),
                     "delivery_method": b.get("delivery_method"),
                     "shared": b.get("explicitly_shared"),

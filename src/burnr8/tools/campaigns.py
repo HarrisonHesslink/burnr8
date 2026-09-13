@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Annotated
 
 from pydantic import Field
@@ -119,6 +120,24 @@ def _apply_bidding_strategy(
         paths.append("target_spend.cpc_bid_ceiling_micros")
         campaign.target_spend = ts
     return paths
+
+
+def _validate_campaign_dates(start: str | None, end: str | None) -> str | None:
+    """Date-times are in the Google Ads account timezone, without an offset."""
+    parsed = []
+    for name, value in (("start_date_time", start), ("end_date_time", end)):
+        if value is None:
+            continue
+        try:
+            date = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            if date.strftime("%Y-%m-%d %H:%M:%S") != value:
+                raise ValueError("Non-canonical date")
+        except ValueError:
+            return f"{name} must be a valid YYYY-MM-DD HH:MM:SS in the account timezone."
+        parsed.append(date)
+    if len(parsed) == 2 and parsed[1] <= parsed[0]:
+        return "end_date_time must be after start_date_time."
+    return None
 
 
 def register(mcp: FastMCP) -> None:
@@ -291,6 +310,16 @@ def register(mcp: FastMCP) -> None:
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        start_date_time: Annotated[
+            str | None,
+            Field(
+                description="Campaign start, YYYY-MM-DD HH:MM:SS in the account timezone. Required for total budgets."
+            ),
+        ] = None,
+        end_date_time: Annotated[
+            str | None,
+            Field(description="Campaign end, YYYY-MM-DD HH:MM:SS in the account timezone. Required for total budgets."),
+        ] = None,
     ) -> dict:
         """Create a new campaign. Always starts PAUSED for safety. Supports all Google Ads bidding strategies."""
         customer_id, cid_err = require_customer_id(customer_id)
@@ -321,6 +350,9 @@ def register(mcp: FastMCP) -> None:
                 "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}",
             }
 
+        if err := _validate_campaign_dates(start_date_time, end_date_time):
+            return {"error": True, "message": err}
+
         client = get_client()
         campaign_service = client.get_service("CampaignService")
         campaign_budget_service = client.get_service("CampaignBudgetService")
@@ -328,6 +360,10 @@ def register(mcp: FastMCP) -> None:
         operation = client.get_type("CampaignOperation")
         campaign = operation.create
 
+        if start_date_time is not None:
+            campaign.start_date_time = start_date_time
+        if end_date_time is not None:
+            campaign.end_date_time = end_date_time
         campaign.name = name
         campaign.status = client.enums.CampaignStatusEnum.PAUSED
         campaign.campaign_budget = campaign_budget_service.campaign_budget_path(customer_id, budget_id)
@@ -387,12 +423,18 @@ def register(mcp: FastMCP) -> None:
             return {
                 "warning": True,
                 "validated": True,
+                "start_date_time": start_date_time,
+                "end_date_time": end_date_time,
                 "message": f"Validation succeeded. This will create campaign '{name}'. Set confirm=true to execute.",
             }
 
         resource_name = response.results[0].resource_name
         new_id = resource_name.split("/")[-1]
         result = {"id": new_id, "resource_name": resource_name, "status": "PAUSED", "name": name}
+        if start_date_time is not None:
+            result["start_date_time"] = start_date_time
+        if end_date_time is not None:
+            result["end_date_time"] = end_date_time
         if tracking_url_template is not None:
             result["tracking_url_template"] = tracking_url_template
         if final_url_suffix is not None:
@@ -452,6 +494,16 @@ def register(mcp: FastMCP) -> None:
         customer_id: Annotated[
             str | None, Field(description="Google Ads customer ID (no dashes). Uses active account if not provided.")
         ] = None,
+        start_date_time: Annotated[
+            str | None,
+            Field(
+                description="Campaign start, YYYY-MM-DD HH:MM:SS in the account timezone. Required for total budgets."
+            ),
+        ] = None,
+        end_date_time: Annotated[
+            str | None,
+            Field(description="Campaign end, YYYY-MM-DD HH:MM:SS in the account timezone. Required for total budgets."),
+        ] = None,
     ) -> dict:
         """Update a campaign's name, budget, bidding strategy, network settings, or tracking URLs."""
         customer_id, cid_err = require_customer_id(customer_id)
@@ -475,6 +527,9 @@ def register(mcp: FastMCP) -> None:
                 "message": f"target_impression_share_fraction must be between 0.0 and 1.0, got: {target_impression_share_fraction}",
             }
 
+        if err := _validate_campaign_dates(start_date_time, end_date_time):
+            return {"error": True, "message": err}
+
         client = get_client()
         campaign_service = client.get_service("CampaignService")
 
@@ -483,6 +538,12 @@ def register(mcp: FastMCP) -> None:
         campaign.resource_name = campaign_service.campaign_path(customer_id, campaign_id)
 
         field_mask = []
+        if start_date_time is not None:
+            campaign.start_date_time = start_date_time
+            field_mask.append("start_date_time")
+        if end_date_time is not None:
+            campaign.end_date_time = end_date_time
+            field_mask.append("end_date_time")
         if name is not None:
             campaign.name = name
             field_mask.append("name")
@@ -534,7 +595,7 @@ def register(mcp: FastMCP) -> None:
         if not field_mask:
             return {
                 "error": True,
-                "message": "No fields to update. Provide name, budget_id, bidding_strategy, network settings, tracking_url_template, final_url_suffix, or url_custom_parameters.",
+                "message": "No fields to update. Provide name, budget_id, bidding_strategy, network settings, tracking_url_template, final_url_suffix, url_custom_parameters, or campaign dates.",
             }
 
         operation.update_mask.paths.extend(field_mask)
